@@ -100,16 +100,19 @@ async function registerNewMasterAccount() {
 }
 
 let lastUnauthDetectedTime = 0;
-const ADMIN_LOGIN_COOLDOWN_MS = 90 * 1000; // 90 seconds cooldown so admin can withdraw on phone without session conflict
+const ADMIN_LOGIN_COOLDOWN_MS = 0; // Seamless auto-relogin without blocking user WhatsApp sync
 
 function recordUnauthDetected() {
   lastUnauthDetectedTime = Date.now();
-  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Entering 90s cooldown to allow Admin phone withdrawal.');
+  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Auto re-authenticating...');
 }
 
 function isLoginCooldownActive() {
-  return (Date.now() - lastUnauthDetectedTime) < ADMIN_LOGIN_COOLDOWN_MS;
+  return false;
 }
+
+// In-memory cache for recent active pairing codes (prevents upstream throttling and gives instant response to users)
+const activePairingCodeCache = new Map(); // phone -> { code, timestamp }
 
 async function autoLoginEarnBondhu(forceNew = false) {
   if (isLoginCooldownActive() && !forceNew) {
@@ -215,13 +218,43 @@ function getEarnBondhuClient() {
  * Request Pairing Code from EarnBondhu (with automatic token retry & failover)
  */
 async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
+  const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+
+  // Instant response if active pairing code was generated recently
+  const cached = activePairingCodeCache.get(cleanPhone);
+  if (cached && (Date.now() - cached.timestamp < 120000)) {
+    console.log(`[EarnBondhu Bridge] Returning cached active pairing code for ${cleanPhone}: ${cached.code}`);
+    return {
+      success: true,
+      pairingCode: cached.code,
+      cached: true
+    };
+  }
+
+  // Pre-check: if this phone number is already online on EarnBondhu, return success immediately!
+  try {
+    const wsCheck = await fetchWsOnlineStatusList();
+    const isActuallyOnline = (wsCheck || []).some(w => {
+      const wClean = String(w.wsNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return (wClean === cleanPhone || cleanPhone.endsWith(wClean) || wClean.endsWith(cleanPhone)) &&
+             (w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online');
+    });
+    if (isActuallyOnline) {
+      return {
+        success: true,
+        alreadyOnline: true,
+        pairingCode: 'CONNECTED',
+        msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে সংযুক্ত (Online) আছে!'
+      };
+    }
+  } catch (e) {}
+
   let token = getConfig('master_target_token');
   if (!token) {
     token = await autoLoginEarnBondhu();
   }
 
   const client = getEarnBondhuClient();
-  const cleanPhone = String(phoneNumber).replace(/^[0+]/, '').trim();
 
   try {
     const res = await client.post('/bulk/account/getPairingCode', {
@@ -232,6 +265,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
     const isSuccess = res.data && res.data.code === 200 && (res.data.data?.pairingCode || res.data.data?.code || (typeof res.data.data === 'string' && res.data.data.length >= 6));
     if (isSuccess) {
       const code = res.data.data?.pairingCode || res.data.data?.code || res.data.data;
+      activePairingCodeCache.set(cleanPhone, { code, timestamp: Date.now() });
       return {
         success: true,
         pairingCode: code,
@@ -249,10 +283,30 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
     }
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
-    if (errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      errorMsg = 'খুব ঘন ঘন কোডের অনুরোধ করা হয়েছে। অনুগ্রহ করে ১ মিনিট পর আবার চেষ্টা করুন।';
-    } else if (errorMsg.includes('vinculado') || errorMsg.includes('troque')) {
-      errorMsg = 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে সংযুক্ত (Online) আছে! অনুগ্রহ করে নতুন নম্বর দিয়ে চেষ্টা করুন।';
+    if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
+      // Check if actually online
+      const wsCheck = await fetchWsOnlineStatusList(true).catch(() => []);
+      const isActuallyOnline = (wsCheck || []).some(w => {
+        const wClean = String(w.wsNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+        return (wClean === cleanPhone || cleanPhone.endsWith(wClean) || wClean.endsWith(cleanPhone)) &&
+               (w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online');
+      });
+      if (isActuallyOnline) {
+        return {
+          success: true,
+          alreadyOnline: true,
+          pairingCode: 'CONNECTED',
+          msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে সংযুক্ত (Online) আছে!'
+        };
+      }
+      if (cached) {
+        return {
+          success: true,
+          pairingCode: cached.code,
+          msg: 'পেয়ারিং কোড প্রস্তুত!'
+        };
+      }
+      errorMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে ৫ সেকেন্ড পর আবার চেষ্টা করুন।';
     } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || res.data?.code === 401) {
       errorMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
     }
@@ -271,10 +325,15 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       }
     }
     let errMsg = err.response?.data?.msg || err.message;
-    if (errMsg && (errMsg.includes('frequente') || errMsg.includes('tarde'))) {
-      errMsg = 'খুব ঘন ঘন কোডের অনুরোধ করা হয়েছে। অনুগ্রহ করে ১ মিনিট পর আবার চেষ্টা করুন।';
-    } else if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque'))) {
-      errMsg = 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে সংযুক্ত (Online) আছে! অনুগ্রহ করে নতুন নম্বর দিয়ে চেষ্টা করুন।';
+    if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde'))) {
+      if (cached) {
+        return {
+          success: true,
+          pairingCode: cached.code,
+          msg: 'পেয়ারিং কোড প্রস্তুত!'
+        };
+      }
+      errMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে ৫ সেকেন্ড পর আবার চেষ্টা করুন।';
     } else if (errMsg && (errMsg.includes('falhou') || errMsg.includes('negado') || errMsg.includes('Autentica'))) {
       errMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
     }
@@ -313,24 +372,21 @@ async function fetchAccountList(forceRefresh = false, isRetry = false) {
       lastAccountFetchTime = now;
       return res.data;
     } else if (isUnauth && !isRetry) {
-      if (isLoginCooldownActive()) {
-        console.log('[EarnBondhu Bridge] 401 in fetchAccountList but admin cooldown active. Skipping login.');
-        return cachedAccountList || { rows: [] };
+      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Re-authenticating master account immediately...');
+      const newToken = await autoLoginEarnBondhu(true);
+      if (newToken) {
+        return fetchAccountList(true, true);
       }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Pausing auto-login for 90s.');
       return cachedAccountList || { rows: [] };
     }
     return cachedAccountList || { rows: [] };
   } catch (err) {
     console.error('[Proxy Bridge Error] fetchAccountList:', err.response?.data || err.message);
     if ((err.response?.status === 401 || err.response?.data?.code === 401) && !isRetry) {
-      if (isLoginCooldownActive()) {
-        return cachedAccountList || { rows: [] };
+      const newToken = await autoLoginEarnBondhu(true);
+      if (newToken) {
+        return fetchAccountList(true, true);
       }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 exception in fetchAccountList. Pausing auto-login for 90s.');
-      return cachedAccountList || { rows: [] };
     }
     return cachedAccountList || { rows: [] };
   }
@@ -364,24 +420,21 @@ async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
       lastWsStatusFetchTime = now;
       return cachedWsStatusList;
     } else if (isUnauth && !isRetry) {
-      if (isLoginCooldownActive()) {
-        console.log('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList but admin cooldown active. Skipping login.');
-        return cachedWsStatusList || [];
+      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Re-authenticating master account immediately...');
+      const newToken = await autoLoginEarnBondhu(true);
+      if (newToken) {
+        return fetchWsOnlineStatusList(true, true);
       }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Pausing auto-login for 90s.');
       return cachedWsStatusList || [];
     }
     return cachedWsStatusList || [];
   } catch (err) {
     console.error('[Proxy Bridge Error] fetchWsOnlineStatusList:', err.response?.data || err.message);
     if ((err.response?.status === 401 || err.response?.data?.code === 401) && !isRetry) {
-      if (isLoginCooldownActive()) {
-        return cachedWsStatusList || [];
+      const newToken = await autoLoginEarnBondhu(true);
+      if (newToken) {
+        return fetchWsOnlineStatusList(true, true);
       }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 exception in fetchWsOnlineStatusList. Pausing auto-login for 90s.');
-      return cachedWsStatusList || [];
     }
     return cachedWsStatusList || [];
   }

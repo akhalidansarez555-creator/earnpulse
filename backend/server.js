@@ -61,17 +61,22 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
   const utcHours = now.getUTCHours();
   const bdHour = (utcHours + 6) % 24;
 
-  let currentSlot = 'morning';
-  if (bdHour >= 5 && bdHour < 12) {
+  let currentSlot = null;
+  if (bdHour >= 8 && bdHour < 12) {
     currentSlot = 'morning';
-  } else if (bdHour >= 12 && bdHour < 18) {
+  } else if (bdHour >= 13 && bdHour < 18) {
     currentSlot = 'afternoon';
-  } else {
+  } else if (bdHour >= 19 && bdHour < 23) {
     currentSlot = 'night';
   }
 
   if (forceKey && DAILY_POSTS[forceKey]) {
     currentSlot = forceKey;
+  }
+
+  // Outside allowed daytime posting hours (e.g. 11 PM to 8 AM late night / sleeping hours) -> Strictly NO auto-posting!
+  if (!currentSlot) {
+    return { success: true, msg: `Outside allowed posting hours (BD hour ${bdHour}:00). Allowed slots: Morning (8-12), Afternoon (13-18), Night (19-23).` };
   }
 
   // BD Date YYYY-MM-DD
@@ -1044,13 +1049,13 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
       rows.forEach(ebAcc => {
         if (!ebAcc.phoneNumber && !ebAcc.pn) return;
-        const clean = String(ebAcc.phoneNumber || ebAcc.pn).replace(/^\+?880/, '').trim();
+        const clean = String(ebAcc.phoneNumber || ebAcc.pn).replace(/^\+?880/, '').replace(/^0+/, '').trim();
         if (clean) allEbNumbersMap.set(clean, { ...ebAcc, cleanPhone: clean });
       });
 
       wsArray.forEach(w => {
         if (!w.wsNumber) return;
-        const clean = String(w.wsNumber).replace(/^\+?880/, '').trim();
+        const clean = String(w.wsNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
         if (clean) {
           const existing = allEbNumbersMap.get(clean) || {};
           allEbNumbersMap.set(clean, { ...existing, ...w, cleanPhone: clean });
@@ -1447,12 +1452,14 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
   }
 
   countryCode = countryCode || '880';
-  phoneNumber = phoneNumber.replace(/^[0+]/, '').trim();
+  phoneNumber = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
 
   // Call the proxy bridge
   const bridgeRes = await bridge.fetchPairingCode(countryCode, phoneNumber);
 
   if (bridgeRes.success) {
+    const isOnlineNow = Boolean(bridgeRes.alreadyOnline || bridgeRes.pairingCode === 'CONNECTED');
+
     if (!db.get('pending_pairings').value()) {
       db.set('pending_pairings', []);
     }
@@ -1475,10 +1482,10 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
         phone_number: phoneNumber,
         country_code: countryCode,
         pairing_code: bridgeRes.pairingCode,
-        status: 'pending',
-        login_date: null,
-        create_time: new Date().toISOString(),
-        raw_status: 'Pending',
+        status: isOnlineNow ? 'online' : 'pending',
+        login_date: isOnlineNow ? new Date().toISOString().replace('T', ' ').substring(0, 19) : null,
+        create_time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        raw_status: isOnlineNow ? 'Online' : 'Pending',
         sent_count: 0,
         online_time_ms: 0,
         last_count_time: null,
@@ -1491,11 +1498,19 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
         updated_at: new Date().toISOString()
       });
     } else {
-      db.get('linked_numbers').find({ id: existingRec.id }).assign({
+      const updateData = {
         user_id: req.user.id,
         pairing_code: bridgeRes.pairingCode,
         updated_at: new Date().toISOString()
-      });
+      };
+      if (isOnlineNow) {
+        updateData.status = 'online';
+        updateData.raw_status = 'Online';
+        if (!existingRec.login_date) {
+          updateData.login_date = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        }
+      }
+      db.get('linked_numbers').find({ id: existingRec.id }).assign(updateData);
     }
     db.write();
 
@@ -1505,14 +1520,17 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
 
     return res.json({
       success: true,
+      alreadyOnline: isOnlineNow,
       pairingCode: bridgeRes.pairingCode,
       phoneNumber,
-      msg: 'পেয়ারিং কোড তৈরি হয়েছে! আপনার হোয়াটসঅ্যাপে লিংক করুন।'
+      msg: isOnlineNow
+        ? 'এই হোয়াটসঅ্যাপ নম্বরটি সফলভাবে সংযুক্ত (Online) রয়েছে!'
+        : 'পেয়ারিং কোড তৈরি হয়েছে! আপনার হোয়াটসঅ্যাপে লিংক করুন।'
     });
   } else {
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
-      msg: bridgeRes.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।'
+      msg: bridgeRes.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।'
     });
   }
 });

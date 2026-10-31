@@ -705,13 +705,14 @@ export default function App() {
             setLinkedNumbers(onlineList);
             localStorage.setItem('cached_linked_numbers', JSON.stringify(onlineList));
             
-            // Check if user's input phone is ACTUALLY ONLINE and verified with login_date
-            const matched = onlineList.find(n => 
-              (String(n.phone_number).trim() === cleanInput ||
-               String(n.phone_number).endsWith(cleanInput) ||
-               cleanInput.endsWith(String(n.phone_number).trim())) &&
-              String(n.status).toLowerCase() === 'online' && Boolean(n.login_date)
-            );
+            // Check if user's input phone is ACTUALLY ONLINE
+            const matched = onlineList.find(n => {
+              const nClean = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+              const inClean = cleanInput.replace(/^\+?880/, '').replace(/^0+/, '').trim();
+              const isPhoneMatch = (nClean === inClean || nClean.endsWith(inClean) || inClean.endsWith(nClean));
+              const isOnline = String(n.status).toLowerCase() === 'online' || String(n.raw_status).toLowerCase() === 'online';
+              return isPhoneMatch && isOnline;
+            });
 
             if (matched) {
               setIsWaitingConnection(false);
@@ -840,10 +841,21 @@ export default function App() {
       });
       const data = await res.json();
       if (data && data.success) {
-        setActivePairingCode((data.pairingCode || '').replace(/[^a-zA-Z0-9]/g, ''));
-        setIsWaitingConnection(true);
-        setConnectionSuccess(false);
-        fetchUserData();
+        if (data.alreadyOnline || data.pairingCode === 'CONNECTED') {
+          setActivePairingCode('');
+          setIsWaitingConnection(false);
+          setConnectionSuccess(true);
+          setInputPhone('');
+          fetchUserData(true);
+          setTimeout(() => {
+            setConnectionSuccess(false);
+          }, 7000);
+        } else {
+          setActivePairingCode((data.pairingCode || '').replace(/[^a-zA-Z0-9]/g, ''));
+          setIsWaitingConnection(true);
+          setConnectionSuccess(false);
+          fetchUserData();
+        }
       } else {
         let errorMsg = data?.msg || '';
         if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('Error')) {
