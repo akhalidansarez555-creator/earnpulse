@@ -691,7 +691,7 @@ export default function App() {
     if (isWaitingConnection && cleanInput.length >= 8 && token) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`${API_BASE}/user/me?_t=${Date.now()}&fresh=1`, {
+          const res = await fetch(`${API_BASE}/user/me?_t=${Date.now()}&fresh=1&waiting_phone=${encodeURIComponent(cleanInput)}`, {
             headers: {
               Authorization: `Bearer ${token}`,
               'Cache-Control': 'no-cache, no-store, must-revalidate',

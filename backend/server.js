@@ -904,18 +904,50 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   const initialPending = db.get('pending_pairings').value() || [];
   const cleanMyPhone = String(user.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
 
+  // 🛡️ Auto-claim waiting phone if user is actively pairing right now
+  const waitingPhone = req.query.waiting_phone ? String(req.query.waiting_phone).replace(/^\+?880/, '').replace(/^0+/, '').trim() : null;
+  if (waitingPhone && waitingPhone.length >= 8) {
+    const unclaimed = db.get('linked_numbers').find(l => {
+      const lClean = String(l.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return lClean === waitingPhone || lClean.endsWith(waitingPhone) || waitingPhone.endsWith(lClean);
+    }).value();
+    if (unclaimed && (!unclaimed.user_id || unclaimed.user_id === req.user.id)) {
+      unclaimed.user_id = req.user.id;
+      db.get('linked_numbers').find({ id: unclaimed.id }).assign({ user_id: req.user.id }).write();
+    }
+    const pendingExists = initialPending.some(p => {
+      const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return pClean === waitingPhone && p.user_id === req.user.id;
+    });
+    if (!pendingExists) {
+      initialPending.push({
+        user_id: req.user.id,
+        phone_number: waitingPhone,
+        country_code: '880',
+        created_at: Date.now()
+      });
+      db.get('pending_pairings').push({
+        user_id: req.user.id,
+        phone_number: waitingPhone,
+        country_code: '880',
+        created_at: Date.now()
+      }).write();
+    }
+  }
+
   let linkedNumbers = db.get('linked_numbers').filter(n => {
     const cleanN = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
     if (cleanN && cleanN === cleanMyPhone) return true;
+    if (waitingPhone && (cleanN === waitingPhone || cleanN.endsWith(waitingPhone) || waitingPhone.endsWith(cleanN))) return true;
     const isPairedByMe = initialPending.some(p => {
       const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-      return pClean === cleanN && p.user_id === req.user.id;
+      return (pClean === cleanN || pClean.endsWith(cleanN) || cleanN.endsWith(pClean)) && p.user_id === req.user.id;
     });
     if (isPairedByMe) return true;
 
     const isPairedByOther = initialPending.some(p => {
       const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-      return pClean === cleanN && p.user_id !== req.user.id;
+      return (pClean === cleanN || pClean.endsWith(cleanN) || cleanN.endsWith(pClean)) && p.user_id !== req.user.id;
     });
     if (isPairedByOther) return false;
 
@@ -1071,32 +1103,41 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
         const alreadyExists = db.get('linked_numbers').find(l => {
           const lClean = String(l.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-          return lClean === cleanEb;
+          return lClean === cleanEb || lClean.endsWith(cleanEb) || cleanEb.endsWith(lClean);
         }).value();
 
-        if (!alreadyExists) {
-          // Check if this belongs to a user via pending_pairings or phone match
-          const pending = pendingPairings.find(p => {
-            const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-            return pClean === cleanEb;
-          });
-          let targetUserId = null;
+        // Check if this belongs to a user via pending_pairings or phone match or waitingPhone
+        const pending = pendingPairings.find(p => {
+          const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+          return pClean === cleanEb || pClean.endsWith(cleanEb) || cleanEb.endsWith(pClean);
+        });
+        let targetUserId = null;
 
-          if (pending && pending.user_id) {
-            targetUserId = pending.user_id;
-          } else {
-            // Check if any user has this phone number as their username
-            const matchingUser = db.get('users').find(u => {
-              const uClean = String(u.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-              return uClean && uClean === cleanEb;
-            }).value();
-            if (matchingUser) {
-              targetUserId = matchingUser.id;
-            }
+        if (pending && pending.user_id) {
+          targetUserId = pending.user_id;
+        } else if (waitingPhone && (cleanEb === waitingPhone || cleanEb.endsWith(waitingPhone) || waitingPhone.endsWith(cleanEb))) {
+          targetUserId = req.user.id;
+        } else {
+          // Check if any user has this phone number as their username
+          const matchingUser = db.get('users').find(u => {
+            const uClean = String(u.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+            return uClean && (uClean === cleanEb || uClean.endsWith(cleanEb) || cleanEb.endsWith(uClean));
+          }).value();
+          if (matchingUser) {
+            targetUserId = matchingUser.id;
           }
+        }
 
-          // If this number does not belong to any registered user, do not assign it!
-          if (!targetUserId) continue;
+        if (alreadyExists) {
+          if (!alreadyExists.user_id && targetUserId) {
+            alreadyExists.user_id = targetUserId;
+            db.get('linked_numbers').find({ id: alreadyExists.id }).assign({ user_id: targetUserId }).write();
+          }
+          continue;
+        }
+
+        // If this number does not belong to any registered user, do not assign it!
+        if (!targetUserId) continue;
 
           const wsM = wsArray.find(w => String(w.wsNumber).trim() === cleanEb);
           const unSettleSec = wsM ? Number(wsM.unSettleSeconds || 0) : Number(ebAcc.unSettleSeconds || 0);
@@ -1127,24 +1168,6 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
           };
           db.get('linked_numbers').push(newRecord).write();
           hasChanges = true;
-        } else if (alreadyExists) {
-          // Check pending_pairings and phone match to enforce true owner
-          const pending = pendingPairings.find(p => {
-            const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-            return pClean === cleanEb;
-          });
-          const matchingUser = db.get('users').find(u => {
-            const uClean = String(u.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-            return uClean && uClean === cleanEb;
-          }).value();
-
-          const trueUserId = (pending && pending.user_id) || (matchingUser && matchingUser.id);
-          if (trueUserId && alreadyExists.user_id !== trueUserId) {
-            db.get('linked_numbers').find({ id: alreadyExists.id }).assign({ user_id: trueUserId }).write();
-            alreadyExists.user_id = trueUserId;
-            hasChanges = true;
-          }
-        }
       }
 
       if (hasChanges && db.syncToCloud) {
@@ -2096,10 +2119,11 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
         const pMatch = pendingPairings.find(p => String(p.phone_number).replace(/^[0+]/, '').replace(/^880/, '').trim() === cleanW);
         const uMatch = allMembers.find(u => String(u.username).replace(/^[0+]/, '').replace(/^880/, '').trim() === cleanW);
         const ownerId = (pMatch && pMatch.user_id) || (uMatch && uMatch.id);
+        if (!ownerId) continue; // 🛡️ DO NOT create orphan records with user_id: null!
 
         const newRec = {
           id: Date.now() + Math.floor(Math.random() * 10000),
-          user_id: ownerId || null,
+          user_id: ownerId,
           phone_number: cleanW,
           country_code: '880',
           pairing_code: 'CONNECTED',

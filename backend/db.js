@@ -449,7 +449,7 @@ async function _performSyncToCloud() {
       cloudNumbers.forEach(n => {
         if (n && n.phone_number) {
           const key = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-          const trueUid = getTrueOwnerId(n.phone_number, n.user_id);
+          const trueUid = n.user_id || getTrueOwnerId(n.phone_number, n.user_id);
           numMap.set(key, { ...n, user_id: trueUid });
         }
       });
@@ -458,7 +458,9 @@ async function _performSyncToCloud() {
         if (n && n.phone_number) {
           const key = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
           const existingN = numMap.get(key);
-          const trueUid = getTrueOwnerId(n.phone_number, existingN ? existingN.user_id : n.user_id);
+          // 🛡️ CRITICAL FIX: The active requesting user (n.user_id) takes absolute priority!
+          // NEVER let null from stale cloud data overwrite a valid user_id!
+          const trueUid = n.user_id || (existingN && existingN.user_id) || getTrueOwnerId(n.phone_number, null);
           if (existingN) {
             numMap.set(key, { ...existingN, ...n, user_id: trueUid });
           } else {
