@@ -3117,18 +3117,35 @@ export default function App() {
 
             {/* Real Playable WhatsApp Pairing Tutorial Video */}
             <div style={{
-              background: '#000', borderRadius: '12px', overflow: 'hidden',
-              position: 'relative', width: '100%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+              background: '#000', borderRadius: '14px', overflow: 'hidden',
+              position: 'relative', width: '100%', boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}>
               <video
-                src="/videos/whatsapp_help.mp4"
                 controls
                 autoPlay
+                muted
                 playsInline
-                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '380px' }}
+                preload="auto"
+                poster="/images/video_poster.jpg"
+                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '380px', borderRadius: '14px' }}
               >
-                আপনার ব্রাউজার ভিডিও প্লে করতে সমর্থন করে না।
+                <source src="/videos/whatsapp_help.mp4" type="video/mp4" />
+                <source src="/EarnPulse_Real_Walkthrough.mp4" type="video/mp4" />
+                {lang === 'bn' ? 'আপনার ব্রাউজার ভিডিও প্লে করতে সমর্থন করে না।' : 'Your browser does not support playing video.'}
               </video>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', fontSize: '12px', color: '#64748b' }}>
+              <span>🔊 {lang === 'bn' ? 'সাউন্ড শুনতে স্পিকারে চাপুন' : 'Tap speaker to unmute'}</span>
+              <a
+                href="/videos/whatsapp_help.mp4"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}
+              >
+                {lang === 'bn' ? 'আলাদা ট্যাবে দেখুন ↗' : 'Open in tab ↗'}
+              </a>
             </div>
 
             <button
