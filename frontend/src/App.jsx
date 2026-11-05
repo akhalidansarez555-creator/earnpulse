@@ -1580,10 +1580,12 @@ export default function App() {
 
             {/* Mega Bonus 10-WhatsApp Interactive Progress Card */}
             {(() => {
-              const currentCount = (linkedNumbers || []).length;
+              const onlineNumbers = (linkedNumbers || []).filter(n => String(n?.status || '').toLowerCase() === 'online');
+              const completed24hCount = onlineNumbers.filter(n => (Number(n?.reward_cycles_count || n?.consequent || 0) >= 1)).length;
+              const running24hCount = Math.max(0, onlineNumbers.length - completed24hCount);
               const targetCount = 10;
-              const pct = Math.min(100, Math.round((currentCount / targetCount) * 100));
-              const remaining = Math.max(0, targetCount - currentCount);
+              const pct = Math.min(100, Math.round((completed24hCount / targetCount) * 100));
+              const remaining = Math.max(0, targetCount - completed24hCount);
 
               return (
                 <div 
@@ -1607,15 +1609,16 @@ export default function App() {
                           ১০টি WhatsApp মেগা ক্যাশ বক্স!
                         </div>
                         <div style={{ fontSize: '10.5px', color: '#e2e8f0', marginTop: '1px' }}>
-                          ১০টি নম্বর যুক্ত রাখলে পান সরাসরি <strong style={{ color: '#34d399' }}>১,০০০ টাকা বোনাস!</strong>
+                          প্রতিটি নম্বর ২৪ ঘণ্টা সচল রাখলে পান <strong style={{ color: '#34d399' }}>১,০০০ টাকা বোনাস!</strong>
                         </div>
                       </div>
                     </div>
                     <div style={{
                       background: 'rgba(251, 191, 36, 0.2)', border: '1px solid #fbbf24',
-                      color: '#fbbf24', fontSize: '11px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '12px'
+                      color: '#fbbf24', fontSize: '11px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '12px',
+                      whiteSpace: 'nowrap'
                     }}>
-                      {currentCount}/{targetCount}
+                      {completed24hCount}/{targetCount} পূর্ণ
                     </div>
                   </div>
 
@@ -1633,7 +1636,13 @@ export default function App() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
                     <span style={{ color: '#94a3b8' }}>
-                      {currentCount >= targetCount ? '🎉 অভিনন্দন! আপনি ১০টি নম্বর কানেক্ট করেছেন!' : `আর মাত্র ${remaining}টি নম্বর বাকি ১০০০৳ পেতে!`}
+                      {completed24hCount >= targetCount
+                        ? '🎉 অভিনন্দন! আপনার ১০টি নম্বরই ২৪ ঘণ্টা সফলভাবে সচল রয়েছে!'
+                        : (running24hCount > 0 
+                            ? `২৪ ঘণ্টা পূর্ণ: ${completed24hCount}/১০ টি (${running24hCount}টিতে টাইমার চলছে)`
+                            : `আর মাত্র ${remaining}টি নম্বরের ২৪ ঘণ্টা সচল বাকি!`
+                          )
+                      }
                     </span>
                     <span 
                       onClick={(e) => {
