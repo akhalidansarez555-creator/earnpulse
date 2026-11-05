@@ -1872,56 +1872,78 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, msg: 'পেমেন্ট মেথড এবং অ্যাকাউন্ট নম্বর প্রদান করুন' });
   }
 
-  // ক্লাউড ডেটাবেজ চেক (যদি মেমরিতে ইউজার পাওয়া না যায় তবেই ক্লাউড থেকে ফেচ করবে, যাতে রেসপন্স দ্রুত হয়)
-  db.read();
   const numUserId = Number(req.user.id);
   const strUserId = String(req.user.id);
   const userUName = req.user.username ? String(req.user.username).trim() : '';
+  const cleanPhone = userUName.replace(/^\+?880/, '').replace(/^0+/, '').trim();
 
-  let user = db.get('users').find(u => u && (u.id === numUserId || String(u.id) === strUserId || (userUName && u.username === userUName))).value();
-  if (!user && db.syncFromCloud) {
+  // 🛡️ সর্বদা সরাসরি MongoDB Atlas ক্লাউড থেকে ১০০% ফ্রেশ ইউজার ও পেন্ডিং ডেটা রিড করা হবে
+  let user = null;
+  let activePending = [];
+  let mdb = null;
+  let atlasDoc = null;
+
+  if (db.getMongoDb) {
     try {
-      await Promise.race([
-        db.syncFromCloud(true),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
-      ]);
-      db.read();
-      user = db.get('users').find(u => u && (u.id === numUserId || String(u.id) === strUserId || (userUName && u.username === userUName))).value();
-    } catch (e) {}
-  }
-
-  // পূর্ববর্তী কোনো উত্তোলন এখনও অপেক্ষমান (pending) থাকলে নতুন আবেদন নেওয়া হবে না
-  let activePending = (db.get('withdrawals').value() || [])
-    .filter(w => w && (
-      w.status === 'pending' && (
-        w.user_id === numUserId || 
-        String(w.user_id) === strUserId || 
-        (userUName && w.username === userUName)
-      )
-    ));
-
-  // 🛡️ REAL-TIME ATLAS VERIFICATION:
-  // সার্ভারলেস মাল্টি-কনটেইনারে মেমরিতে পুরনো পেন্ডিং থাকতে পারে।
-  // তাই সাথে সাথে মোঙ্গোডিবি ক্লাউড থেকে ফ্রেশ চেক করে নিশ্চিত করা হচ্ছে যে অ্যাডমিন অলরেডি অনুমোদন/বাতিল করেছে কিনা!
-  if (activePending.length > 0 && db.getMongoDb) {
-    try {
-      const mdb = await db.getMongoDb();
+      mdb = await db.getMongoDb();
       if (mdb) {
-        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
-        if (doc && doc.data && Array.isArray(doc.data.withdrawals)) {
-          db.get('withdrawals').remove().write();
-          db.set('withdrawals', doc.data.withdrawals).write();
-          activePending = doc.data.withdrawals.filter(w => w && (
-            w.status === 'pending' && (
-              w.user_id === numUserId || 
-              String(w.user_id) === strUserId || 
-              (userUName && w.username === userUName)
-            )
-          ));
+        atlasDoc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (atlasDoc && atlasDoc.data) {
+          if (Array.isArray(atlasDoc.data.users)) {
+            user = atlasDoc.data.users.find(u => {
+              if (!u) return false;
+              const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+              return (
+                u.id === numUserId ||
+                String(u.id) === strUserId ||
+                (userUName && u.username === userUName) ||
+                (cleanPhone && uClean && cleanPhone === uClean)
+              );
+            });
+          }
+          if (Array.isArray(atlasDoc.data.withdrawals)) {
+            activePending = atlasDoc.data.withdrawals.filter(w => {
+              if (!w || w.status !== 'pending') return false;
+              const wClean = String(w.username || w.phone || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+              return (
+                w.user_id === numUserId ||
+                String(w.user_id) === strUserId ||
+                (userUName && w.username === userUName) ||
+                (cleanPhone && wClean && cleanPhone === wClean)
+              );
+            });
+          }
         }
       }
     } catch (e) {
-      console.error('Atlas real-time pending check error:', e.message);
+      console.error('Atlas fetch error in withdraw:', e.message);
+    }
+  }
+
+  if (!user) {
+    db.read();
+    user = db.get('users').find(u => {
+      if (!u) return false;
+      const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return (
+        u.id === numUserId ||
+        String(u.id) === strUserId ||
+        (userUName && u.username === userUName) ||
+        (cleanPhone && uClean && cleanPhone === uClean)
+      );
+    }).value();
+
+    if (activePending.length === 0) {
+      activePending = (db.get('withdrawals').value() || []).filter(w => {
+        if (!w || w.status !== 'pending') return false;
+        const wClean = String(w.username || w.phone || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+        return (
+          w.user_id === numUserId ||
+          String(w.user_id) === strUserId ||
+          (userUName && w.username === userUName) ||
+          (cleanPhone && wClean && cleanPhone === wClean)
+        );
+      });
     }
   }
 
@@ -1940,19 +1962,12 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   const updatedBalance = parseFloat(Math.max(0, Number(user.balance || 0) - withdrawAmount).toFixed(2));
   const updatedTotalWithdrawn = parseFloat(((Number(user.total_withdrawn) || 0) + withdrawAmount).toFixed(2));
 
-  db.get('users')
-    .find(u => u && (u.id === numUserId || String(u.id) === strUserId || u.username === user.username))
-    .assign({
-      balance: updatedBalance,
-      total_withdrawn: updatedTotalWithdrawn
-    });
-
   // Create withdrawal record
   const withdrawId = Date.now();
   const nowIso = new Date().toISOString();
   const newWithdraw = {
     id: withdrawId,
-    user_id: numUserId || req.user.id,
+    user_id: user.id || numUserId,
     username: user.username,
     amount: withdrawAmount,
     method, // 'bkash', 'nagad', 'rocket'
@@ -1962,12 +1977,10 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     created_at: nowIso
   };
 
-  db.get('withdrawals').push(newWithdraw);
-
   // Also push to earnings_log so it immediately appears in Transaction History!
   const newLog = {
     id: withdrawId + 1,
-    user_id: numUserId || req.user.id,
+    user_id: user.id || numUserId,
     username: user.username,
     type: 'withdraw',
     amount: -withdrawAmount,
@@ -1975,51 +1988,51 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     description: `উত্তোলন আবেদন (${method.toUpperCase()}: ${accountNumber})`,
     created_at: nowIso
   };
-  db.get('earnings_log').push(newLog);
-  db.write();
 
   // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট অ্যাটমিক রাইট (Direct Atomic Read-Modify-Write)
-  if (db.getMongoDb) {
+  if (mdb && atlasDoc && atlasDoc.data) {
     try {
-      const mdb = await db.getMongoDb();
-      if (mdb) {
-        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
-        if (doc && doc.data) {
-          if (!Array.isArray(doc.data.withdrawals)) doc.data.withdrawals = [];
-          if (!Array.isArray(doc.data.earnings_log)) doc.data.earnings_log = [];
-          if (!Array.isArray(doc.data.users)) doc.data.users = [];
+      if (!Array.isArray(atlasDoc.data.withdrawals)) atlasDoc.data.withdrawals = [];
+      if (!Array.isArray(atlasDoc.data.earnings_log)) atlasDoc.data.earnings_log = [];
+      if (!Array.isArray(atlasDoc.data.users)) atlasDoc.data.users = [];
 
-          // Push new withdrawal and log to the beginning of the list
-          doc.data.withdrawals.unshift(newWithdraw);
-          doc.data.earnings_log.unshift(newLog);
+      // Push new withdrawal and log to the beginning of the list
+      atlasDoc.data.withdrawals.unshift(newWithdraw);
+      atlasDoc.data.earnings_log.unshift(newLog);
 
-          // Update user's balance and total_withdrawn with phone normalization
-          const uClean = String(user.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-          const atlasU = doc.data.users.find(u => 
-            u && (
-              u.id === numUserId || 
-              String(u.id) === strUserId || 
-              u.username === user.username ||
-              (uClean && String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim() === uClean)
-            )
-          );
-          if (atlasU) {
-            atlasU.balance = updatedBalance;
-            atlasU.total_withdrawn = updatedTotalWithdrawn;
-          }
-
-          // Awaited atomic update to Atlas
-          await mdb.collection('app_state').updateOne(
-            { _id: 'earnpulse_store' },
-            { $set: { data: doc.data, updated_at: new Date() } },
-            { upsert: true }
-          );
-          db.setState(doc.data);
-        }
+      // Update user's balance and total_withdrawn with phone normalization
+      const atlasU = atlasDoc.data.users.find(u => {
+        if (!u) return false;
+        const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+        return (
+          u.id === user.id ||
+          String(u.id) === String(user.id) ||
+          u.username === user.username ||
+          (cleanPhone && uClean && cleanPhone === uClean)
+        );
+      });
+      if (atlasU) {
+        atlasU.balance = updatedBalance;
+        atlasU.total_withdrawn = updatedTotalWithdrawn;
       }
+
+      // Awaited atomic update to Atlas
+      await mdb.collection('app_state').updateOne(
+        { _id: 'earnpulse_store' },
+        { $set: { data: atlasDoc.data, updated_at: new Date() } },
+        { upsert: true }
+      );
+      db.setState(atlasDoc.data);
     } catch (e) {
       console.error('Direct Atlas withdraw create error:', e.message);
     }
+  } else {
+    db.get('withdrawals').push(newWithdraw);
+    db.get('earnings_log').push(newLog);
+    db.get('users')
+      .find(u => u && (u.id === user.id || String(u.id) === String(user.id) || u.username === user.username))
+      .assign({ balance: updatedBalance, total_withdrawn: updatedTotalWithdrawn });
+    db.write();
   }
 
   return res.json({

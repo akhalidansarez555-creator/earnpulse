@@ -903,7 +903,7 @@ export default function App() {
       return;
     }
 
-    if (user && user.balance < parsedAmount) {
+    if (user && (Number(user.balance || 0) < parsedAmount)) {
       setWithdrawMsg(lang === 'bn' ? 'আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই' : 'Insufficient balance');
       return;
     }
