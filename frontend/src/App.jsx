@@ -1111,7 +1111,7 @@ export default function App() {
           {/* Brand Logo & Headings */}
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <img
-            src="/brand/earnpulse-logo.png"
+            src="/brand/earnpulse-logo.webp"
             alt="EarnPulse"
             style={{
               width: '80px', height: '80px', borderRadius: '50%',
@@ -1422,7 +1422,7 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img
-            src="/brand/earnpulse-logo.png"
+            src="/brand/earnpulse-logo.webp"
             alt="EarnPulse"
             style={{
               width: '44px', height: '44px', borderRadius: '50%',
@@ -3622,7 +3622,7 @@ export default function App() {
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <img
-                src="/brand/earnpulse-logo.png"
+                src="/brand/earnpulse-logo.webp"
                 alt="Logo"
                 style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)' }}
               />
@@ -4182,7 +4182,7 @@ export default function App() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
                 <img
-                  src="/brand/earnpulse-logo.png"
+                  src="/brand/earnpulse-logo.webp"
                   alt="EarnPulse"
                   style={{
                     width: '100%', height: '100%', borderRadius: '50%',
@@ -4778,7 +4778,7 @@ export default function App() {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginRight: '24px' }}>
               <img
-                src="/brand/earnpulse-logo.png"
+                src="/brand/earnpulse-logo.webp"
                 alt="EarnPulse"
                 style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 6px rgba(245, 158, 11, 0.35)' }}
               />

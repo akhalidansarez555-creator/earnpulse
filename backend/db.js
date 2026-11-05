@@ -535,6 +535,12 @@ db.write = function() {
 // Wrap db.read so that cloud-synced runtime state is never wiped out by static disk files
 const originalRead = db.read.bind(db);
 db.read = function() {
+  if (MONGODB_URI) {
+    const state = db.getState();
+    if (state && Array.isArray(state.users) && state.users.length > 0) {
+      return db;
+    }
+  }
   if (hasSyncedFromCloud) {
     return db;
   }

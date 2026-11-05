@@ -953,7 +953,6 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       console.warn('syncFromCloud timeout/error in /user/me:', e.message);
     }
   }
-  db.read();
   const reqUidNum = Number(req.user.id);
   const reqUidStr = String(req.user.id);
   const reqUname = req.user.username ? String(req.user.username).trim() : '';
@@ -1857,6 +1856,7 @@ app.get('/api/referrals', authenticateToken, async (req, res) => {
 // 5.5. PUBLIC SYSTEM CONFIG
 // -------------------------------------------------------------
 app.get('/api/config', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
   if (db.syncFromCloud) {
     db.syncFromCloud().catch(() => {});
   }
@@ -2234,21 +2234,15 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
   res.setHeader('Expires', '0');
 
   // 🛡️ Admin Panel MUST always see 100% fresh, real-time data from MongoDB Atlas!
-  if (db.getMongoDb) {
+  if (db.syncFromCloud) {
     try {
-      const mdb = await db.getMongoDb();
-      if (mdb) {
-        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
-        if (doc && doc.data) {
-          db.setState(doc.data);
-        }
-      }
+      await Promise.race([
+        db.syncFromCloud(true),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
+      ]);
     } catch (e) {}
-  } else if (db.syncFromCloud) {
-    await db.syncFromCloud(true).catch(() => {});
   }
   syncOfficialEarnBondhuSettlements().catch(() => {});
-  db.read();
 
   // All real members (excluding admin accounts)
   const allMembers = db.get('users')
@@ -2668,9 +2662,14 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
             { upsert: true }
           );
 
-          // ৪. লোকাল মেমোরি সিঙ্ক
+          // ৪. লোকাল মেমোরি ও ক্যাশ স্টেট আপডেট
           db.setState(doc.data);
-          db.read();
+
+          return res.json({
+            success: true,
+            msg: `উত্তোলন সফলভাবে ${status === 'approved' ? 'অনুমোদন' : 'বাতিল'} করা হয়েছে!`,
+            withdrawal: updatedWithdrawal
+          });
         }
       }
     } catch (e) {
@@ -2678,7 +2677,7 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
     }
   }
 
-  // ফলব্যাক হিসেবে লোকাল লোডিবি আপডেট ও ব্রডকাস্ট সিঙ্ক
+  // ফলব্যাক হিসেবে লোকাল লোডিবি আপডেট ও ব্রডকাস্ট সিঙ্ক (যদি Atlas সরাসরি সংযোগ ব্যাহত হয়)
   try {
     const wIdx = (db.get('withdrawals').value() || []).findIndex(w => w && (w.id === id || String(w.id) === idStr || Number(w.id) === id));
     if (wIdx !== -1) {
