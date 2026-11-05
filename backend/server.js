@@ -2015,7 +2015,11 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   }
 
   if (db.syncToCloud) {
-    db.syncToCloud().catch(() => {});
+    try {
+      await db.syncToCloud(true);
+    } catch (scErr) {
+      console.error('Withdraw syncToCloud error:', scErr.message);
+    }
   }
 
   return res.json({
