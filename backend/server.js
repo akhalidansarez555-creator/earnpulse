@@ -2251,14 +2251,19 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
   const allLinked = db.get('linked_numbers').value() || [];
   const pendingPairings = db.get('pending_pairings').value() || [];
 
-  // 1. Fetch real-time live WhatsApp numbers from EarnBondhu (Ultra-Fast 2.5s Timeout Race)
-  let ebWsList = [];
-  try {
-    ebWsList = await Promise.race([
-      bridge.fetchWsOnlineStatusList(),
-      new Promise(res => setTimeout(() => res(bridge.getCachedWsStatusList ? bridge.getCachedWsStatusList() : []), 2500))
-    ]);
-  } catch (err) {}
+  // 1. Fetch real-time live WhatsApp numbers from EarnBondhu (Instant Cached + Non-blocking Fast Race)
+  let ebWsList = bridge.getCachedWsStatusList ? bridge.getCachedWsStatusList() : [];
+  if (!ebWsList || ebWsList.length === 0) {
+    try {
+      ebWsList = await Promise.race([
+        bridge.fetchWsOnlineStatusList(),
+        new Promise(res => setTimeout(() => res([]), 350))
+      ]);
+    } catch (err) {}
+  } else {
+    // Background refresh for continuous real-time sync without delaying response
+    bridge.fetchWsOnlineStatusList(true).catch(() => {});
+  }
   const ebOnlineList = (Array.isArray(ebWsList) ? ebWsList : []).filter(w => 
     w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online'
   );

@@ -1086,7 +1086,7 @@
         `;
       }).join('');
     } else {
-      uTable.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">${query ? 'কোনো মেম্বার খুঁজে পাওয়া যায়নি' : (memberFilterMode === 'connected' ? 'কোনো কানেক্টেড মেম্বার পাওয়া যায়নি (উপরে "সকল মেম্বার" বাটনে চাপুন)' : 'কোনো মেম্বার নেই')}</td></tr>`;
+      uTable.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">${rawQuery ? 'কোনো মেম্বার খুঁজে পাওয়া যায়নি' : (memberFilterMode === 'connected' ? 'কোনো কানেক্টেড মেম্বার পাওয়া যায়নি (উপরে "সকল মেম্বার" বাটনে চাপুন)' : 'কোনো মেম্বার নেই')}</td></tr>`;
     }
   }
 
