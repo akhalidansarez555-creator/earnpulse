@@ -2261,6 +2261,35 @@ export default function App() {
               </div>
             </div>
 
+            {/* Multi-WhatsApp Earning Multiplier Card (1 Phone, Multiple Accounts) */}
+            <div style={{
+              background: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
+              borderRadius: '18px', padding: '14px 16px', color: '#ffffff',
+              boxShadow: '0 8px 24px -4px rgba(6, 78, 59, 0.45)',
+              border: '1.5px solid rgba(251, 191, 36, 0.5)',
+              position: 'relative', overflow: 'hidden'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '20px' }}>💡</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '900', color: '#fbbf24', letterSpacing: '0.2px' }}>
+                    {lang === 'bn' ? '১ ফোনেই ৩-৪টি WhatsApp খুলে আয় ৩ গুণ করুন!' : 'Connect 3-4 WhatsApp on 1 Phone!'}
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#e2e8f0' }}>
+                    {lang === 'bn' ? 'বেশি নম্বর কানেক্ট করে নিশ্চিত বড় ক্যাশ বোনাস নিন' : 'Earn more with multiple numbers'}
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.25)', borderRadius: '12px', padding: '10px 12px',
+                fontSize: '11px', color: '#f1f5f9', lineHeight: 1.55, border: '1px solid rgba(255, 255, 255, 0.1)'
+              }}>
+                <div>• <strong>WhatsApp Business:</strong> প্লে-স্টোর থেকে নামিয়ে অন্য সিম দিয়ে সহজেই আরেকটি নম্বর কানেক্ট করুন।</div>
+                <div style={{ marginTop: '4px' }}>• <strong>Dual Apps / App Clone:</strong> মোবাইল Settings-এ Dual App অন করে আরও ২টি একাউন্ট চালান।</div>
+                <div style={{ marginTop: '4px' }}>• <strong>পরিবারের নম্বর:</strong> পরিবারের অবসর নম্বরগুলো যুক্ত করে প্রতিদিন <strong>১৬০৳ - ৩২০৳</strong> আয় ও ১,০০০৳ মেগা ক্যাশ বক্স নিন!</div>
+              </div>
+            </div>
+
             {/* Pairing Code Box */}
             <div className="app-card" style={{ padding: '18px' }}>
               <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}>
