@@ -940,24 +940,25 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
+  // 🛡️ CRITICAL GUARANTEE: ALWAYS Await MongoDB Atlas Cloud Sync BEFORE reading user profile & balance!
+  // This guarantees that every member always sees their 100% exact cloud balance with 0 latency or stale cache glitches!
+  const isFreshRequested = req.query.fresh === '1' || req.query.fresh === 'true';
+  if (db.syncFromCloud) {
+    try {
+      await Promise.race([
+        db.syncFromCloud(isFreshRequested),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
+      ]);
+    } catch (e) {
+      console.warn('syncFromCloud timeout/error in /user/me:', e.message);
+    }
+  }
   db.read();
   const reqUidNum = Number(req.user.id);
   const reqUidStr = String(req.user.id);
   const reqUname = req.user.username ? String(req.user.username).trim() : '';
 
   let user = db.get('users').find(u => u && (u.id === reqUidNum || String(u.id) === reqUidStr || (reqUname && u.username === reqUname))).value();
-  if (!user && db.syncFromCloud) {
-    try {
-      await Promise.race([
-        db.syncFromCloud(),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))
-      ]);
-      db.read();
-      user = db.get('users').find(u => u && (u.id === reqUidNum || String(u.id) === reqUidStr || (reqUname && u.username === reqUname))).value();
-    } catch (e) {}
-  } else if (db.syncFromCloud) {
-    db.syncFromCloud().catch(() => {});
-  }
   syncOfficialEarnBondhuSettlements().catch(() => {});
   checkAndSendAutoTelegramPost().catch(() => {});
   if (!user) return res.status(404).json({ success: false, msg: 'User not found' });

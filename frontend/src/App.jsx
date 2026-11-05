@@ -652,7 +652,7 @@ export default function App() {
 
   useEffect(() => {
     if (token) {
-      fetchUserData();
+      fetchUserData(true);
       fetchWithdrawHistory();
       // Show VIP Notice Banner once per session when member enters the site or app
       try {

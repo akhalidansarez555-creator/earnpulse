@@ -218,7 +218,7 @@ async function _performSyncFromCloud() {
                 const trueEarned = Math.max(Number(userItem.total_earned || 0), Number(userItem.balance || 0) + lockedTotal);
                 userItem.total_earned = trueEarned;
                 userItem.balance = parseFloat(Math.max(0, trueEarned - lockedTotal).toFixed(2));
-                userItem.total_withdrawn = lockedTotal;
+                userItem.total_withdrawn = parseFloat(appAmt.toFixed(2));
               }
             }
           });
