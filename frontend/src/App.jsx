@@ -938,16 +938,18 @@ export default function App() {
           });
         }
         if (data.withdrawal) {
-          setWithdrawHistory(prev => [data.withdrawal, ...(prev || [])]);
+          setWithdrawHistory(prev => {
+            const list = [data.withdrawal, ...(prev || [])];
+            try { localStorage.setItem('cached_withdraw_history', JSON.stringify(list)); } catch (e) {}
+            return list;
+          });
         }
         setWithdrawAmount('');
         setWithdrawAccount('');
         setWithdrawMsg('');
         setShowWithdrawModal(false);
-        // Do NOT call fetchUserData(true) immediately to avoid race condition with stale serverless cache!
-        setTimeout(() => {
-          fetchWithdrawHistory();
-        }, 1200);
+        // Instant update of history
+        fetchWithdrawHistory();
         showAlert(
           data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে! অ্যাডমিন কিছুক্ষণের মধ্যে পর্যালোচনা করে পেমেন্ট করবে।' : 'Withdrawal request submitted!'),
           lang === 'bn' ? 'উত্তোলন সফল হয়েছে!' : 'Withdrawal Submitted!',

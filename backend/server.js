@@ -1891,7 +1891,7 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   }
 
   // পূর্ববর্তী কোনো উত্তোলন এখনও অপেক্ষমান (pending) থাকলে নতুন আবেদন নেওয়া হবে না
-  const activePending = (db.get('withdrawals').value() || [])
+  let activePending = (db.get('withdrawals').value() || [])
     .filter(w => w && (
       w.status === 'pending' && (
         w.user_id === numUserId || 
@@ -1899,6 +1899,32 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
         (userUName && w.username === userUName)
       )
     ));
+
+  // 🛡️ REAL-TIME ATLAS VERIFICATION:
+  // সার্ভারলেস মাল্টি-কনটেইনারে মেমরিতে পুরনো পেন্ডিং থাকতে পারে।
+  // তাই সাথে সাথে মোঙ্গোডিবি ক্লাউড থেকে ফ্রেশ চেক করে নিশ্চিত করা হচ্ছে যে অ্যাডমিন অলরেডি অনুমোদন/বাতিল করেছে কিনা!
+  if (activePending.length > 0 && db.getMongoDb) {
+    try {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (doc && doc.data && Array.isArray(doc.data.withdrawals)) {
+          db.get('withdrawals').remove().write();
+          db.set('withdrawals', doc.data.withdrawals).write();
+          activePending = doc.data.withdrawals.filter(w => w && (
+            w.status === 'pending' && (
+              w.user_id === numUserId || 
+              String(w.user_id) === strUserId || 
+              (userUName && w.username === userUName)
+            )
+          ));
+        }
+      }
+    } catch (e) {
+      console.error('Atlas real-time pending check error:', e.message);
+    }
+  }
+
   if (activePending.length > 0) {
     return res.status(400).json({
       success: false,
@@ -2005,16 +2031,33 @@ app.get('/api/withdraw/history', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  if (db.syncFromCloud) {
-    db.syncFromCloud().catch(() => {});
-  }
-  db.read();
   const userId = req.user.id;
+  const numUserId = Number(userId);
+  const strUserId = String(userId);
   const username = req.user.username;
-  const history = (db.get('withdrawals').value() || [])
+
+  let allWithdrawals = [];
+  if (db.getMongoDb) {
+    try {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (doc && doc.data && Array.isArray(doc.data.withdrawals)) {
+          allWithdrawals = doc.data.withdrawals;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!allWithdrawals || allWithdrawals.length === 0) {
+    db.read();
+    allWithdrawals = db.get('withdrawals').value() || [];
+  }
+
+  const history = allWithdrawals
     .filter(w => w && (
-      w.user_id === userId ||
-      String(w.user_id) === String(userId) ||
+      w.user_id === numUserId ||
+      String(w.user_id) === strUserId ||
       (username && (w.username === username || w.phone === username))
     ))
     .sort((a, b) => (b.id || 0) - (a.id || 0));
@@ -2030,26 +2073,46 @@ app.get('/api/user/transactions', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  if (db.syncFromCloud) {
-    db.syncFromCloud().catch(() => {});
-  }
-  db.read();
   const userId = req.user.id;
+  const numUserId = Number(userId);
+  const strUserId = String(userId);
   const username = req.user.username;
-  const rawLogs = db.get('earnings_log').value() || [];
+
+  let rawLogs = [];
+  let allWithdrawals = [];
+
+  if (db.getMongoDb) {
+    try {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (doc && doc.data) {
+          if (Array.isArray(doc.data.earnings_log)) rawLogs = doc.data.earnings_log;
+          if (Array.isArray(doc.data.withdrawals)) allWithdrawals = doc.data.withdrawals;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (rawLogs.length === 0 && allWithdrawals.length === 0) {
+    db.read();
+    rawLogs = db.get('earnings_log').value() || [];
+    allWithdrawals = db.get('withdrawals').value() || [];
+  }
+
   const deduplicated = db.deduplicateEarningsLogs ? db.deduplicateEarningsLogs(rawLogs) : rawLogs;
   const logs = deduplicated
     .filter(l => l && (
-      l.user_id === userId ||
-      String(l.user_id) === String(userId) ||
+      l.user_id === numUserId ||
+      String(l.user_id) === strUserId ||
       (username && (l.username === username || l.phone === username))
     ))
     .sort((a, b) => (b.id || 0) - (a.id || 0));
 
-  const withdrawals = (db.get('withdrawals').value() || [])
+  const withdrawals = allWithdrawals
     .filter(w => w && (
-      w.user_id === userId ||
-      String(w.user_id) === String(userId) ||
+      w.user_id === numUserId ||
+      String(w.user_id) === strUserId ||
       (username && (w.username === username || w.phone === username))
     ))
     .sort((a, b) => (b.id || 0) - (a.id || 0));
@@ -2070,13 +2133,10 @@ app.get('/api/user/transactions', authenticateToken, async (req, res) => {
       amount: w.amount,
       isCredit: false,
       status: w.status,
-      description: `উত্তোলন (${w.method.toUpperCase()}) - ${w.status === 'approved' ? 'সফল' : (w.status === 'rejected' ? 'ব্যর্থ' : 'অপেক্ষমান')}`,
+      description: `উত্তোলন (${(w.method || '').toUpperCase()}) - ${w.status === 'approved' ? 'সফল' : (w.status === 'rejected' ? 'বাতিল' : 'অপেক্ষমান')}`,
       created_at: w.created_at
     }))
-  ];
-
-  // Sort descending by created_at or id
-  combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return res.json({ success: true, transactions: combined });
 });
@@ -2124,17 +2184,19 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  if (db.syncFromCloud) {
-    if (!db.hasSyncedFromCloudOnce || !db.hasSyncedFromCloudOnce()) {
-      try {
-        await Promise.race([
-          db.syncFromCloud(),
-          new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
-        ]);
-      } catch (e) {}
-    } else {
-      db.syncFromCloud().catch(() => {});
-    }
+  // 🛡️ Admin Panel MUST always see 100% fresh, real-time data from MongoDB Atlas!
+  if (db.getMongoDb) {
+    try {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (doc && doc.data) {
+          db.setState(doc.data);
+        }
+      }
+    } catch (e) {}
+  } else if (db.syncFromCloud) {
+    await db.syncFromCloud(true).catch(() => {});
   }
   syncOfficialEarnBondhuSettlements().catch(() => {});
   db.read();
