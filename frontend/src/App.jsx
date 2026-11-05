@@ -3227,8 +3227,7 @@ export default function App() {
               </video>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', fontSize: '12px', color: '#64748b' }}>
-              <span>🔊 {lang === 'bn' ? 'সাউন্ড শুনতে স্পিকারে চাপুন' : 'Tap speaker to unmute'}</span>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '10px', fontSize: '12px', color: '#64748b' }}>
               <a
                 href="/videos/whatsapp_help.mp4"
                 target="_blank"
