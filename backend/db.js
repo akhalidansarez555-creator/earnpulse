@@ -194,6 +194,13 @@ async function _performSyncFromCloud() {
           u.total_withdrawn = 0;
         }
 
+        const u2 = doc.data.users.find(x => x.username === '01619313543' || String(x.id) === '1793337961124');
+        if (u2) {
+          u2.total_earned = Math.max(Number(u2.total_earned || 0), 338.0);
+          u2.total_withdrawn = 200.0;
+          u2.balance = Math.max(Number(u2.balance || 0), parseFloat((u2.total_earned - 200.0).toFixed(2)), 138.0);
+        }
+
         if (Array.isArray(doc.data.withdrawals)) {
           doc.data.users.forEach(userItem => {
             if (userItem && userItem.username !== '01356690484') {
@@ -353,6 +360,13 @@ async function _performSyncToCloud() {
               mergedTotal = 148.0;
               mergedWithdrawn = 0;
               mergedBalance = 148.0;
+            }
+
+            // 🛡️ Guaranteed compensation balance for 01619313543:
+            if (key === '01619313543' || String(u.username) === '01619313543' || String(existingU.username) === '01619313543') {
+              mergedTotal = Math.max(mergedTotal, 338.0);
+              mergedWithdrawn = 200.0;
+              mergedBalance = Math.max(mergedBalance, 138.0);
             }
 
             // চেক-ইন হিস্ট্রি ইউনিয়ন - একবার ক্লেইম হলে তা চিরস্থায়ী থাকবে
