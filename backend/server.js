@@ -2712,10 +2712,67 @@ app.post('/api/admin/telegram-broadcast', authenticateToken, requireAdmin, async
 });
 
 // -------------------------------------------------------------
+// ANTIGRAVITY BRIDGE HEARTBEAT & CLOUD OFFLINE DETECTOR
+// -------------------------------------------------------------
+const BOT_TOKEN_MONITOR = '8351110635:AAHfx4wDVEt_UpxFfb5H4FLl0hKjCEmSrmI';
+
+app.all('/api/bridge-heartbeat', async (req, res) => {
+  try {
+    const status = req.body?.status || req.query?.status || 'online';
+    const now = Date.now();
+    if (db.getMongoDb) {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        await mdb.collection('bridge_status').updateOne(
+          { _id: 'antigravity_pc' },
+          { $set: { status, last_seen: now, updated_at: new Date().toISOString() } },
+          { upsert: true }
+        );
+      }
+    }
+    return res.json({ success: true, status, last_seen: now });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // TELEGRAM AUTOMATIC DAILY POSTING CRON ENDPOINT
 // -------------------------------------------------------------
 app.all('/api/telegram-cron', async (req, res) => {
   try {
+    // 1. Cloud-Level Check: If PC Bridge hasn't sent heartbeat in > 2 mins, mark Offline on Telegram!
+    try {
+      if (db.getMongoDb) {
+        const mdb = await db.getMongoDb();
+        if (mdb) {
+          const bDoc = await mdb.collection('bridge_status').findOne({ _id: 'antigravity_pc' });
+          const now = Date.now();
+          if (bDoc && bDoc.status === 'online' && (now - (bDoc.last_seen || 0) > 120000)) {
+            // Mark Offline in Mongo
+            await mdb.collection('bridge_status').updateOne(
+              { _id: 'antigravity_pc' },
+              { $set: { status: 'offline', offline_since: now } }
+            );
+            // Update Telegram Bot Name & Bio to Offline
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN_MONITOR}/setMyName`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: 'Antigravity 🔴 Offline' })
+            }).catch(() => {});
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN_MONITOR}/setMyShortDescription`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ short_description: '🔴 Antigravity এখন অফলাইন (পিসি বা সফটওয়্যার বন্ধ রয়েছে)।' })
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch (heartbeatErr) {
+      console.error('Cloud heartbeat check error:', heartbeatErr.message);
+    }
+
+    // 2. Channel Posting
     const result = await checkAndSendAutoTelegramPost(req.query.type || null);
     if (!result) {
       return res.json({ success: true, msg: 'No post needed at this time' });
