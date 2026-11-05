@@ -657,10 +657,10 @@ export default function App() {
     }
   }, [token]);
 
-  // Periodic Live Background Sync for WhatsApp List & Balance (Optimized to prevent excessive bandwidth)
+  // Periodic Live Background Sync for WhatsApp List & Balance (Ultra-Optimized to prevent excessive Vercel CPU drain)
   useEffect(() => {
     if (!token) return;
-    const intervalMs = activeTab === 'whatsapp' ? 12000 : 30000;
+    const intervalMs = activeTab === 'whatsapp' ? 30000 : 60000;
     const syncInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchUserData(activeTab === 'whatsapp');
@@ -683,19 +683,25 @@ export default function App() {
     };
   }, [token, activeTab]);
 
-  // Real-time WhatsApp connection listener (স্বয়ংক্রিয় লাইভ চেকার)
+  // Real-time WhatsApp connection listener (স্মার্ট ও রিসোর্স-সেভার লাইভ চেকার)
   useEffect(() => {
     let interval = null;
+    let pollCount = 0;
     const cleanInput = inputPhone ? String(inputPhone).replace(/^[0+]/, '').trim() : '';
 
     if (isWaitingConnection && cleanInput.length >= 8 && token) {
       interval = setInterval(async () => {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        pollCount++;
+        if (pollCount > 24) { // Max 2 minutes auto-poll to protect server CPU quota
+          if (interval) clearInterval(interval);
+          return;
+        }
+
         try {
-          const res = await fetch(`${API_BASE}/user/me?_t=${Date.now()}&fresh=1&waiting_phone=${encodeURIComponent(cleanInput)}`, {
+          const res = await fetch(`${API_BASE}/user/me?_t=${Date.now()}&waiting_phone=${encodeURIComponent(cleanInput)}`, {
             headers: {
-              Authorization: `Bearer ${token}`,
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache'
+              Authorization: `Bearer ${token}`
             }
           });
           const data = await res.json();
@@ -727,7 +733,7 @@ export default function App() {
             }
           }
         } catch (e) {}
-      }, 2000); // Check every 2 seconds for ultra fast connection sync
+      }, 5000); // Check every 5 seconds (smooth & CPU-efficient)
     }
 
     return () => {
