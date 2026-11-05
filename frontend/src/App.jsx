@@ -817,8 +817,11 @@ export default function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('cached_linked_numbers');
+    localStorage.removeItem('cached_withdraw_history');
+    localStorage.removeItem('cached_transactions');
     setToken('');
     setUser(null);
+    setWithdrawHistory([]);
     setActiveTab('home');
     activeTabRef.current = 'home';
     window.history.replaceState(null, '', window.location.pathname);

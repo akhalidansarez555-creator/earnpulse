@@ -1978,47 +1978,47 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   db.get('earnings_log').push(newLog);
   db.write();
 
-  // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট অ্যাটমিক রাইট
+  // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট অ্যাটমিক রাইট (Direct Atomic Read-Modify-Write)
   if (db.getMongoDb) {
     try {
       const mdb = await db.getMongoDb();
       if (mdb) {
-        await mdb.collection('app_state').updateOne(
-          { _id: 'earnpulse_store' },
-          { 
-            $push: { 
-              'data.withdrawals': newWithdraw,
-              'data.earnings_log': newLog
-            },
-            $set: { 
-              'data.users.$[u].balance': updatedBalance,
-              'data.users.$[u].total_withdrawn': updatedTotalWithdrawn,
-              updated_at: new Date()
-            } 
-          },
-          { 
-            arrayFilters: [
-              { 
-                $or: [
-                  { 'u.id': numUserId },
-                  { 'u.id': strUserId },
-                  { 'u.username': user.username }
-                ] 
-              }
-            ] 
+        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (doc && doc.data) {
+          if (!Array.isArray(doc.data.withdrawals)) doc.data.withdrawals = [];
+          if (!Array.isArray(doc.data.earnings_log)) doc.data.earnings_log = [];
+          if (!Array.isArray(doc.data.users)) doc.data.users = [];
+
+          // Push new withdrawal and log to the beginning of the list
+          doc.data.withdrawals.unshift(newWithdraw);
+          doc.data.earnings_log.unshift(newLog);
+
+          // Update user's balance and total_withdrawn with phone normalization
+          const uClean = String(user.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+          const atlasU = doc.data.users.find(u => 
+            u && (
+              u.id === numUserId || 
+              String(u.id) === strUserId || 
+              u.username === user.username ||
+              (uClean && String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim() === uClean)
+            )
+          );
+          if (atlasU) {
+            atlasU.balance = updatedBalance;
+            atlasU.total_withdrawn = updatedTotalWithdrawn;
           }
-        );
+
+          // Awaited atomic update to Atlas
+          await mdb.collection('app_state').updateOne(
+            { _id: 'earnpulse_store' },
+            { $set: { data: doc.data, updated_at: new Date() } },
+            { upsert: true }
+          );
+          db.setState(doc.data);
+        }
       }
     } catch (e) {
       console.error('Direct Atlas withdraw create error:', e.message);
-    }
-  }
-
-  if (db.syncToCloud) {
-    try {
-      await db.syncToCloud(true);
-    } catch (scErr) {
-      console.error('Withdraw syncToCloud error:', scErr.message);
     }
   }
 
@@ -2058,12 +2058,18 @@ app.get('/api/withdraw/history', authenticateToken, async (req, res) => {
     allWithdrawals = db.get('withdrawals').value() || [];
   }
 
+  const uClean = String(username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
   const history = allWithdrawals
-    .filter(w => w && (
-      w.user_id === numUserId ||
-      String(w.user_id) === strUserId ||
-      (username && (w.username === username || w.phone === username))
-    ))
+    .filter(w => {
+      if (!w) return false;
+      const wClean = String(w.username || w.phone || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return (
+        w.user_id === numUserId ||
+        String(w.user_id) === strUserId ||
+        (username && (w.username === username || w.phone === username)) ||
+        (uClean && wClean && uClean === wClean)
+      );
+    })
     .sort((a, b) => (b.id || 0) - (a.id || 0));
 
   return res.json({ success: true, history });
@@ -2580,13 +2586,17 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
 
           // ২. রিজেক্ট হলে মেম্বারকে তাৎক্ষণিক রিফান্ড ও আর্নিংস লগ এন্ট্রি
           if (status === 'rejected' && Array.isArray(doc.data.users)) {
-            const cloudU = doc.data.users.find(u => 
-              u && (
+            const targetClean = String(targetUName || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+            const cloudU = doc.data.users.find(u => {
+              if (!u) return false;
+              const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+              return (
                 u.id === targetUidNum || 
                 String(u.id) === targetUidStr || 
-                (targetUName && u.username === targetUName)
-              )
-            );
+                (targetUName && u.username === targetUName) ||
+                (targetClean && uClean && targetClean === uClean)
+              );
+            });
             if (cloudU) {
               cloudU.balance = parseFloat(((Number(cloudU.balance) || 0) + refundAmt).toFixed(2));
               cloudU.total_withdrawn = parseFloat(Math.max(0, (Number(cloudU.total_withdrawn) || 0) - refundAmt).toFixed(2));
