@@ -318,7 +318,7 @@ export default function App() {
   const [withdrawStatusFilter, setWithdrawStatusFilter] = useState('all');
   const [withdrawDateFilter, setWithdrawDateFilter] = useState('all');
   const [withdrawHistoryLoading, setWithdrawHistoryLoading] = useState(false);
-  const [appDownloadUrl, setAppDownloadUrl] = useState('/downloads/EarnPulse.apk');
+  const [appDownloadUrl, setAppDownloadUrl] = useState('https://github.com/globalquraniconlineacademy4-ctrl/earnpulse/releases/download/v1.0.1/EarnPulse.apk');
 
   // CheckIn State from backend
   const [checkInStatus, setCheckInStatus] = useState({
@@ -672,7 +672,7 @@ export default function App() {
   // Periodic Live Background Sync for WhatsApp List & Balance (Ultra-Optimized to prevent excessive Vercel CPU drain)
   useEffect(() => {
     if (!token) return;
-    const intervalMs = activeTab === 'whatsapp' ? 30000 : 60000;
+    const intervalMs = activeTab === 'whatsapp' ? 45000 : 90000;
     const syncInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchUserData(activeTab === 'whatsapp');
