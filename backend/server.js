@@ -33,19 +33,51 @@ app.use((req, res, next) => {
 // -------------------------------------------------------------
 // TELEGRAM AUTOMATIC DAILY POSTING ENGINE (Passive Auto-Cron)
 // -------------------------------------------------------------
-const DAILY_POSTS = {
-  morning: {
-    text: `🌅 <b>শুভ সকাল! EarnPulse-এ দিনটি শুরু হোক নিশ্চিত আয়ে</b> 🌅\n\nসম্মানিত মেম্বারগণ,\nদিনের শুরুতেই একবার আপনার একাউন্টে ঢুকে চেক করে নিন আপনার সংযুক্ত WhatsApp নম্বরগুলো ঠিকমতো <b>অনলাইন (Online)</b> রয়েছে কিনা!\n\n🔍 <b>জরুরি চেকিং ও করণীয়:</b>\n• সাইটে লগইন করে দেখুন আপনার WhatsApp সচল আছে কিনা।\n• যদি কোনো নম্বর অফলাইন দেখায়, তবে সাথে সাথে আবার পেয়ারিং কোড দিয়ে রি-কানেক্ট করে নিন যাতে ইনকাম বন্ধ না হয়।\n• সময় যত সচল থাকবে, ২৪ ঘণ্টা পূর্ণ হয়ে প্রতি ঘণ্টার ইনকাম ঠিক তত দ্রুত আপনার অ্যাকাউন্টে যোগ হবে!\n\n💡 এখনও যারা যুক্ত হননি, আজই আপনার WhatsApp কানেক্ট করে ঘরে বসে সহজ আয় শুরু করুন!`,
-    btnText: '🔍 WhatsApp স্ট্যাটাস চেক ও কানেক্ট করুন'
-  },
-  afternoon: {
-    text: `🚀 <b>মেগা ধামাকা অফার: বেশি হোয়াটসঅ্যাপ, বেশি ইনকাম!</b> 🚀\n\nEarnPulse-এ আপনার আয় দ্বিগুণ ও তিনগুণ করার সেরা সুযোগ!\n\n💰 <b>১০টি হোয়াটসঅ্যাপ কানেক্ট রাখলে:</b>\n• প্রতিদিন নিশ্চিত ৩২০৳ আয় (প্রতিটিতে ৩২৳)!\n• আর প্রথমবার ২৪ ঘণ্টা পূর্ণ হলেই উপহার পাবেন <b>১,০০০ টাকার স্পেশাল ক্যাশ বক্স</b>!\n\n👥 <b>রেফারেল বোনাস:</b>\nবন্ধুকে রেফার করুন, বন্ধু ১০টি নম্বর যুক্ত রাখলে আপনিও পাবেন ১,০০০৳ মেগা বক্স!\n\n⏳ <b>রি-কানেক্ট সুবিধা:</b> সাময়িক অফলাইন হলেও পুনরায় পেয়ারিং কোড দিয়ে যুক্ত করলে আগের সময় থেকেই কাউন্ট হবে। দেরি না করে নম্বরগুলো অনলাইনে রাখুন!`,
-    btnText: '🎁 মেগা অফার ও WhatsApp কানেক্ট'
-  },
-  night: {
-    text: `⚡ <b>উইথড্র ও ডেইলি ইনকাম নাইট আপডেট</b> ⚡\n\nসম্মানিত মেম্বারগণ,\nমেম্বারদের সকল উইথড্র রিকোয়েস্ট অত্যন্ত দ্রুততার সাথে বিকাশ ও নগদ-এ সফলভাবে সম্পন্ন করা হচ্ছে! আপনারা যারা নিয়ম মেনে কাজ করছেন তারা সম্পূর্ণ নিশ্চিন্তে নিয়মিত কাজ চালিয়ে যান।\n\n🌙 <b>রাতের বিশেষ রিমাইন্ডার:</b>\nঘুমানোর আগে একবার দেখে নিন আপনার WhatsApp অনলাইন আছে কিনা। রাতে কানেক্টেড থাকলে ব্যাকগ্রাউন্ডে পুরো সময় কাউন্ট হবে এবং সকালে উঠেই ইনকাম ব্যালেন্স দেখতে পাবেন!\n\n🔒 নিরাপদ প্ল্যাটফর্ম • দ্রুত পেমেন্ট • ১০০% বিশ্বস্ত`,
-    btnText: '🌐 ব্যালেন্স চেক ও উত্তোলন করুন'
-  }
+const BENGALI_DAYS = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+
+const DAILY_POST_TEMPLATES = {
+  morning: [
+    (dayName, dateStr) => ({
+      text: `🌅 <b>শুভ সকাল! আজ ${dayName}—দিনটি শুরু হোক নিশ্চিত আয়ে</b> 🌅\n\nসম্মানিত EarnPulse মেম্বারগণ,\nদিনের শুরুতেই একবার আপনার একাউন্টে ঢুকে চেক করে নিন আপনার সংযুক্ত WhatsApp নম্বরগুলো ঠিকমতো <b>অনলাইন (Online)</b> রয়েছে কিনা!\n\n🔍 <b>জরুরি চেকিং ও করণীয়:</b>\n• সাইটে লগইন করে দেখুন আপনার WhatsApp সচল আছে কিনা।\n• যদি কোনো নম্বর অফলাইন দেখায়, তবে সাথে সাথে আবার পেয়ারিং কোড দিয়ে রি-কানেক্ট করে নিন যাতে ইনকাম বন্ধ না হয়।\n• সময় যত সচল থাকবে, ২৪ ঘণ্টা পূর্ণ হয়ে প্রতি ২৪ ঘণ্টায় ৩২৳ ইনকাম ঠিক তত দ্রুত আপনার অ্যাকাউন্টে যোগ হবে!\n\n💡 এখনও যারা যুক্ত হননি, আজই আপনার WhatsApp কানেক্ট করে ঘরে বসে সহজ আয় শুরু করুন!`,
+      btnText: '🔍 WhatsApp স্ট্যাটাস চেক ও কানেক্ট করুন'
+    }),
+    (dayName, dateStr) => ({
+      text: `☀️ <b>সুপ্রভাত! আজ ${dayName}—প্রতিদিনের সহজ ইনকাম নিশ্চিত করুন</b> ☀️\n\nসম্মানিত গ্রাহকবৃন্দ,\nEarnPulse-এ প্রতিদিন নিয়মিত কাজ করে হাজারো মেম্বার বিকাশ ও নগদে টাকা উত্তোলন করছেন।\n\n⏰ <b>সকালের জরুরি টিপস:</b>\n• প্রতিদিন সাইটে এসে Daily Check-in সম্পন্ন করে ফ্রি বোনাস বুঝে নিন।\n• আপনার WhatsApp নম্বরগুলো অবিচ্ছিন্নভাবে অনলাইনে রাখুন—প্রতি ২৪ ঘণ্টায় প্রতিটি সচল নম্বরের জন্য নিশ্চিত ৳৩২.০০!\n• একাধিক নম্বর কানেক্ট থাকলে সব নম্বর থেকেই সমান্তরালভাবে টাকা জমা হবে।\n\n🚀 এখনই লগইন করুন এবং আজকের ইনকাম গতিশীল রাখুন!`,
+      btnText: '✨ Daily Check-in ও WhatsApp চেক'
+    }),
+    (dayName, dateStr) => ({
+      text: `🌤️ <b>শুভ সকাল (${dayName})! আজকের লক্ষ্য পূরণ হোক EarnPulse-এর সাথে</b> 🌤️\n\nসম্মানিত মেম্বারগণ,\nসকালের সোনালী রোদের সাথে সাথে আপনার আয়ের গতিও বাড়ুক!\n\n📱 <b>নম্বর অনলাইন রাখার সুবিধা:</b>\n• কোনো বাড়তি কাজ নেই—শুধু নম্বরটি পেয়ারিং কোড দিয়ে কানেক্ট রাখলেই ২৪ ঘণ্টার কাউন্টডাউন চলতে থাকবে।\n• সাময়িক অফলাইন হলেও পুনরায় পেয়ারিং কোড দিয়ে যুক্ত করলে আগের সময় থেকেই কাউন্ট হবে।\n• যত বেশি নম্বর কানেক্টেড থাকবে, আপনার দৈনন্দিন উইথড্রয়াল ব্যালেন্স তত দ্রুত বাড়বে।\n\n💰 দেরি না করে এখনই একাউন্ট চেক করে নিন!`,
+      btnText: '📲 একাউন্ট চেক ও নম্বর কানেক্ট করুন'
+    })
+  ],
+  afternoon: [
+    (dayName, dateStr) => ({
+      text: `🚀 <b>মেগা ধামাকা অফার: বেশি হোয়াটসঅ্যাপ, বেশি ইনকাম!</b> 🚀\n\nEarnPulse-এ আপনার আয় দ্বিগুণ ও তিনগুণ করার সেরা সুযোগ!\n\n💰 <b>১০টি হোয়াটসঅ্যাপ কানেক্ট রাখলে:</b>\n• প্রতিদিন নিশ্চিত ৩২০৳ আয় (প্রতিটিতে ৩২৳)!\n• আর প্রথমবার ২৪ ঘণ্টা পূর্ণ হলেই উপহার পাবেন <b>১,০০০ টাকার স্পেশাল ক্যাশ বক্স</b>!\n\n👥 <b>রেফারেল বোনাস:</b>\nবন্ধুকে রেফার করুন, বন্ধু ১০টি নম্বর যুক্ত রাখলে আপনিও পাবেন ১,০০০৳ মেগা বক্স!\n\n⏳ <b>রি-কানেক্ট সুবিধা:</b> সাময়িক অফলাইন হলেও পুনরায় পেয়ারিং কোড দিয়ে যুক্ত করলে আগের সময় থেকেই কাউন্ট হবে। দেরি না করে নম্বরগুলো অনলাইনে রাখুন!`,
+      btnText: '🎁 মেগা অফার ও WhatsApp কানেক্ট'
+    }),
+    (dayName, dateStr) => ({
+      text: `🔥 <b>আজ ${dayName} দুপুর: রেফার করে আনলিমিটেড আয় করুন!</b> 🔥\n\nসম্মানিত মেম্বারগণ,\nEarnPulse-এ নিজে ইনকাম করার পাশাপাশি রেফারেল টিম গড়ে তুলুন এবং প্রতিদিন অতিরিক্ত কমিশন উপভোগ করুন!\n\n👥 <b>টিম ইনকামের সুবিধা:</b>\n• আপনার ইনভাইট কোড দিয়ে বন্ধুদের জয়েন করান।\n• প্রতি সচল আমন্ত্রিত বন্ধুর জন্য রয়েছে নিশ্চিত ক্যাশ রিওয়ার্ড।\n• বন্ধু যত নম্বর কানেক্ট রাখবে, আপনার কমিশন তত দ্রুত অ্যাকাউন্টে জমা হবে!\n\n🎯 আপনার ইনভাইট লিংক শেয়ার করুন ফেসবুক, টেলিগ্রাম ও হোয়াটসঅ্যাপে!`,
+      btnText: '👥 রেফারেল লিংক নিন ও শেয়ার করুন'
+    }),
+    (dayName, dateStr) => ({
+      text: `⚡ <b>দুপুরের স্পেশাল গাইড: কীভাবে আয় সর্বোচ্চ করবেন?</b> ⚡\n\nসম্মানিত গ্রাহকবৃন্দ,\nআপনার কি অতিরিক্ত সিম বা বাড়তি কোনো হোয়াটসঅ্যাপ নম্বর রয়েছে? অলস পড়ে থাকা নম্বরগুলোকেই বানিয়ে নিন আয়ের উৎস!\n\n📌 <b>৩টি সহজ নিয়ম:</b>\n১. সাইট থেকে ৮ ডিজিটের পেয়ারিং কোড নিন।\n২. হোয়াটসঅ্যাপের Linked Devices-এ গিয়ে কোডটি বসিয়ে কানেক্ট করুন।\n৩. ২৪ ঘণ্টা পার হলেই স্বয়ংক্রিয়ভাবে ৳৩২.০০ ব্যালেন্সে জমা হবে এবং পরবর্তী ২৪ ঘণ্টার সাইকেল শুরু হবে!\n\n💸 অল্প সময় দিন, নিয়মিত বিকাশ/নগদে ক্যাশআউট নিন!`,
+      btnText: '⚡ এখনই নতুন নম্বর যোগ করুন'
+    })
+  ],
+  night: [
+    (dayName, dateStr) => ({
+      text: `⚡ <b>উইথড্র ও ডেইলি ইনকাম নাইট আপডেট (${dayName})</b> ⚡\n\nসম্মানিত মেম্বারগণ,\nমেম্বারদের সকল উইথড্র রিকোয়েস্ট অত্যন্ত দ্রুততার সাথে বিকাশ ও নগদ-এ সফলভাবে সম্পন্ন করা হচ্ছে! আপনারা যারা নিয়ম মেনে কাজ করছেন তারা সম্পূর্ণ নিশ্চিন্তে নিয়মিত কাজ চালিয়ে যান।\n\n🌙 <b>রাতের বিশেষ রিমাইন্ডার:</b>\nঘুমানোর আগে একবার দেখে নিন আপনার WhatsApp অনলাইন আছে কিনা। রাতে কানেক্টেড থাকলে ব্যাকগ্রাউন্ডে পুরো সময় কাউন্ট হবে এবং সকালে উঠেই ইনকাম ব্যালেন্স দেখতে পাবেন!\n\n🔒 নিরাপদ প্ল্যাটফর্ম • দ্রুত পেমেন্ট • ১০০% বিশ্বস্ত`,
+      btnText: '🌐 ব্যালেন্স চেক ও উত্তোলন করুন'
+    }),
+    (dayName, dateStr) => ({
+      text: `🌙 <b>শুভ রাত্রি! ঘুমানোর সময়ও আপনার ইনকাম সচল থাকুক</b> 🌙\n\nসম্মানিত মেম্বারগণ,\nEarnPulse-এর সবচেয়ে চমৎকার সুবিধা হলো আপনি যখন ঘুমাচ্ছেন, আপনার ব্যাকগ্রাউন্ড টাইমার কিন্তু তখনও ইনকাম তৈরি করছে!\n\n🛌 <b>ঘুমানোর আগের ছোট্ট চেক:</b>\n• ফোনের ডেটা বা ওয়াইফাই সচল রাখুন।\n• একাউন্টে ঢুকে নিশ্চিত হয়ে নিন হোয়াটসঅ্যাপ নম্বরগুলো ‘Online’ দেখাচ্ছে।\n• সকালে ঘুম থেকে উঠেই দেখতে পাবেন আপনার অ্যাকাউন্টে টাকা জমা হয়ে গেছে!\n\n💰 ১০০% সফল পেমেন্ট ও বিশ্বস্ত প্ল্যাটফর্ম। শুভ রাত্রি!`,
+      btnText: '🌙 স্ট্যাটাস চেক করে নিশ্চিন্তে ঘুমান'
+    }),
+    (dayName, dateStr) => ({
+      text: `🏆 <b>আজকের সারাদিনের সফল উইথড্র ও অভিনন্দন (${dayName})!</b> 🏆\n\nআজকের দিনে অসংখ্য মেম্বার সফলভাবে বিকাশ ও নগদে উত্তোলন পেয়েছেন। সকল পরিশ্রমী মেম্বারদের আন্তরিক অভিনন্দন!\n\n💎 <b>আমাদের নিশ্চয়তা:</b>\n• প্রতিটি উইথড্রয়াল আবেদন অ্যাডমিন টিম সর্বোচ্চ দ্রুততায় যাচাই ও সম্পন্ন করছে।\n• কোনো ভুয়া চার্জ বা হিডেন ফি নেই।\n• সর্বনিম্ন উত্তোলনের পরিমাণ পূরণ হলেই সরাসরি এক ক্লিকে ক্যাশআউট রিকোয়েস্ট দিন।\n\n🌟 কালকে আরও বড় আয়ের প্রস্তুতি নিতে এখনই আপনার নম্বরগুলো সক্রিয় রাখুন!`,
+      btnText: '💵 আমার ব্যালেন্স ও হিস্ট্রি দেখুন'
+    })
+  ]
 };
 
 let isPostingTelegram = false;
@@ -70,7 +102,7 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
     currentSlot = 'night';
   }
 
-  if (forceKey && DAILY_POSTS[forceKey]) {
+  if (forceKey && DAILY_POST_TEMPLATES[forceKey]) {
     currentSlot = forceKey;
   }
 
@@ -79,8 +111,10 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
     return { success: true, msg: `Outside allowed posting hours (BD hour ${bdHour}:00). Allowed slots: Morning (8-12), Afternoon (13-18), Night (19-23).` };
   }
 
-  // BD Date YYYY-MM-DD
-  const bdDateStr = new Date(now.getTime() + 6 * 3600 * 1000).toISOString().slice(0, 10);
+  // BD Date YYYY-MM-DD & Day Name
+  const nowBd = new Date(now.getTime() + 6 * 3600 * 1000);
+  const bdDateStr = nowBd.toISOString().slice(0, 10);
+  const dayName = BENGALI_DAYS[nowBd.getDay()] || 'দিন';
   const slotKey = `${bdDateStr}_${currentSlot}`;
 
   // Direct MongoDB Atlas Lock Check across all serverless instances
@@ -108,7 +142,13 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
 
   isPostingTelegram = true;
   try {
-    const post = DAILY_POSTS[currentSlot];
+    const templates = DAILY_POST_TEMPLATES[currentSlot];
+    if (!templates || templates.length === 0) return null;
+
+    // Rotate template based on day of week so no two consecutive days send the exact same text!
+    const dayIndex = nowBd.getDay();
+    const templateFn = templates[dayIndex % templates.length];
+    const post = templateFn(dayName, bdDateStr);
     if (!post) return null;
 
     const botToken = process.env.TELEGRAM_BOT_TOKEN || '8330333862:AAGY_NVccTwooCk2fTQ2aiuKxC2Fe7lRieU';
@@ -876,7 +916,11 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   res.setHeader('Expires', '0');
 
   db.read();
-  let user = db.get('users').find({ id: req.user.id }).value();
+  const reqUidNum = Number(req.user.id);
+  const reqUidStr = String(req.user.id);
+  const reqUname = req.user.username ? String(req.user.username).trim() : '';
+
+  let user = db.get('users').find(u => u && (u.id === reqUidNum || String(u.id) === reqUidStr || (reqUname && u.username === reqUname))).value();
   if (!user && db.syncFromCloud) {
     try {
       await Promise.race([
@@ -884,12 +928,13 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
         new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))
       ]);
       db.read();
-      user = db.get('users').find({ id: req.user.id }).value();
+      user = db.get('users').find(u => u && (u.id === reqUidNum || String(u.id) === reqUidStr || (reqUname && u.username === reqUname))).value();
     } catch (e) {}
   } else if (db.syncFromCloud) {
     db.syncFromCloud().catch(() => {});
   }
   syncOfficialEarnBondhuSettlements().catch(() => {});
+  checkAndSendAutoTelegramPost().catch(() => {});
   if (!user) return res.status(404).json({ success: false, msg: 'User not found' });
 
   // 🛡️ Ensure duplicate-corrected balance for 01356690484 is strictly locked at 148
@@ -1789,6 +1834,8 @@ app.get('/api/config', async (req, res) => {
   if (db.syncFromCloud) {
     db.syncFromCloud().catch(() => {});
   }
+  // Passive check for telegram daily post
+  checkAndSendAutoTelegramPost().catch(() => {});
   db.read();
   const config = db.get('system_config').value() || {};
   const ratio = getRewardRatio();
@@ -1827,7 +1874,11 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
 
   // ক্লাউড ডেটাবেজ চেক (যদি মেমরিতে ইউজার পাওয়া না যায় তবেই ক্লাউড থেকে ফেচ করবে, যাতে রেসপন্স দ্রুত হয়)
   db.read();
-  let user = db.get('users').find({ id: req.user.id }).value();
+  const numUserId = Number(req.user.id);
+  const strUserId = String(req.user.id);
+  const userUName = req.user.username ? String(req.user.username).trim() : '';
+
+  let user = db.get('users').find(u => u && (u.id === numUserId || String(u.id) === strUserId || (userUName && u.username === userUName))).value();
   if (!user && db.syncFromCloud) {
     try {
       await Promise.race([
@@ -1835,14 +1886,19 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
         new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
       ]);
       db.read();
-      user = db.get('users').find({ id: req.user.id }).value();
+      user = db.get('users').find(u => u && (u.id === numUserId || String(u.id) === strUserId || (userUName && u.username === userUName))).value();
     } catch (e) {}
   }
 
   // পূর্ববর্তী কোনো উত্তোলন এখনও অপেক্ষমান (pending) থাকলে নতুন আবেদন নেওয়া হবে না
-  const activePending = db.get('withdrawals')
-    .filter({ user_id: req.user.id, status: 'pending' })
-    .value() || [];
+  const activePending = (db.get('withdrawals').value() || [])
+    .filter(w => w && (
+      w.status === 'pending' && (
+        w.user_id === numUserId || 
+        String(w.user_id) === strUserId || 
+        (userUName && w.username === userUName)
+      )
+    ));
   if (activePending.length > 0) {
     return res.status(400).json({
       success: false,
@@ -1850,7 +1906,6 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     });
   }
 
-  const user = db.get('users').find({ id: req.user.id }).value();
   if (!user || Number(user.balance || 0) < withdrawAmount) {
     return res.status(400).json({ success: false, msg: 'আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই' });
   }
@@ -1858,8 +1913,6 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   // Deduct user balance & add to total_withdrawn (তাৎক্ষণিক উত্তোলনে স্থানান্তর)
   const updatedBalance = parseFloat(Math.max(0, Number(user.balance || 0) - withdrawAmount).toFixed(2));
   const updatedTotalWithdrawn = parseFloat(((Number(user.total_withdrawn) || 0) + withdrawAmount).toFixed(2));
-  const numUserId = Number(req.user.id);
-  const strUserId = String(req.user.id);
 
   db.get('users')
     .find(u => u && (u.id === numUserId || String(u.id) === strUserId || u.username === user.username))
@@ -2448,13 +2501,24 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
 
   let refundedUser = null;
   let refundLog = null;
+  const targetUidNum = Number(withdraw.user_id);
+  const targetUidStr = String(withdraw.user_id);
+  const targetUName = withdraw.username ? String(withdraw.username).trim() : '';
 
   // If rejected, refund balance to user
   if (status === 'rejected') {
-    const user = db.get('users').find({ id: withdraw.user_id }).value();
+    const refundAmt = Number(withdraw.amount) || 0;
+    const user = (db.get('users').value() || []).find(u => 
+      u && (
+        u.id === targetUidNum || 
+        String(u.id) === targetUidStr || 
+        (targetUName && u.username === targetUName)
+      )
+    );
+
     if (user) {
-      const newBal = parseFloat(((user.balance || 0) + withdraw.amount).toFixed(2));
-      const newWithdrawn = parseFloat(Math.max(0, (user.total_withdrawn || 0) - withdraw.amount).toFixed(2));
+      const newBal = parseFloat(((Number(user.balance) || 0) + refundAmt).toFixed(2));
+      const newWithdrawn = parseFloat(Math.max(0, (Number(user.total_withdrawn) || 0) - refundAmt).toFixed(2));
 
       refundedUser = {
         ...user,
@@ -2463,7 +2527,7 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
       };
 
       db.get('users')
-        .find({ id: withdraw.user_id })
+        .find(u => u && (u.id === user.id || String(u.id) === String(user.id) || (user.username && u.username === user.username)))
         .assign({
           balance: newBal,
           total_withdrawn: newWithdrawn
@@ -2473,9 +2537,11 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
       // Log transaction for refund
       refundLog = {
         id: Date.now(),
-        user_id: withdraw.user_id,
+        user_id: user.id,
+        username: user.username,
         type: 'withdraw_refund',
-        amount: withdraw.amount,
+        amount: refundAmt,
+        gross_amount: refundAmt,
         description: `উত্তোলন বাতিলজনিত রিফান্ড (আইডি #${withdraw.id})`,
         created_at: nowIso
       };
@@ -2484,47 +2550,41 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
     }
   }
 
-  // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে সুপার-ফাস্ট প্যারালাল অ্যাটমিক আপডেট
+  // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে একক অ্যাটমিক ট্রানজ্যাকশন আপডেট (status, user balance & refundLog simultaneously)
   if (db.getMongoDb) {
     try {
       const mdb = await db.getMongoDb();
       if (mdb) {
-        const updateTasks = [
-          mdb.collection('app_state').updateOne(
-            { _id: 'earnpulse_store' },
-            { 
-              $set: { 
-                'data.withdrawals.$[w].status': status,
-                'data.withdrawals.$[w].admin_note': adminNote || '',
-                'data.withdrawals.$[w].processed_at': nowIso,
-                updated_at: new Date()
-              } 
-            },
-            {
-              arrayFilters: [{ '$or': [{ 'w.id': id }, { 'w.id': idStr }, { 'w.id': Number(id) }] }]
-            }
-          )
+        const updateDoc = {
+          $set: {
+            'data.withdrawals.$[w].status': status,
+            'data.withdrawals.$[w].admin_note': adminNote || '',
+            'data.withdrawals.$[w].processed_at': nowIso,
+            updated_at: new Date()
+          }
+        };
+        const arrayFilters = [
+          { '$or': [{ 'w.id': id }, { 'w.id': idStr }, { 'w.id': Number(id) }] }
         ];
 
         if (status === 'rejected' && refundedUser && refundLog) {
-          updateTasks.push(
-            mdb.collection('app_state').updateOne(
-              { _id: 'earnpulse_store', 'data.users.id': withdraw.user_id },
-              { 
-                $set: { 
-                  'data.users.$.balance': refundedUser.balance,
-                  'data.users.$.total_withdrawn': refundedUser.total_withdrawn,
-                  updated_at: new Date()
-                },
-                $push: {
-                  'data.earnings_log': refundLog
-                }
-              }
-            )
-          );
+          updateDoc.$set['data.users.$[u].balance'] = refundedUser.balance;
+          updateDoc.$set['data.users.$[u].total_withdrawn'] = refundedUser.total_withdrawn;
+          updateDoc.$push = { 'data.earnings_log': refundLog };
+          arrayFilters.push({
+            '$or': [
+              { 'u.id': targetUidNum },
+              { 'u.id': targetUidStr },
+              { 'u.username': refundedUser.username }
+            ]
+          });
         }
 
-        await Promise.all(updateTasks);
+        await mdb.collection('app_state').updateOne(
+          { _id: 'earnpulse_store' },
+          updateDoc,
+          { arrayFilters }
+        );
       }
     } catch (e) {
       console.error('❌ Direct Atlas withdrawal status update error:', e.message);
@@ -2532,7 +2592,7 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
   }
 
   if (db.syncToCloud) {
-    db.syncToCloud(true).catch(() => {});
+    await db.syncToCloud(true).catch(() => {});
   }
 
   return res.json({

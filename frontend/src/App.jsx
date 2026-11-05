@@ -924,12 +924,18 @@ export default function App() {
       const data = await res.json();
       if (data && data.success) {
         if (data.newBalance !== undefined) {
-          setUser(prev => prev ? {
-            ...prev,
-            balance: Number(data.newBalance),
-            totalWithdrawn: (Number(prev.totalWithdrawn) || 0) + parsedAmount,
-            total_withdrawn: (Number(prev.total_withdrawn) || 0) + parsedAmount
-          } : prev);
+          const freshBalance = Number(data.newBalance);
+          const freshWithdrawn = (Number(user?.totalWithdrawn || user?.total_withdrawn) || 0) + parsedAmount;
+          setUser(prev => {
+            const updated = prev ? {
+              ...prev,
+              balance: freshBalance,
+              totalWithdrawn: freshWithdrawn,
+              total_withdrawn: freshWithdrawn
+            } : prev;
+            try { localStorage.setItem('user', JSON.stringify(updated)); } catch (e) {}
+            return updated;
+          });
         }
         if (data.withdrawal) {
           setWithdrawHistory(prev => [data.withdrawal, ...(prev || [])]);
@@ -938,8 +944,10 @@ export default function App() {
         setWithdrawAccount('');
         setWithdrawMsg('');
         setShowWithdrawModal(false);
-        fetchWithdrawHistory();
-        fetchUserData(true);
+        // Do NOT call fetchUserData(true) immediately to avoid race condition with stale serverless cache!
+        setTimeout(() => {
+          fetchWithdrawHistory();
+        }, 1200);
         showAlert(
           data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে! অ্যাডমিন কিছুক্ষণের মধ্যে পর্যালোচনা করে পেমেন্ট করবে।' : 'Withdrawal request submitted!'),
           lang === 'bn' ? 'উত্তোলন সফল হয়েছে!' : 'Withdrawal Submitted!',
