@@ -269,6 +269,10 @@ export default function App() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedTutorialImg, setSelectedTutorialImg] = useState(null);
 
+  // Custom Premium In-App Dialog State (Replaces native browser alert with zero URL headers)
+  const [customAlert, setCustomAlert] = useState(null);
+  const showAlert = (msg, title = '', type = 'success') => setCustomAlert({ msg, title, type });
+
   // Withdraw State
   const [showNoticeModal, setShowNoticeModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
@@ -347,11 +351,11 @@ export default function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      alert(data.msg || (lang === 'bn' ? 'চেক-ইন প্রক্রিয়া সম্পন্ন' : 'Check-in processed'));
+      showAlert(data.msg || (lang === 'bn' ? 'চেক-ইন প্রক্রিয়া সম্পন্ন' : 'Check-in processed'), lang === 'bn' ? 'দৈনিক চেক-ইন' : 'Daily Check-in', 'success');
       await fetchCheckInStatus();
       await fetchUserData();
     } catch (e) {
-      alert(lang === 'bn' ? 'চেক-ইন ব্যর্থ হয়েছে' : 'Check-in failed');
+      showAlert(lang === 'bn' ? 'চেক-ইন ব্যর্থ হয়েছে' : 'Check-in failed', lang === 'bn' ? 'ত্রুটি' : 'Error', 'error');
     } finally {
       setCheckInSubmitting(false);
     }
@@ -453,7 +457,7 @@ export default function App() {
   const isAnyModalOpen = Boolean(
     showNoticeModal || showOfferModal || showTelegramModal || showWithdrawModal || showWithdrawHistoryModal || 
     showShareModal || showTransactionsModal || showTeamModal || 
-    showChangePwdModal || showVideoModal || showLangModal || selectedTutorialImg
+    showChangePwdModal || showVideoModal || showLangModal || selectedTutorialImg || customAlert
   );
   const wasModalOpenRef = React.useRef(false);
 
@@ -693,7 +697,7 @@ export default function App() {
       interval = setInterval(async () => {
         if (typeof document !== 'undefined' && document.hidden) return;
         pollCount++;
-        if (pollCount > 24) { // Max 2 minutes auto-poll to protect server CPU quota
+        if (pollCount > 50) { // Max 100 seconds auto-poll during pairing
           if (interval) clearInterval(interval);
           return;
         }
@@ -725,7 +729,16 @@ export default function App() {
               setConnectionSuccess(true);
               setActivePairingCode('');
               setInputPhone('');
+              setLinkedNumbers(onlineList);
+              localStorage.setItem('cached_linked_numbers', JSON.stringify(onlineList));
               fetchUserData(true);
+              showAlert(
+                lang === 'bn' 
+                  ? 'আপনার হোয়াটসঅ্যাপ নম্বরটি সফলভাবে কানেক্ট হয়েছে! প্রতি ২৪ ঘণ্টা অনলাইন রাখলে নিশ্চিত ৳৩২.০০ বোনাস পাবেন।' 
+                  : 'WhatsApp connected successfully!',
+                lang === 'bn' ? 'হোয়াটসঅ্যাপ সংযুক্ত!' : 'WhatsApp Connected!',
+                'success'
+              );
               // Automatically hide success notification after 7 seconds
               setTimeout(() => {
                 setConnectionSuccess(false);
@@ -733,7 +746,7 @@ export default function App() {
             }
           }
         } catch (e) {}
-      }, 5000); // Check every 5 seconds (smooth & CPU-efficient)
+      }, 2000); // Check every 2 seconds for ultra-fast instant detection!
     }
 
     return () => {
@@ -869,10 +882,10 @@ export default function App() {
             ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
             : 'Server is temporarily busy. Please try again in 5-10 seconds.';
         }
-        alert(errorMsg);
+        showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
       }
     } catch (err) {
-      alert(lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.');
+      showAlert(lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.', lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error', 'error');
     } finally {
       setPairingLoading(false);
     }
@@ -927,7 +940,11 @@ export default function App() {
         setShowWithdrawModal(false);
         fetchWithdrawHistory();
         fetchUserData(true);
-        alert(data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে!' : 'Withdrawal request submitted!'));
+        showAlert(
+          data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে! অ্যাডমিন কিছুক্ষণের মধ্যে পর্যালোচনা করে পেমেন্ট করবে।' : 'Withdrawal request submitted!'),
+          lang === 'bn' ? 'উত্তোলন সফল হয়েছে!' : 'Withdrawal Submitted!',
+          'success'
+        );
       } else {
         setWithdrawMsg(data?.msg || (lang === 'bn' ? 'উত্তোলন ব্যর্থ হয়েছে' : 'Withdrawal failed'));
       }
@@ -1261,7 +1278,7 @@ export default function App() {
                 </label>
 
                 <span 
-                  onClick={() => alert(lang === 'bn' ? 'পাসওয়ার্ড রিসেট করতে অনলাইন সাপোর্টে যোগাযোগ করুন' : 'Contact support to reset password')}
+                  onClick={() => showAlert(lang === 'bn' ? 'পাসওয়ার্ড রিসেট করতে অনলাইন সাপোর্টে যোগাযোগ করুন' : 'Contact support to reset password', lang === 'bn' ? 'পাসওয়ার্ড রিসেট' : 'Reset Password', 'info')}
                   style={{ color: '#15803d', fontWeight: '500', cursor: 'pointer' }}
                 >
                   {lang === 'bn' ? 'পাসওয়ার্ড ভুলে গেছেন' : 'Forgot Password'}
@@ -3415,7 +3432,7 @@ export default function App() {
                   } else {
                     window.location.href = 'imo://';
                     setTimeout(() => {
-                      alert(lang === 'bn' ? 'আমন্ত্রণ লিংক কপি হয়েছে! IMO অ্যাপে বন্ধুদের পেস্ট করে পাঠান।' : 'Link copied! Paste and share with IMO friends.');
+                      showAlert(lang === 'bn' ? 'আমন্ত্রণ লিংক কপি হয়েছে! IMO অ্যাপে বন্ধুদের পেস্ট করে পাঠান।' : 'Link copied! Paste and share with IMO friends.', lang === 'bn' ? 'লিংক কপি হয়েছে' : 'Link Copied', 'success');
                     }, 500);
                   }
                 }}
@@ -4884,6 +4901,74 @@ export default function App() {
                 );
               })()}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 10.7 PREMIUM CUSTOM IN-APP ALERT MODAL (ব্রাউজার অ্যালার্টের মতো উপরে কোনো সাইট অ্যাড্রেস থাকবে না) */}
+      {customAlert && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px',
+          animation: 'vipModalFadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            padding: '26px 20px 20px',
+            maxWidth: '340px',
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
+            border: '1px solid #f1f5f9',
+            animation: 'vipModalZoom 0.25s ease-out'
+          }}>
+            <div style={{
+              width: '64px', height: '64px',
+              borderRadius: '50%',
+              background: customAlert.type === 'error' ? 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)' : (customAlert.type === 'info' ? 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)' : 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)'),
+              color: customAlert.type === 'error' ? '#dc2626' : (customAlert.type === 'info' ? '#0284c7' : '#16a34a'),
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+              fontSize: '30px',
+              boxShadow: customAlert.type === 'error' ? '0 8px 20px rgba(239, 68, 68, 0.25)' : '0 8px 20px rgba(34, 197, 94, 0.25)'
+            }}>
+              {customAlert.type === 'error' ? '⚠️' : (customAlert.type === 'info' ? 'ℹ️' : '✓')}
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a', margin: '0 0 10px' }}>
+              {customAlert.title || (customAlert.type === 'error' ? (lang === 'bn' ? 'সতর্কতা' : 'Notice') : (lang === 'bn' ? 'সফল হয়েছে!' : 'Success!'))}
+            </h3>
+
+            <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.5', margin: '0 0 22px', wordBreak: 'break-word' }}>
+              {customAlert.msg}
+            </p>
+
+            <button
+              onClick={() => setCustomAlert(null)}
+              style={{
+                width: '100%',
+                padding: '13px',
+                borderRadius: '14px',
+                border: 'none',
+                background: customAlert.type === 'error'
+                  ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                  : (customAlert.type === 'info' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'),
+                color: '#ffffff',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: customAlert.type === 'error' ? '0 4px 14px rgba(220, 38, 38, 0.35)' : '0 4px 14px rgba(22, 163, 74, 0.35)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {lang === 'bn' ? 'ঠিক আছে' : 'OK'}
+            </button>
           </div>
         </div>
       )}

@@ -968,7 +968,8 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   
   // Real check with target server
   try {
-    const forceRefresh = req.query.fresh === '1' || req.query.fresh === 'true';
+    const isWaitingPhone = Boolean(req.query.waiting_phone);
+    const forceRefresh = isWaitingPhone || req.query.fresh === '1' || req.query.fresh === 'true';
     const [ebAccounts, wsStatusList] = await Promise.all([
       bridge.fetchAccountList(forceRefresh),
       bridge.fetchWsOnlineStatusList(forceRefresh)
@@ -1824,16 +1825,19 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, msg: 'পেমেন্ট মেথড এবং অ্যাকাউন্ট নম্বর প্রদান করুন' });
   }
 
-  // সর্বদা ক্লাউড থেকে সর্বশেষ লাইভ ব্যালেন্স ও হিস্ট্রি রিড করুন
-  if (db.syncFromCloud) {
+  // ক্লাউড ডেটাবেজ চেক (যদি মেমরিতে ইউজার পাওয়া না যায় তবেই ক্লাউড থেকে ফেচ করবে, যাতে রেসপন্স দ্রুত হয়)
+  db.read();
+  let user = db.get('users').find({ id: req.user.id }).value();
+  if (!user && db.syncFromCloud) {
     try {
       await Promise.race([
         db.syncFromCloud(true),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2500))
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
       ]);
+      db.read();
+      user = db.get('users').find({ id: req.user.id }).value();
     } catch (e) {}
   }
-  db.read();
 
   // পূর্ববর্তী কোনো উত্তোলন এখনও অপেক্ষমান (pending) থাকলে নতুন আবেদন নেওয়া হবে না
   const activePending = db.get('withdrawals')
@@ -1932,7 +1936,7 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   }
 
   if (db.syncToCloud) {
-    try { await db.syncToCloud(true); } catch (e) {}
+    db.syncToCloud().catch(() => {});
   }
 
   return res.json({
