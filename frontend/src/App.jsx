@@ -918,10 +918,14 @@ export default function App() {
             total_withdrawn: (Number(prev.total_withdrawn) || 0) + parsedAmount
           } : prev);
         }
+        if (data.withdrawal) {
+          setWithdrawHistory(prev => [data.withdrawal, ...(prev || [])]);
+        }
         setWithdrawAmount('');
         setWithdrawAccount('');
         setWithdrawMsg('');
         setShowWithdrawModal(false);
+        fetchWithdrawHistory();
         fetchUserData(true);
         alert(data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে!' : 'Withdrawal request submitted!'));
       } else {

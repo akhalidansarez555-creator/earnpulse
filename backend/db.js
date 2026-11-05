@@ -220,7 +220,7 @@ async function _performSyncFromCloud() {
               const uClean = String(userItem.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const userWList = doc.data.withdrawals.filter(w => 
                 w && (
-                  w.user_id === userItem.id || 
+                  String(w.user_id) === String(userItem.id) || 
                   String(w.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim() === uClean
                 )
               );
@@ -361,8 +361,8 @@ async function _performSyncToCloud() {
             const uPhoneClean = String(u.username || key).replace(/^\+?880/, '').replace(/^0+/, '').trim();
             const memberWList = currentState.withdrawals.filter(w => 
               w && (
-                w.user_id === u.id || 
-                (existingU && w.user_id === existingU.id) || 
+                String(w.user_id) === String(u.id) || 
+                (existingU && String(w.user_id) === String(existingU.id)) || 
                 String(w.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim() === uPhoneClean
               )
             );

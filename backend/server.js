@@ -1254,17 +1254,17 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
     let activeSecInCycle = unSettle;
 
-    if (n.status === 'online' && n.last_settle_time) {
+    const settleDateStr = n.last_settle_time || n.login_date || n.create_time;
+    if (n.status === 'online' && settleDateStr) {
       const nowSec = Math.floor(Date.now() / 1000);
-      const sStr = n.last_settle_time;
       let sTimestamp = nowSec;
-      if (sStr) {
-        sTimestamp = sStr.includes('T')
-          ? Math.floor(new Date(sStr).getTime() / 1000)
-          : Math.floor(new Date(sStr.replace(' ', 'T') + '+06:00').getTime() / 1000);
+      if (settleDateStr) {
+        sTimestamp = settleDateStr.includes('T')
+          ? Math.floor(new Date(settleDateStr).getTime() / 1000)
+          : Math.floor(new Date(settleDateStr.replace(' ', 'T') + '+06:00').getTime() / 1000);
       }
       const elapsed = nowSec - sTimestamp;
-      if (elapsed > 0 && elapsed <= 86400) {
+      if (elapsed > 0) {
         activeSecInCycle = activeSecInCycle + elapsed;
       }
     }
@@ -1854,9 +1854,11 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   // Deduct user balance & add to total_withdrawn (তাৎক্ষণিক উত্তোলনে স্থানান্তর)
   const updatedBalance = parseFloat(Math.max(0, Number(user.balance || 0) - withdrawAmount).toFixed(2));
   const updatedTotalWithdrawn = parseFloat(((Number(user.total_withdrawn) || 0) + withdrawAmount).toFixed(2));
+  const numUserId = Number(req.user.id);
+  const strUserId = String(req.user.id);
 
   db.get('users')
-    .find({ id: req.user.id })
+    .find(u => u && (u.id === numUserId || String(u.id) === strUserId || u.username === user.username))
     .assign({
       balance: updatedBalance,
       total_withdrawn: updatedTotalWithdrawn
@@ -1867,7 +1869,7 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   const nowIso = new Date().toISOString();
   const newWithdraw = {
     id: withdrawId,
-    user_id: req.user.id,
+    user_id: numUserId || req.user.id,
     username: user.username,
     amount: withdrawAmount,
     method, // 'bkash', 'nagad', 'rocket'
@@ -1878,6 +1880,19 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   };
 
   db.get('withdrawals').push(newWithdraw);
+
+  // Also push to earnings_log so it immediately appears in Transaction History!
+  const newLog = {
+    id: withdrawId + 1,
+    user_id: numUserId || req.user.id,
+    username: user.username,
+    type: 'withdraw',
+    amount: -withdrawAmount,
+    status: 'pending',
+    description: `উত্তোলন আবেদন (${method.toUpperCase()}: ${accountNumber})`,
+    created_at: nowIso
+  };
+  db.get('earnings_log').push(newLog);
   db.write();
 
   // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট অ্যাটমিক রাইট
@@ -1888,14 +1903,27 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
         await mdb.collection('app_state').updateOne(
           { _id: 'earnpulse_store' },
           { 
-            $push: { 'data.withdrawals': newWithdraw },
+            $push: { 
+              'data.withdrawals': newWithdraw,
+              'data.earnings_log': newLog
+            },
             $set: { 
               'data.users.$[u].balance': updatedBalance,
               'data.users.$[u].total_withdrawn': updatedTotalWithdrawn,
               updated_at: new Date()
             } 
           },
-          { arrayFilters: [{ 'u.id': req.user.id }] }
+          { 
+            arrayFilters: [
+              { 
+                $or: [
+                  { 'u.id': numUserId },
+                  { 'u.id': strUserId },
+                  { 'u.username': user.username }
+                ] 
+              }
+            ] 
+          }
         );
       }
     } catch (e) {
@@ -1958,7 +1986,7 @@ app.get('/api/user/transactions', authenticateToken, async (req, res) => {
       l.user_id === userId ||
       String(l.user_id) === String(userId) ||
       (username && (l.username === username || l.phone === username))
-    ) && l.type !== 'withdraw')
+    ))
     .sort((a, b) => (b.id || 0) - (a.id || 0));
 
   const withdrawals = (db.get('withdrawals').value() || [])

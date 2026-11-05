@@ -231,9 +231,9 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
     };
   }
 
-  // Pre-check: if this phone number is already online on EarnBondhu, return success immediately!
+  // Instant pre-check: if this phone number is already known to be online from cache, return immediately!
   try {
-    const wsCheck = await fetchWsOnlineStatusList();
+    const wsCheck = getCachedWsStatusList();
     const isActuallyOnline = (wsCheck || []).some(w => {
       const wClean = String(w.wsNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
       return (wClean === cleanPhone || cleanPhone.endsWith(wClean) || wClean.endsWith(cleanPhone)) &&
