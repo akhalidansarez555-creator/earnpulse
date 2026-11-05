@@ -370,17 +370,18 @@ export default function App() {
   const [copied, setCopied] = useState(false);
 
 
-  // Live Random Withdraw Ticker State (200 থেকে 10000 টাকার মধ্যে প্রতি ৩.৫ সেকেন্ড পর পর পরিবর্তন)
+  // Live Random Withdraw & Mega Bonus Ticker State
   const [tickerNotification, setTickerNotification] = useState({
     user: '88017******9809',
-    amount: '200.00'
+    amount: '1000.00',
+    isBonus: true
   });
 
   useEffect(() => {
     const prefixes = ['017', '018', '019', '016', '013', '014', '015'];
     
     const interval = setInterval(() => {
-      const isEmail = Math.random() < 0.25;
+      const isEmail = Math.random() < 0.20;
       let displayUser = '';
 
       if (isEmail) {
@@ -393,22 +394,29 @@ export default function App() {
         displayUser = `88${prefix}******${lastDigits}`;
       }
 
+      const isBonus = Math.random() < 0.28; // 28% chance to celebrate 10-WA Mega Bonus!
       let randAmount = 200;
-      const roll = Math.random();
-      if (roll < 0.65) {
-        const options = [200, 300, 350, 450, 500, 600, 750, 800, 1000];
-        randAmount = options[Math.floor(Math.random() * options.length)];
-      } else if (roll < 0.90) {
-        const options = [1200, 1500, 1800, 2000, 2500, 3000, 3500];
-        randAmount = options[Math.floor(Math.random() * options.length)];
+
+      if (isBonus) {
+        randAmount = 1000;
       } else {
-        const options = [4500, 5000, 6500, 7500, 8500, 10000];
-        randAmount = options[Math.floor(Math.random() * options.length)];
+        const roll = Math.random();
+        if (roll < 0.65) {
+          const options = [200, 300, 350, 450, 500, 600, 750, 800];
+          randAmount = options[Math.floor(Math.random() * options.length)];
+        } else if (roll < 0.90) {
+          const options = [1200, 1500, 1800, 2000, 2500, 3000];
+          randAmount = options[Math.floor(Math.random() * options.length)];
+        } else {
+          const options = [3500, 5000, 6500, 8000];
+          randAmount = options[Math.floor(Math.random() * options.length)];
+        }
       }
 
       setTickerNotification({
         user: displayUser,
-        amount: randAmount.toFixed(2)
+        amount: randAmount.toFixed(2),
+        isBonus
       });
     }, 3500);
 
@@ -1562,13 +1570,84 @@ export default function App() {
                   <TrendingUp size={15} color="#15803d" />
                 </div>
                 <div style={{ fontSize: '12px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  <span style={{ fontWeight: '600', color: '#0f172a' }}>{tickerNotification.user}</span> {lang === 'bn' ? 'সফলভাবে উত্তোলন করেছেন' : 'successfully withdrew'}
+                  <span style={{ fontWeight: '600', color: '#0f172a' }}>{tickerNotification.user}</span> {tickerNotification.isBonus ? (lang === 'bn' ? '১০টি WhatsApp কানেক্টে মেগা বোনাস পেয়েছেন' : 'got 10-WA Mega Bonus') : (lang === 'bn' ? 'সফলভাবে উত্তোলন করেছেন' : 'successfully withdrew')}
                 </div>
               </div>
-              <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#15803d', flexShrink: 0, paddingLeft: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 'bold', color: tickerNotification.isBonus ? '#d97706' : '#15803d', flexShrink: 0, paddingLeft: '8px' }}>
                 ৳ {tickerNotification.amount}
               </div>
             </div>
+
+            {/* Mega Bonus 10-WhatsApp Interactive Progress Card */}
+            {(() => {
+              const currentCount = (linkedNumbers || []).length;
+              const targetCount = 10;
+              const pct = Math.min(100, Math.round((currentCount / targetCount) * 100));
+              const remaining = Math.max(0, targetCount - currentCount);
+
+              return (
+                <div 
+                  onClick={() => setShowOfferModal(true)}
+                  style={{
+                    background: 'linear-gradient(135deg, #064e3b 0%, #022c22 45%, #0f172a 100%)',
+                    borderRadius: '16px',
+                    padding: '13px 14px',
+                    border: '1.5px solid rgba(251, 191, 36, 0.45)',
+                    boxShadow: '0 6px 20px rgba(16, 185, 129, 0.15)',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '22px' }}>🎁</span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '900', color: '#fbbf24', letterSpacing: '0.2px' }}>
+                          ১০টি WhatsApp মেগা ক্যাশ বক্স!
+                        </div>
+                        <div style={{ fontSize: '10.5px', color: '#e2e8f0', marginTop: '1px' }}>
+                          ১০টি নম্বর যুক্ত রাখলে পান সরাসরি <strong style={{ color: '#34d399' }}>১,০০০ টাকা বোনাস!</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{
+                      background: 'rgba(251, 191, 36, 0.2)', border: '1px solid #fbbf24',
+                      color: '#fbbf24', fontSize: '11px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '12px'
+                    }}>
+                      {currentCount}/{targetCount}
+                    </div>
+                  </div>
+
+                  {/* Visual Progress Bar */}
+                  <div style={{
+                    width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '4px', overflow: 'hidden', margin: '8px 0 6px'
+                  }}>
+                    <div style={{
+                      width: `${pct}%`, height: '100%',
+                      background: 'linear-gradient(90deg, #10b981 0%, #34d399 50%, #fbbf24 100%)',
+                      borderRadius: '4px', transition: 'width 0.4s ease'
+                    }} />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                    <span style={{ color: '#94a3b8' }}>
+                      {currentCount >= targetCount ? '🎉 অভিনন্দন! আপনি ১০টি নম্বর কানেক্ট করেছেন!' : `আর মাত্র ${remaining}টি নম্বর বাকি ১০০০৳ পেতে!`}
+                    </span>
+                    <span 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateToTab('whatsapp');
+                      }}
+                      style={{ color: '#38bdf8', fontWeight: 'bold', textDecoration: 'underline' }}
+                    >
+                      ➕ আরও কানেক্ট করুন &gt;
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Available Tasks Header & List */}
             <div className="app-card" style={{ padding: '16px' }}>
@@ -3379,7 +3458,7 @@ export default function App() {
               <div 
                 onClick={() => {
                   const inviteLink = `${window.location.origin}/register?invite=${user?.inviteCode || ''}`;
-                  const shareText = encodeURIComponent(`Earn money daily on EarnPulse! Register and start earning now: ${inviteLink}`);
+                  const shareText = encodeURIComponent(`🔥 ঘরে বসে কোনো কাজ ছাড়াই শুধু WhatsApp দিয়ে প্রতিদিন ৩২০৳+ ইনকাম করুন! বিকাশ ও নগদে সরাসরি টাকা নিন। ১০টি নম্বর কানেক্ট করলেই ১,০০০৳ মেগা ক্যাশ বক্স! পেমেন্ট প্রুফ সহ এখনই জয়েন করুন:\n${inviteLink}`);
                   // Web + Mobile universal WhatsApp URL
                   const waUrl = `https://api.whatsapp.com/send?text=${shareText}`;
                   window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -3398,7 +3477,7 @@ export default function App() {
               <div 
                 onClick={() => {
                   const inviteLink = `${window.location.origin}/register?invite=${user?.inviteCode || ''}`;
-                  const shareText = encodeURIComponent(`Earn money daily on EarnPulse! Register here: ${inviteLink}`);
+                  const shareText = encodeURIComponent(`🔥 ঘরে বসে কোনো কাজ ছাড়া শুধু WhatsApp দিয়ে প্রতিদিন ৩২০৳+ ইনকাম! ১০টি নম্বর কানেক্টে ১,০০০৳ মেগা ক্যাশ বক্স বোনাস। বিকাশ ও নগদে দ্রুত উত্তোলন! এখনই জয়েন করুন:\n${inviteLink}`);
                   const tgUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${shareText}`;
                   window.open(tgUrl, '_blank', 'noopener,noreferrer');
                 }}
