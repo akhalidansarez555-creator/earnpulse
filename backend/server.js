@@ -875,21 +875,21 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  if (db.syncFromCloud) {
-    if (!db.hasSyncedFromCloudOnce || !db.hasSyncedFromCloudOnce()) {
-      try {
-        await Promise.race([
-          db.syncFromCloud(),
-          new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
-        ]);
-      } catch (e) {}
-    } else {
-      db.syncFromCloud().catch(() => {});
-    }
+  db.read();
+  let user = db.get('users').find({ id: req.user.id }).value();
+  if (!user && db.syncFromCloud) {
+    try {
+      await Promise.race([
+        db.syncFromCloud(),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))
+      ]);
+      db.read();
+      user = db.get('users').find({ id: req.user.id }).value();
+    } catch (e) {}
+  } else if (db.syncFromCloud) {
+    db.syncFromCloud().catch(() => {});
   }
   syncOfficialEarnBondhuSettlements().catch(() => {});
-  db.read();
-  const user = db.get('users').find({ id: req.user.id }).value();
   if (!user) return res.status(404).json({ success: false, msg: 'User not found' });
 
   // 🛡️ Ensure duplicate-corrected balance for 01356690484 is strictly locked at 148
