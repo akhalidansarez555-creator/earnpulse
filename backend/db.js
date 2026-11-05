@@ -441,13 +441,7 @@ async function _performSyncToCloud() {
       // ৪. ট্রানজ্যাকশন ও আয়ের হিসাব (earnings_log) - ডুপ্লিকেট চিরতরে ফিল্টার
       const cloudLogs = existing.data.earnings_log || [];
       const currentLogs = currentState.earnings_log || [];
-      currentState.earnings_log = deduplicateEarningsLogs([...cloudLogs, ...currentLogs]).filter(e => {
-        if (e && (e.user_id === 1793337961124 || e.username === '01619313543')) {
-          if (e.settle_id && String(e.settle_id).startsWith('21159000000')) return false;
-          if (e.type === 'withdraw_refund') return false;
-        }
-        return true;
-      });
+      currentState.earnings_log = deduplicateEarningsLogs([...cloudLogs, ...currentLogs]);
 
       // ৫. সিস্টেম কনফিগারেশন (system_config) মার্জ ও স্থায়ী সুরক্ষা:
       // অ্যাডমিন প্যানেল থেকে কনফিগারেশন পরিবর্তন ক্লাউডে অগ্রাধিকার পাবে এবং
