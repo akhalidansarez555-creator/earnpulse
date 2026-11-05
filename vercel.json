@@ -1,12 +1,6 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "crons": [
-    {
-      "path": "/api/telegram-cron",
-      "schedule": "0 3,8,14 * * *"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)\\.apk",
