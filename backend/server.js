@@ -132,27 +132,45 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
   const dayName = BENGALI_DAYS[nowBd.getDay()] || 'দিন';
   const slotKey = `${bdDateStr}_${currentSlot}`;
 
-  // Direct MongoDB Atlas Lock Check across all serverless instances
-  let alreadyPosted = false;
-  try {
-    if (db.getMongoDb) {
-      const mdb = await db.getMongoDb();
-      if (mdb) {
-        const found = await mdb.collection('telegram_posts_history').findOne({ slotKey });
-        if (found) alreadyPosted = true;
+  // Direct MongoDB Atlas Atomic Distributed Lock Check
+  if (!forceKey) {
+    try {
+      if (db.getMongoDb) {
+        const mdb = await db.getMongoDb();
+        if (mdb) {
+          // Attempt atomic reservation lock: upsert a pending document ONLY if it does not already exist
+          const lockResult = await mdb.collection('telegram_posts_history').findOneAndUpdate(
+            { slotKey },
+            { 
+              $setOnInsert: { 
+                slotKey, 
+                slot: currentSlot, 
+                date: bdDateStr, 
+                status: 'pending', 
+                reserved_at: new Date() 
+              } 
+            },
+            { upsert: true, returnDocument: 'before' }
+          );
+
+          // If a document with this slotKey already existed before, lock was NOT acquired
+          const existing = (lockResult && lockResult.value) ? lockResult.value : (lockResult && lockResult.slotKey ? lockResult : null);
+          if (existing) {
+            return { alreadyPosted: true, slotKey };
+          }
+        }
       }
+    } catch (e) {
+      if (e.code === 11000 || (e.message && e.message.includes('E11000'))) {
+        return { alreadyPosted: true, slotKey };
+      }
+      console.error('Mongo check error in telegram auto post:', e.message);
     }
-  } catch (e) {
-    console.error('Mongo check error in telegram auto post:', e.message);
-  }
 
-  if (!alreadyPosted) {
     const postsLog = db.get('telegram_auto_posts').value() || [];
-    alreadyPosted = postsLog.some(p => p && p.slotKey === slotKey);
-  }
-
-  if (alreadyPosted && !forceKey) {
-    return { alreadyPosted: true, slotKey };
+    if (postsLog.some(p => p && p.slotKey === slotKey)) {
+      return { alreadyPosted: true, slotKey };
+    }
   }
 
   isPostingTelegram = true;
@@ -210,7 +228,7 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
           if (mdb) {
             await mdb.collection('telegram_posts_history').updateOne(
               { slotKey },
-              { $set: { slotKey, slot: currentSlot, date: bdDateStr, message_id: tgData.result?.message_id, created_at: new Date().toISOString() } },
+              { $set: { slotKey, slot: currentSlot, date: bdDateStr, status: 'sent', message_id: tgData.result?.message_id, created_at: new Date().toISOString() } },
               { upsert: true }
             );
           }
@@ -237,10 +255,26 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
       return { success: true, slot: currentSlot, slotKey, message_id: tgData.result?.message_id, bdHour };
     } else {
       console.error('[Telegram Auto Post] Bot Error:', tgData.description);
+      try {
+        if (db.getMongoDb) {
+          const mdb = await db.getMongoDb();
+          if (mdb) {
+            await mdb.collection('telegram_posts_history').deleteOne({ slotKey, status: 'pending' }).catch(() => {});
+          }
+        }
+      } catch (e) {}
       return { success: false, error: tgData.description };
     }
   } catch (err) {
     console.error('[Telegram Auto Post] Network Error:', err.message);
+    try {
+      if (db.getMongoDb) {
+        const mdb = await db.getMongoDb();
+        if (mdb) {
+          await mdb.collection('telegram_posts_history').deleteOne({ slotKey, status: 'pending' }).catch(() => {});
+        }
+      }
+    } catch (e) {}
     return { success: false, error: err.message };
   } finally {
     isPostingTelegram = false;
@@ -959,7 +993,6 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
   let user = db.get('users').find(u => u && (u.id === reqUidNum || String(u.id) === reqUidStr || (reqUname && u.username === reqUname))).value();
   syncOfficialEarnBondhuSettlements().catch(() => {});
-  checkAndSendAutoTelegramPost().catch(() => {});
   if (!user) return res.status(404).json({ success: false, msg: 'User not found' });
 
   // 🛡️ Ensure duplicate-corrected balance for 01356690484 is strictly locked at 148
@@ -1860,8 +1893,6 @@ app.get('/api/config', async (req, res) => {
   if (db.syncFromCloud) {
     db.syncFromCloud().catch(() => {});
   }
-  // Passive check for telegram daily post
-  checkAndSendAutoTelegramPost().catch(() => {});
   db.read();
   const config = db.get('system_config').value() || {};
   const ratio = getRewardRatio();
