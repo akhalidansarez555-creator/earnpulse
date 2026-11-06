@@ -278,6 +278,9 @@ export default function App() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [copiedTelegram, setCopiedTelegram] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
@@ -463,7 +466,7 @@ export default function App() {
 
   // Check if any modal is currently visible
   const isAnyModalOpen = Boolean(
-    showNoticeModal || showOfferModal || showTelegramModal || showWithdrawModal || showWithdrawHistoryModal || 
+    showNoticeModal || showOfferModal || showTelegramModal || showLeaderboardModal || showWithdrawModal || showWithdrawHistoryModal || 
     showShareModal || showTransactionsModal || showTeamModal || 
     showChangePwdModal || showVideoModal || showLangModal || selectedTutorialImg || customAlert
   );
@@ -524,6 +527,7 @@ export default function App() {
       hadModal = true;
     }
     if (m.showTelegramModal) { setShowTelegramModal(false); hadModal = true; }
+    if (m.showLeaderboardModal) { setShowLeaderboardModal(false); hadModal = true; }
     if (m.showWithdrawModal) { setShowWithdrawModal(false); hadModal = true; }
     if (m.showWithdrawHistoryModal) { setShowWithdrawHistoryModal(false); hadModal = true; }
     if (m.showShareModal) { setShowShareModal(false); hadModal = true; }
@@ -608,10 +612,29 @@ export default function App() {
           setLinkedNumbers(data.linkedNumbers);
           localStorage.setItem('cached_linked_numbers', JSON.stringify(data.linkedNumbers));
         }
+        if (data.user && data.user.justAwardedFirstBonus) {
+          showAlert('🎉 অভিনন্দন! ১ম WhatsApp যুক্ত করায় আপনার ব্যালেন্সে সরাসরি ১০ টাকা নগদ বোনাস যোগ হয়েছে!', 'উপহার বোনাস সফল! 🎁', 'success');
+        }
       }
     } catch (err) {
       console.error('fetchUserData error (keeping session active):', err);
       // DO NOT LOG OUT ON NETWORK DISCONNECT OR SERVER COLD START!
+    }
+  };
+
+  // Fetch Tournament Leaderboard
+  const fetchLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/tournament/leaderboard`);
+      const data = await res.json();
+      if (data && data.success && data.tournament) {
+        setLeaderboardData(data.tournament);
+      }
+    } catch (e) {
+      console.warn('fetchLeaderboard error:', e);
+    } finally {
+      setLeaderboardLoading(false);
     }
   };
 
@@ -1590,26 +1613,76 @@ export default function App() {
                       }}
                     />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>
-                        ⚡ কোনো WhatsApp যুক্ত নেই!
+                      <div style={{ fontSize: '13px', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🎁 ১ম WhatsApp-এ ১০৳ নগদ উপহার!</span>
                       </div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                        এখনই ১টি কানেক্ট করে প্রতিদিন আয় চালু করুন
+                      <div style={{ fontSize: '11px', color: '#e2e8f0', marginTop: '2px' }}>
+                        এখনই ১টি কানেক্ট করলেই সাথে সাথে ১০৳ ব্যালেন্সে যোগ হবে!
                       </div>
                     </div>
                   </div>
                   <button style={{
                     padding: '8px 14px', borderRadius: '20px',
-                    background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
-                    color: '#ffffff', fontWeight: '800', fontSize: '11px',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    color: '#1a1005', fontWeight: '900', fontSize: '11px',
                     border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.35)'
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)'
                   }}>
-                    কানেক্ট করুন ➔
+                    ১০৳ উপহার নিন ➔
                   </button>
                 </div>
               );
             })()}
+
+            {/* 🏆 10,000 WhatsApp Mega Tournament Card (৳ 6,400 Prize Pool) */}
+            <div
+              onClick={() => {
+                fetchLeaderboard();
+                setShowLeaderboardModal(true);
+              }}
+              style={{
+                borderRadius: '16px',
+                padding: '12px 15px',
+                background: 'linear-gradient(135deg, #181510 0%, #291804 50%, #0d0b08 100%)',
+                border: '1.5px solid rgba(245, 158, 11, 0.5)',
+                boxShadow: '0 6px 20px rgba(245, 158, 11, 0.2)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                margin: '4px 0'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '20px', flexShrink: 0,
+                  boxShadow: '0 4px 12px rgba(217, 119, 6, 0.45)'
+                }}>
+                  🏆
+                </div>
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: '900', color: '#fef08a' }}>
+                    মেগা লিডারবোর্ড টুর্নামেন্ট!
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: '#cbd5e1', marginTop: '2px' }}>
+                    মোট পুরস্কার ৳ ৬,৪০০ • ১ম স্থান: ৳ ২,৫০০ নগদ
+                  </div>
+                </div>
+              </div>
+              <button style={{
+                padding: '6px 12px', borderRadius: '20px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)',
+                color: '#ffffff', fontWeight: '800', fontSize: '11px',
+                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                boxShadow: '0 3px 8px rgba(245, 158, 11, 0.35)'
+              }}>
+                লিডারবোর্ড ➔
+              </button>
+            </div>
 
             {/* Official Promotional Banner */}
             <div style={{ borderRadius: '18px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.06)' }}>
@@ -4892,6 +4965,159 @@ export default function App() {
             >
               🌐 ব্রাউজারে প্রিভিউ দেখুন (Web Preview)
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* 10.3 TOURNAMENT LEADERBOARD MODAL (১০,০০০ WhatsApp মেগা কন্টেস্ট) */}
+      {showLeaderboardModal && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
+          zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '16px 20px',
+          animation: 'vipModalFadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            position: 'relative',
+            width: '100%', maxWidth: '360px', maxHeight: '88vh',
+            display: 'flex', flexDirection: 'column',
+            background: 'linear-gradient(160deg, #181510 0%, #0d0b08 50%, #050403 100%)',
+            border: '1.5px solid rgba(245, 158, 11, 0.5)',
+            borderRadius: '22px',
+            boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.95), 0 0 30px rgba(245, 158, 11, 0.25)',
+            padding: '18px 16px 16px',
+            color: '#ffffff',
+            boxSizing: 'border-box',
+            animation: 'vipModalZoom 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={() => setShowLeaderboardModal(false)}
+              style={{
+                position: 'absolute', top: '12px', right: '12px',
+                width: '28px', height: '28px', borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#94a3b8', fontSize: '14px', fontWeight: 'bold',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+              <div style={{ fontSize: '28px', marginBottom: '4px' }}>🏆</div>
+              <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#fef08a', margin: '0 0 4px' }}>
+                ১০,০০০ WhatsApp মেগা টুর্নামেন্ট
+              </h3>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                মোট নগদ পুরস্কার: <strong style={{ color: '#fbbf24' }}>৳ ৬,৪০০</strong> • মেয়াদ: ১০ নভেম্বর
+              </div>
+            </div>
+
+            {/* Prize Table Podiums */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px',
+              marginBottom: '10px', textAlign: 'center'
+            }}>
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)',
+                borderRadius: '12px', padding: '8px 4px'
+              }}>
+                <div style={{ fontSize: '16px' }}>🥈</div>
+                <div style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: '700' }}>২য় স্থান</div>
+                <div style={{ fontSize: '12px', fontWeight: '900', color: '#94a3b8' }}>৳ ১,৫০০</div>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.3) 100%)',
+                border: '1.5px solid #fbbf24',
+                borderRadius: '12px', padding: '10px 4px', transform: 'scale(1.05)'
+              }}>
+                <div style={{ fontSize: '20px' }}>🥇</div>
+                <div style={{ fontSize: '10px', color: '#fef08a', fontWeight: '800' }}>১ম স্থান</div>
+                <div style={{ fontSize: '14px', fontWeight: '900', color: '#fcd34d' }}>৳ ২,৫০০</div>
+              </div>
+              <div style={{
+                background: 'rgba(217, 119, 6, 0.15)', border: '1px solid rgba(217, 119, 6, 0.4)',
+                borderRadius: '12px', padding: '8px 4px'
+              }}>
+                <div style={{ fontSize: '16px' }}>🥉</div>
+                <div style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: '700' }}>৩য় স্থান</div>
+                <div style={{ fontSize: '12px', fontWeight: '900', color: '#fb923c' }}>৳ ১,০০০</div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', fontSize: '10px', color: '#94a3b8', marginBottom: '10px' }}>
+              🎁 ৪র্থ থেকে ১০ম স্থান পর্যন্ত প্রত্যেকে পাবেন <strong>৳ ২০০ করে নগদ পুরস্কার!</strong>
+            </div>
+
+            {/* Live Rankings Scroll List */}
+            <div style={{
+              flex: 1, overflowY: 'auto', maxHeight: '180px',
+              display: 'flex', flexDirection: 'column', gap: '6px',
+              paddingRight: '2px'
+            }}>
+              {leaderboardLoading ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontSize: '12px' }}>
+                  লিডারবোর্ড লোড হচ্ছে...
+                </div>
+              ) : (leaderboardData?.leaders && leaderboardData.leaders.length > 0) ? (
+                leaderboardData.leaders.map((leader, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 10px', borderRadius: '10px',
+                    background: idx === 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid ' + (idx === 0 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255, 255, 255, 0.08)')
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        width: '20px', height: '20px', borderRadius: '50%',
+                        background: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : idx === 2 ? '#d97706' : '#334155',
+                        color: idx <= 2 ? '#000' : '#fff', fontSize: '10px', fontWeight: '900',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {idx + 1}
+                      </span>
+                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#f1f5f9' }}>
+                        {leader.username}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: '11px', fontWeight: '800', color: '#6ee7b7',
+                      background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '8px'
+                    }}>
+                      {leader.waCount} টি WhatsApp
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '11.5px' }}>
+                  এখনই WhatsApp যুক্ত করে ১ম স্থানে নাম তুলুন!
+                </div>
+              )}
+            </div>
+
+            {/* Action CTA Button */}
+            <button
+              onClick={() => {
+                setShowLeaderboardModal(false);
+                setActiveTab('whatsapp');
+              }}
+              style={{
+                width: '100%', height: '40px', borderRadius: '12px', marginTop: '12px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                color: '#1a1005', fontSize: '13px', fontWeight: '900',
+                border: 'none', cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)'
+              }}
+            >
+              🚀 WhatsApp যুক্ত করে শীর্ষে উঠুন ➔
+            </button>
           </div>
         </div>
       )}

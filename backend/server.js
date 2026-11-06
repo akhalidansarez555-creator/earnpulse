@@ -978,6 +978,51 @@ async function syncOfficialEarnBondhuSettlements() {
 }
 
 // -------------------------------------------------------------
+// 🎁 FIRST WHATSAPP CONNECTION INSTANT ৳10 BONUS HELPER
+// -------------------------------------------------------------
+function awardFirstWhatsAppBonusIfEligible(userId, phoneNumber) {
+  if (!userId) return false;
+  const user = db.get('users').find({ id: userId }).value();
+  if (!user) return false;
+
+  const logs = db.get('earnings_log').value() || [];
+  const alreadyAwarded = logs.some(l => l.user_id === userId && l.type === 'first_wa_bonus');
+  if (alreadyAwarded) return false;
+
+  const bonusAmount = 10.0;
+  const currentBal = Number(user.balance || 0);
+  const currentTotal = Number(user.total_earned || 0);
+  const newBal = parseFloat((currentBal + bonusAmount).toFixed(2));
+  const newTotal = parseFloat((currentTotal + bonusAmount).toFixed(2));
+
+  user.balance = newBal;
+  user.total_earned = newTotal;
+
+  db.get('users').find({ id: userId }).assign({
+    balance: newBal,
+    total_earned: newTotal
+  }).write();
+
+  db.get('earnings_log').push({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    user_id: userId,
+    username: user.username,
+    type: 'first_wa_bonus',
+    amount: bonusAmount,
+    phone_number: phoneNumber,
+    description: '১ম WhatsApp সংযোগ উপহার (৳ ১০.০০ নগদ বোনাস)',
+    created_at: new Date().toISOString()
+  }).write();
+
+  if (db.syncToCloud) {
+    db.syncToCloud().catch(() => {});
+  }
+
+  console.log(`🎁 [Bonus] Credited ৳10 First WhatsApp bonus to ${user.username}!`);
+  return true;
+}
+
+// -------------------------------------------------------------
 // 2. USER PROFILE & STATS
 // -------------------------------------------------------------
 app.get('/api/user/me', authenticateToken, async (req, res) => {
@@ -1571,6 +1616,20 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   const referralCount = db.get('users').filter({ referred_by_id: req.user.id }).size().value();
   const config = db.get('system_config').value();
 
+  // 🎁 First WhatsApp Connection Instant ৳10 Bonus Engine
+  let justAwardedFirstBonus = false;
+  const hasActiveWa = displayNumbers.some(n => String(n.status || '').toLowerCase() === 'online' || Boolean(n.login_date) || Boolean(n.last_settle_time));
+  if (hasActiveWa) {
+    justAwardedFirstBonus = awardFirstWhatsAppBonusIfEligible(user.id, displayNumbers[0]?.phone_number);
+    if (justAwardedFirstBonus) {
+      const freshUser = db.get('users').find({ id: user.id }).value();
+      if (freshUser) {
+        user.balance = freshUser.balance;
+        user.total_earned = freshUser.total_earned;
+      }
+    }
+  }
+
   return res.json({
     success: true,
     user: {
@@ -1581,7 +1640,8 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       totalEarned: user.total_earned,
       totalWithdrawn: user.total_withdrawn,
       role: user.role,
-      created_at: user.created_at
+      created_at: user.created_at,
+      justAwardedFirstBonus
     },
     linkedNumbers: displayNumbers,
     referralCount,
@@ -1911,6 +1971,65 @@ app.get('/api/referrals', authenticateToken, async (req, res) => {
     todayCommission: parseFloat(todayCommission.toFixed(2)) || 0,
     yesterdayCommission: parseFloat(yesterdayCommission.toFixed(2)) || 0,
     referrals
+  });
+});
+
+// -------------------------------------------------------------
+// 5.1 TOURNAMENT LEADERBOARD API (১০,০০০ WhatsApp মেগা কন্টেস্ট)
+// -------------------------------------------------------------
+app.get('/api/tournament/leaderboard', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
+  if (db.syncFromCloud) {
+    db.syncFromCloud().catch(() => {});
+  }
+  db.read();
+  const linked = db.get('linked_numbers').value() || [];
+  const users = db.get('users').value() || [];
+
+  const countMap = {};
+  linked.forEach(l => {
+    if (!l.user_id) return;
+    const uid = String(l.user_id);
+    countMap[uid] = (countMap[uid] || 0) + 1;
+  });
+
+  const leaders = users
+    .map(u => {
+      const waCount = countMap[String(u.id)] || 0;
+      const maskedPhone = (u.username || 'Member').replace(/^(\+?880|0)/, '0').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+      return {
+        id: u.id,
+        username: maskedPhone,
+        waCount,
+        balance: u.balance || 0
+      };
+    })
+    .filter(u => u.waCount > 0)
+    .sort((a, b) => b.waCount - a.waCount)
+    .slice(0, 10);
+
+  const prizes = [
+    { rank: 1, prize: '৳ ২,৫০০', badge: '🥇 ১ম স্থান', color: '#f59e0b' },
+    { rank: 2, prize: '৳ ১,৫০০', badge: '🥈 ২য় স্থান', color: '#94a3b8' },
+    { rank: 3, prize: '৳ ১,০০০', badge: '🥉 ৩য় স্থান', color: '#d97706' },
+    { rank: 4, prize: '৳ ২০০', badge: '৪র্থ স্থান', color: '#38bdf8' },
+    { rank: 5, prize: '৳ ২০০', badge: '৫ম স্থান', color: '#38bdf8' },
+    { rank: 6, prize: '৳ ২০০', badge: '৬ষ্ঠ স্থান', color: '#38bdf8' },
+    { rank: 7, prize: '৳ ২০০', badge: '৭ম স্থান', color: '#38bdf8' },
+    { rank: 8, prize: '৳ ২০০', badge: '৮ম স্থান', color: '#38bdf8' },
+    { rank: 9, prize: '৳ ২০০', badge: '৯ম স্থান', color: '#38bdf8' },
+    { rank: 10, prize: '৳ ২০০', badge: '১০ম স্থান', color: '#38bdf8' },
+  ];
+
+  return res.json({
+    success: true,
+    tournament: {
+      title: '১০,০০০ WhatsApp মেগা লিডারবোর্ড টুর্নামেন্ট',
+      totalPrize: '৳ ৬,৪০০',
+      endDate: '১০ নভেম্বর ২০২৬',
+      leaders,
+      prizes
+    }
   });
 });
 
