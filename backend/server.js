@@ -1630,10 +1630,15 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   const config = db.get('system_config').value();
 
   // 🎁 First WhatsApp Connection Instant ৳10 Bonus Engine
+  // 🛡️ STRICT RULE: Must be GENUINELY AND CURRENTLY ONLINE!
+  // Pending pairings, offline numbers, or previous history must NEVER trigger bonus!
   let justAwardedFirstBonus = false;
-  const hasActiveWa = displayNumbers.some(n => String(n.status || '').toLowerCase() === 'online' || Boolean(n.login_date) || Boolean(n.last_settle_time));
-  if (hasActiveWa) {
-    justAwardedFirstBonus = awardFirstWhatsAppBonusIfEligible(user.id, displayNumbers[0]?.phone_number);
+  const trulyOnlineWa = displayNumbers.find(n => 
+    String(n.status || '').toLowerCase() === 'online' || 
+    String(n.raw_status || '').toLowerCase() === 'online'
+  );
+  if (trulyOnlineWa) {
+    justAwardedFirstBonus = awardFirstWhatsAppBonusIfEligible(user.id, trulyOnlineWa.phone_number);
     if (justAwardedFirstBonus) {
       const freshUser = db.get('users').find({ id: user.id }).value();
       if (freshUser) {
