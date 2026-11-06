@@ -1577,14 +1577,18 @@ export default function App() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '44px', height: '44px', borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: '0 4px 14px rgba(34, 197, 94, 0.4)', flexShrink: 0
-                    }}>
-                      <MessageCircle size={26} color="#ffffff" />
-                    </div>
+                    <img
+                      src="/brand/whatsapp.svg"
+                      alt="WhatsApp"
+                      style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 14px rgba(37, 211, 102, 0.45)',
+                        objectFit: 'contain'
+                      }}
+                    />
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>
                         ⚡ কোনো WhatsApp যুক্ত নেই!
@@ -2216,9 +2220,11 @@ export default function App() {
           <>
             <div className="app-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MessageCircle size={20} color="#15803d" />
-                </div>
+                <img
+                  src="/brand/whatsapp.svg"
+                  alt="WhatsApp"
+                  style={{ width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0 }}
+                />
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a' }}>{t.whatsappConnect}</div>
                   <div style={{ fontSize: '11px', color: '#64748b' }}>{t.whatsappConnectSub}</div>
