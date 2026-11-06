@@ -107,13 +107,11 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
   const bdHour = (utcHours + 6) % 24;
 
   let currentSlot = null;
-  if (bdHour >= 7 && bdHour < 12) {
+  if (bdHour >= 8 && bdHour < 12) {
     currentSlot = 'morning';
-  } else if (bdHour >= 12 && bdHour < 17) {
+  } else if (bdHour >= 13 && bdHour < 18) {
     currentSlot = 'afternoon';
-  } else if (bdHour >= 17 && bdHour < 21) {
-    currentSlot = 'evening';
-  } else if (bdHour >= 21 && bdHour < 24) {
+  } else if (bdHour >= 20 && bdHour < 24) {
     currentSlot = 'night';
   }
 
@@ -121,9 +119,9 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
     currentSlot = forceKey;
   }
 
-  // Outside allowed daytime posting hours (e.g. 11 PM to 8 AM late night / sleeping hours) -> Strictly NO auto-posting!
+  // Outside allowed daytime posting hours (e.g. late night / off hours) -> Strictly NO auto-posting!
   if (!currentSlot) {
-    return { success: true, msg: `Outside allowed posting hours (BD hour ${bdHour}:00). Allowed slots: Morning (8-12), Afternoon (13-18), Night (19-23).` };
+    return { success: true, msg: `Outside allowed posting hours (BD hour ${bdHour}:00). Strictly 3 slots: Morning (8-12), Afternoon (13-18), Night (20-24).` };
   }
 
   // BD Date YYYY-MM-DD & Day Name
@@ -138,6 +136,15 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
       if (db.getMongoDb) {
         const mdb = await db.getMongoDb();
         if (mdb) {
+          // 🛡️ STRICT RULE: Never exceed 3 posts per day in the channel!
+          const todayCount = await mdb.collection('telegram_posts_history').countDocuments({
+            date: bdDateStr,
+            $or: [{ status: 'sent' }, { message_id: { $exists: true, $ne: null } }]
+          });
+          if (todayCount >= 3) {
+            return { alreadyPosted: true, msg: `Daily post cap reached (${todayCount}/3). Maximum 3 posts per day strictly enforced.` };
+          }
+
           // Attempt atomic reservation lock: upsert a pending document ONLY if it does not already exist
           const lockResult = await mdb.collection('telegram_posts_history').findOneAndUpdate(
             { slotKey },
@@ -168,6 +175,10 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
     }
 
     const postsLog = db.get('telegram_auto_posts').value() || [];
+    const todayPosts = postsLog.filter(p => p && p.date === bdDateStr);
+    if (todayPosts.length >= 3) {
+      return { alreadyPosted: true, msg: `Daily post cap reached (${todayPosts.length}/3). Maximum 3 posts per day strictly enforced.` };
+    }
     if (postsLog.some(p => p && p.slotKey === slotKey)) {
       return { alreadyPosted: true, slotKey };
     }
