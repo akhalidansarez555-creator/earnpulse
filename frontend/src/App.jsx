@@ -3344,8 +3344,8 @@ export default function App() {
                 poster="/images/video_poster.jpg"
                 style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '380px', borderRadius: '14px' }}
               >
-                <source src="/videos/whatsapp_help.mp4" type="video/mp4" />
-                <source src="/EarnPulse_Real_Walkthrough.mp4" type="video/mp4" />
+                <source src="/videos/whatsapp_help.mp4?v=3" type="video/mp4" />
+                <source src="/images/help.mp4?v=3" type="video/mp4" />
                 {lang === 'bn' ? 'আপনার ব্রাউজার ভিডিও প্লে করতে সমর্থন করে না।' : 'Your browser does not support playing video.'}
               </video>
             </div>
