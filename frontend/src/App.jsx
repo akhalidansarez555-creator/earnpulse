@@ -1547,6 +1547,58 @@ export default function App() {
               </div>
             </div>
 
+            {/* High-Conversion WhatsApp Activation Callout for Users without Active WhatsApp */}
+            {(() => {
+              const onlineCount = (linkedNumbers || []).filter(n => String(n?.status || '').toLowerCase() === 'online').length;
+              if (onlineCount > 0) return null;
+              return (
+                <div
+                  onClick={() => setActiveTab('whatsapp')}
+                  style={{
+                    margin: '12px 0 6px',
+                    padding: '14px 16px',
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                    border: '2px solid #22c55e',
+                    boxShadow: '0 8px 24px rgba(34, 197, 94, 0.25)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '44px', height: '44px', borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 4px 14px rgba(34, 197, 94, 0.4)', flexShrink: 0
+                    }}>
+                      <MessageCircle size={26} color="#ffffff" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>
+                        ⚡ কোনো WhatsApp যুক্ত নেই!
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                        এখনই ১টি কানেক্ট করে প্রতিদিন আয় চালু করুন
+                      </div>
+                    </div>
+                  </div>
+                  <button style={{
+                    padding: '8px 14px', borderRadius: '20px',
+                    background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+                    color: '#ffffff', fontWeight: '800', fontSize: '11px',
+                    border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.35)'
+                  }}>
+                    কানেক্ট করুন ➔
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* Official Promotional Banner */}
             <div style={{ borderRadius: '18px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.06)' }}>
               <img
