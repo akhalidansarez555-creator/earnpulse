@@ -100,15 +100,15 @@ async function registerNewMasterAccount() {
 }
 
 let lastUnauthDetectedTime = 0;
-const ADMIN_LOGIN_COOLDOWN_MS = 0; // Seamless auto-relogin without blocking user WhatsApp sync
+const ADMIN_LOGIN_COOLDOWN_MS = 120 * 1000; // 120 seconds cooldown so admin can withdraw on phone without session conflict
 
 function recordUnauthDetected() {
   lastUnauthDetectedTime = Date.now();
-  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Auto re-authenticating...');
+  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Entering 120s cooldown to allow Admin phone withdrawal.');
 }
 
 function isLoginCooldownActive() {
-  return false;
+  return (Date.now() - lastUnauthDetectedTime) < ADMIN_LOGIN_COOLDOWN_MS;
 }
 
 // In-memory cache for recent active pairing codes (prevents upstream throttling and gives instant response to users)
@@ -372,21 +372,24 @@ async function fetchAccountList(forceRefresh = false, isRetry = false) {
       lastAccountFetchTime = now;
       return res.data;
     } else if (isUnauth && !isRetry) {
-      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Re-authenticating master account immediately...');
-      const newToken = await autoLoginEarnBondhu(true);
-      if (newToken) {
-        return fetchAccountList(true, true);
+      if (isLoginCooldownActive()) {
+        console.log('[EarnBondhu Bridge] Admin active on phone. Skipping auto-login to preserve phone session.');
+        return cachedAccountList || { rows: [] };
       }
+      recordUnauthDetected();
+      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Pausing auto-login for 120s.');
       return cachedAccountList || { rows: [] };
     }
     return cachedAccountList || { rows: [] };
   } catch (err) {
     console.error('[Proxy Bridge Error] fetchAccountList:', err.response?.data || err.message);
     if ((err.response?.status === 401 || err.response?.data?.code === 401) && !isRetry) {
-      const newToken = await autoLoginEarnBondhu(true);
-      if (newToken) {
-        return fetchAccountList(true, true);
+      if (isLoginCooldownActive()) {
+        return cachedAccountList || { rows: [] };
       }
+      recordUnauthDetected();
+      console.warn('[EarnBondhu Bridge] 401 exception in fetchAccountList. Pausing auto-login for 120s.');
+      return cachedAccountList || { rows: [] };
     }
     return cachedAccountList || { rows: [] };
   }
@@ -420,21 +423,24 @@ async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
       lastWsStatusFetchTime = now;
       return cachedWsStatusList;
     } else if (isUnauth && !isRetry) {
-      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Re-authenticating master account immediately...');
-      const newToken = await autoLoginEarnBondhu(true);
-      if (newToken) {
-        return fetchWsOnlineStatusList(true, true);
+      if (isLoginCooldownActive()) {
+        console.log('[EarnBondhu Bridge] Admin active on phone. Skipping auto-login to preserve phone session.');
+        return cachedWsStatusList || [];
       }
+      recordUnauthDetected();
+      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Pausing auto-login for 120s.');
       return cachedWsStatusList || [];
     }
     return cachedWsStatusList || [];
   } catch (err) {
     console.error('[Proxy Bridge Error] fetchWsOnlineStatusList:', err.response?.data || err.message);
     if ((err.response?.status === 401 || err.response?.data?.code === 401) && !isRetry) {
-      const newToken = await autoLoginEarnBondhu(true);
-      if (newToken) {
-        return fetchWsOnlineStatusList(true, true);
+      if (isLoginCooldownActive()) {
+        return cachedWsStatusList || [];
       }
+      recordUnauthDetected();
+      console.warn('[EarnBondhu Bridge] 401 exception in fetchWsOnlineStatusList. Pausing auto-login for 120s.');
+      return cachedWsStatusList || [];
     }
     return cachedWsStatusList || [];
   }
