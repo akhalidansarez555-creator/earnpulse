@@ -2331,46 +2331,57 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
   const allLinked = db.get('linked_numbers').value() || [];
   const pendingPairings = db.get('pending_pairings').value() || [];
 
-  // 1. Fetch real-time live WhatsApp numbers from EarnBondhu (Instant Cached + Non-blocking Fast Race)
+  // 1. Fetch real-time live WhatsApp numbers from EarnBondhu (Instant Cached + Fast Query)
   let ebWsList = bridge.getCachedWsStatusList ? bridge.getCachedWsStatusList() : [];
   if (!ebWsList || ebWsList.length === 0) {
     try {
       ebWsList = await Promise.race([
         bridge.fetchWsOnlineStatusList(),
-        new Promise(res => setTimeout(() => res([]), 350))
+        new Promise(res => setTimeout(() => res([]), 2500))
       ]);
     } catch (err) {}
   } else {
     // Background refresh for continuous real-time sync without delaying response
     bridge.fetchWsOnlineStatusList(true).catch(() => {});
   }
-  const ebOnlineList = (Array.isArray(ebWsList) ? ebWsList : []).filter(w => 
-    w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online'
+
+  // Set of all clean phone numbers that are genuinely ONLINE on EarnBondhu right now
+  const ebOnlineNumbers = new Set(
+    (Array.isArray(ebWsList) ? ebWsList : [])
+      .filter(w => w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online')
+      .map(w => String(w.wsNumber || '').replace(/^[0+]/, '').replace(/^880/, '').trim())
+      .filter(Boolean)
   );
-  const ebOnlineCount = ebOnlineList.length;
+  const ebOnlineCount = ebOnlineNumbers.size;
 
   // 2. Sync all numbers from EarnBondhu into local linked_numbers
   if (Array.isArray(ebWsList) && ebWsList.length > 0) {
     let hasLocalChanges = false;
+    for (const l of allLinked) {
+      const cleanL = String(l.phone_number || '').replace(/^[0+]/, '').replace(/^880/, '').trim();
+      if (!cleanL) continue;
+      const isActuallyOnline = ebOnlineNumbers.has(cleanL);
+      if (isActuallyOnline && l.status !== 'online') {
+        l.status = 'online';
+        l.raw_status = 'Online';
+        hasLocalChanges = true;
+      } else if (!isActuallyOnline && l.status === 'online') {
+        l.status = 'offline';
+        l.raw_status = 'Exit';
+        hasLocalChanges = true;
+      }
+    }
+
+    // Also check for new numbers from EarnBondhu that match registered members
     for (const w of ebWsList) {
       const cleanW = String(w.wsNumber).replace(/^[0+]/, '').replace(/^880/, '').trim();
       if (!cleanW) continue;
       const isOnline = w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online';
-
-      let existing = allLinked.find(l => {
+      const existing = allLinked.find(l => {
         const cleanL = String(l.phone_number).replace(/^[0+]/, '').replace(/^880/, '').trim();
         return cleanL === cleanW;
       });
-
-      if (existing) {
-        if (isOnline && existing.status !== 'online') {
-          existing.status = 'online';
-          hasLocalChanges = true;
-        } else if (!isOnline && existing.status === 'online') {
-          existing.status = 'offline';
-          hasLocalChanges = true;
-        }
-      } else {
+      if (!existing) {
         const pMatch = pendingPairings.find(p => String(p.phone_number).replace(/^[0+]/, '').replace(/^880/, '').trim() === cleanW);
         const uMatch = allMembers.find(u => String(u.username).replace(/^[0+]/, '').replace(/^880/, '').trim() === cleanW);
         const ownerId = (pMatch && pMatch.user_id) || (uMatch && uMatch.id);
@@ -2479,9 +2490,10 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
 
   const usersList = usersWithNumbers;
 
-  // 🛡️ ফ্লিকার-মুক্ত নিখুঁত সক্রিয় WA গণনা: লোকাল ডাটাবেজের সকল লাইভ অনলাইন নম্বর ও EarnBondhu রিয়েল-টাইম সিনক্রোনাইজেশন
-  const allOnlineCount = allLinked.filter(n => n && (n.status === 'online' || n.status === 1 || String(n.status).toLowerCase() === 'online')).length;
-  const activeWA = Math.max(allOnlineCount, activeMemberWA, ebOnlineCount);
+  // 🛡️ নিখুঁত সক্রিয় WA গণনা: আর্নবন্ধুতে (EarnBondhu) ঠিক যতটি WhatsApp অনলাইনে রয়েছে, এখানেও হুবহু সেই সংখ্যাই প্রদর্শিত হবে!
+  const activeWA = (Array.isArray(ebWsList) && ebWsList.length > 0)
+    ? ebOnlineCount
+    : allLinked.filter(n => n && (n.status === 'online' || String(n.status).toLowerCase() === 'online')).length;
   const totalLinked = Math.max(allLinked.length, totalMemberWA, Array.isArray(ebWsList) ? ebWsList.length : 0);
 
   // 5. Complete numbers list with owner username and live elapsed duration
