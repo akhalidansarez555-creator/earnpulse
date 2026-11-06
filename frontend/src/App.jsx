@@ -662,6 +662,14 @@ export default function App() {
             setShowNoticeModal(true);
           }, 450);
           return () => clearTimeout(timer);
+        } else {
+          const hasSeenOffer = sessionStorage.getItem('ep_offer_seen');
+          if (!hasSeenOffer) {
+            const timer = setTimeout(() => {
+              setShowOfferModal(true);
+            }, 450);
+            return () => clearTimeout(timer);
+          }
         }
       } catch (e) {
         setShowNoticeModal(true);
@@ -2339,6 +2347,34 @@ export default function App() {
                 <div>• <strong>WhatsApp Business:</strong> প্লে-স্টোর থেকে নামিয়ে অন্য সিম দিয়ে সহজেই আরেকটি নম্বর কানেক্ট করুন।</div>
                 <div style={{ marginTop: '4px' }}>• <strong>Dual Apps / App Clone:</strong> মোবাইল Settings-এ Dual App অন করে আরও ২টি একাউন্ট চালান।</div>
                 <div style={{ marginTop: '4px' }}>• <strong>পরিবারের নম্বর:</strong> পরিবারের অবসর নম্বরগুলো যুক্ত করে প্রতিদিন <strong>১৬০৳ - ৩২০৳</strong> আয় ও ১,০০০৳ মেগা ক্যাশ বক্স নিন!</div>
+              </div>
+            </div>
+
+            {/* 100% Security & Anti-Ban Safety Assurance */}
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+              borderRadius: '16px',
+              border: '1.5px solid #86efac',
+              padding: '11px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 2px 8px rgba(34, 197, 94, 0.12)'
+            }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '10px',
+                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, fontSize: '18px',
+                boxShadow: '0 3px 8px rgba(34, 197, 94, 0.3)'
+              }}>
+                🛡️
+              </div>
+              <div style={{ fontSize: '11px', color: '#166534', lineHeight: 1.45 }}>
+                <strong style={{ color: '#14532d', fontSize: '12px', display: 'block', marginBottom: '2px' }}>
+                  ✓ ১০০% নিরাপদ ও এনক্রিপ্টেড সংযোগ:
+                </strong>
+                আপনার ব্যক্তিগত চ্যাট বা তথ্যের কোনো পরিবর্তন হয় না। শুধু অনলাইন কানেকশনের জন্য আয় নিশ্চিত হয়। ঘরে থাকা যেকোনো অব্যবহৃত বা সাধারণ সিমের WhatsApp অনায়াসে যুক্ত করতে পারেন।
               </div>
             </div>
 
@@ -4640,12 +4676,30 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Secret Trick: 1 Phone Multiple WhatsApp */}
+              <div style={{
+                padding: '8px 10px', borderRadius: '12px',
+                background: 'rgba(251, 191, 36, 0.08)',
+                border: '1px dashed rgba(251, 191, 36, 0.4)',
+                fontSize: '10px', color: '#fef3c7', lineHeight: 1.45
+              }}>
+                <div style={{ fontWeight: '800', color: '#fbbf24', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>💡</span> <span>১টি ফোনেই ৪-১০টি WhatsApp চালানোর ট্রিক:</span>
+                </div>
+                <div>• WhatsApp মূল অ্যাপ (১টি) + WhatsApp Business (১টি)</div>
+                <div>• ফোনের Dual Apps / App Clone দিয়ে আরও ২টি</div>
+                <div>• পরিবারের অন্য সিম দিয়ে কোড নিয়ে সহজেই ১০টি যুক্ত করুন!</div>
+              </div>
+
             </div>
 
             {/* 3D Royal Gold CTA Button */}
             <div style={{ position: 'relative', zIndex: 2 }}>
               <button
-                onClick={closeOfferModal}
+                onClick={() => {
+                  closeOfferModal();
+                  setActiveTab('whatsapp');
+                }}
                 style={{
                   position: 'relative',
                   overflow: 'hidden',
@@ -4684,7 +4738,7 @@ export default function App() {
                   animation: 'vipShineSweep 3.2s infinite ease-in-out'
                 }} />
 
-                <span>🔥 অফার বুঝেছি, ইনকাম দ্বিগুণ করুন</span>
+                <span>🚀 এখনই WhatsApp যুক্ত করুন (১০টিতে ১,০০০৳) ➔</span>
               </button>
 
               <div style={{
