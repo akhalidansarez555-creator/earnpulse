@@ -232,6 +232,19 @@ async function checkAndSendAutoTelegramPost(forceKey = null) {
     const tgData = await tgRes.json();
 
     if (tgData && tgData.ok) {
+      // Auto-react with glowing reaction (❤‍🔥)
+      try {
+        await fetch(`https://api.telegram.org/bot${botToken}/setMessageReaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: tgData.result?.message_id,
+            reaction: [{ type: 'emoji', emoji: '❤‍🔥' }]
+          })
+        });
+      } catch (e) {}
+
       // Save directly to MongoDB Atlas
       try {
         if (db.getMongoDb) {
