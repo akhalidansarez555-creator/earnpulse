@@ -100,11 +100,11 @@ async function registerNewMasterAccount() {
 }
 
 let lastUnauthDetectedTime = 0;
-const ADMIN_LOGIN_COOLDOWN_MS = 120 * 1000; // 120 seconds cooldown so admin can withdraw on phone without session conflict
+const ADMIN_LOGIN_COOLDOWN_MS = 60 * 1000; // 60 seconds (1 minute) cooldown so admin can withdraw on phone without session conflict
 
 function recordUnauthDetected() {
   lastUnauthDetectedTime = Date.now();
-  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Entering 120s cooldown to allow Admin phone withdrawal.');
+  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Entering 60s (1 min) cooldown to allow Admin phone withdrawal.');
 }
 
 function isLoginCooldownActive() {
@@ -377,7 +377,7 @@ async function fetchAccountList(forceRefresh = false, isRetry = false) {
         return cachedAccountList || { rows: [] };
       }
       recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Pausing auto-login for 120s.');
+      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Pausing auto-login for 60s.');
       return cachedAccountList || { rows: [] };
     }
     return cachedAccountList || { rows: [] };
@@ -388,7 +388,7 @@ async function fetchAccountList(forceRefresh = false, isRetry = false) {
         return cachedAccountList || { rows: [] };
       }
       recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 exception in fetchAccountList. Pausing auto-login for 120s.');
+      console.warn('[EarnBondhu Bridge] 401 exception in fetchAccountList. Pausing auto-login for 60s.');
       return cachedAccountList || { rows: [] };
     }
     return cachedAccountList || { rows: [] };
@@ -428,7 +428,7 @@ async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
         return cachedWsStatusList || [];
       }
       recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Pausing auto-login for 120s.');
+      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Pausing auto-login for 60s.');
       return cachedWsStatusList || [];
     }
     return cachedWsStatusList || [];
@@ -439,7 +439,7 @@ async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
         return cachedWsStatusList || [];
       }
       recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 exception in fetchWsOnlineStatusList. Pausing auto-login for 120s.');
+      console.warn('[EarnBondhu Bridge] 401 exception in fetchWsOnlineStatusList. Pausing auto-login for 60s.');
       return cachedWsStatusList || [];
     }
     return cachedWsStatusList || [];
