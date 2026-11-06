@@ -1187,6 +1187,19 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
             Object.assign(record, updateFields);
           }
+        } else {
+          // If EarnBondhu returned active rows and this number is NOT found in EarnBondhu at all -> mark offline!
+          if (record.status === 'online') {
+            hasChanges = true;
+            const updateFields = {
+              status: 'offline',
+              raw_status: 'Exit',
+              offline_at: record.offline_at || new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            db.get('linked_numbers').find({ id: record.id }).assign(updateFields).write();
+            Object.assign(record, updateFields);
+          }
         }
       }
 
@@ -1591,6 +1604,11 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
 
   countryCode = countryCode || '880';
   phoneNumber = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+
+  // Strict Phone Number Validation: Reject invalid or dummy test numbers
+  if (!phoneNumber || phoneNumber.length < 9 || phoneNumber.length > 11 || /^(.)\1+$/.test(phoneNumber) || phoneNumber.includes('12345678') || phoneNumber.includes('11223344')) {
+    return res.status(400).json({ success: false, msg: 'অনুগ্রহ করে সঠিক এবং বাস্তব মোবাইল নম্বর প্রদান করুন' });
+  }
 
   // Call the proxy bridge
   const bridgeRes = await bridge.fetchPairingCode(countryCode, phoneNumber);
