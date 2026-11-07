@@ -1931,6 +1931,24 @@ export default function App() {
                   </div>
                   <ChevronRight size={18} color="#94a3b8" />
                 </div>
+
+                <div style={{ height: '1px', background: '#f1f5f9' }} />
+
+                {/* Task 4: Facebook Viral Mission */}
+                <div 
+                  onClick={() => window.open('/fb-tools.html', '_blank')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                >
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #1877f2, #0d5bbd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                    🚀
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a' }}>ফেসবুক গ্রুপ মেগা শেয়ারিং মিশন</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>গ্রুপে ১-ক্লিকে পোস্ট করুন ও বন্ধু আনলেই ৩০০৳ মেগা ক্যাশ!</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2563eb', marginTop: '3px' }}>৳ ৩০০.০০ ক্যাশ 💸</div>
+                  </div>
+                  <ChevronRight size={18} color="#94a3b8" />
+                </div>
               </div>
             </div>
 
