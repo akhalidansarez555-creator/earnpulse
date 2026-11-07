@@ -693,6 +693,11 @@ app.post('/api/auth/login', (req, res) => {
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
 
+  // Pre-load linked numbers directly in login response for instant zero-latency UI rendering
+  const userLinkedNumbers = (db.get('linked_numbers').value() || []).filter(n => {
+    return n && (n.user_id === user.id || String(n.user_id) === String(user.id));
+  });
+
   return res.json({
     success: true,
     msg: 'লগইন সফল হয়েছে',
@@ -705,7 +710,8 @@ app.post('/api/auth/login', (req, res) => {
       balance: user.balance,
       totalEarned: user.total_earned,
       totalWithdrawn: user.total_withdrawn
-    }
+    },
+    linkedNumbers: userLinkedNumbers
   });
 });
 
@@ -1147,10 +1153,13 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   try {
     const isWaitingPhone = Boolean(req.query.waiting_phone);
     const forceRefresh = isWaitingPhone || req.query.fresh === '1' || req.query.fresh === 'true';
-    const [ebAccounts, wsStatusList] = await Promise.all([
-      bridge.fetchAccountList(forceRefresh),
-      bridge.fetchWsOnlineStatusList(forceRefresh)
-    ]);
+    const [ebAccounts, wsStatusList] = await Promise.race([
+      Promise.all([
+        bridge.fetchAccountList(forceRefresh),
+        bridge.fetchWsOnlineStatusList(forceRefresh)
+      ]),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('EB_TIMEOUT')), 3500))
+    ]).catch(() => [{ rows: [] }, []]);
     const rows = ebAccounts.rows || [];
     const wsArray = Array.isArray(wsStatusList) ? wsStatusList : [];
 
@@ -1210,8 +1219,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
             db.get('linked_numbers')
               .find({ id: record.id })
-              .assign(updateFields)
-              .write();
+              .assign(updateFields);
 
             Object.assign(record, updateFields);
           } else if (hasEverConnected) {
@@ -1245,8 +1253,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
             db.get('linked_numbers')
               .find({ id: record.id })
-              .assign(updateFields)
-              .write();
+              .assign(updateFields);
 
             Object.assign(record, updateFields);
           }
@@ -1260,10 +1267,14 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
               offline_at: record.offline_at || new Date().toISOString(),
               updated_at: new Date().toISOString()
             };
-            db.get('linked_numbers').find({ id: record.id }).assign(updateFields).write();
+            db.get('linked_numbers').find({ id: record.id }).assign(updateFields);
             Object.assign(record, updateFields);
           }
         }
+      }
+
+      if (hasChanges) {
+        setImmediate(() => { try { db.write(); } catch (e) {} });
       }
 
       // 2. Combine and check all connected WhatsApp accounts from EarnBondhu (both bulk/account/list and wsOnlineStatus/list)

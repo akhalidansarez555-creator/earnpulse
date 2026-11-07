@@ -845,6 +845,10 @@ export default function App() {
       if (data && data.success) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.linkedNumbers && Array.isArray(data.linkedNumbers)) {
+          setLinkedNumbers(data.linkedNumbers);
+          localStorage.setItem('cached_linked_numbers', JSON.stringify(data.linkedNumbers));
+        }
         setToken(data.token);
         setUser(data.user);
         setActiveTab('home');
