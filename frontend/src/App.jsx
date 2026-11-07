@@ -1658,12 +1658,12 @@ export default function App() {
                   background: '#22c55e', color: '#022c22', fontSize: '10px',
                   fontWeight: '900', padding: '2px 8px', borderRadius: '10px'
                 }}>
-                  ১০০৳ বোনাস 💸
+                  ৩০০৳ মেগা ক্যাশ 💸
                 </span>
               </div>
 
               <div style={{ fontSize: '11px', color: '#e2e8f0', lineHeight: 1.4, marginBottom: '10px' }}>
-                ব্যানারটি আপনার WhatsApp Status-এ দিন। আপনার রেফার লিংকে মাত্র <b>২ জন বন্ধু</b> যুক্ত হলেই সাথে সাথে পেয়ে যান <b>১০০৳ নগদ ক্যাশ!</b>
+                ব্যানারটি আপনার WhatsApp Status-এ দিন। আপনার রেফার লিংকে মাত্র <b>২ জন বন্ধু</b> যুক্ত হলেই সাথে সাথে পেয়ে যান <b>৩০০৳ সরাসরি নগদ ক্যাশ!</b>
               </div>
 
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1685,7 +1685,7 @@ export default function App() {
                   onClick={() => {
                     const inviteCode = user?.invite_code || user?.inviteCode || '';
                     const shareUrl = `https://earnpulse-beta.vercel.app/register?invite=${inviteCode}`;
-                    const caption = `🔥 অলস WhatsApp দিয়ে প্রতিদিন ৫০০৳ - ১,০০০৳ ফ্রি নগদ ইনকাম! ১ম কানেক্টেই ১০৳ বোনাস। যুক্ত হতে নিচের লিংকে ক্লিক করুন:\n${shareUrl}`;
+                    const caption = `🔥 অলস WhatsApp দিয়ে প্রতিদিন ৫০০৳ - ১,০০০৳ ফ্রি নগদ ইনকাম! ১ম কানেক্টেই ১০৳ বোনাস। ২ জন বন্ধু যুক্ত করলেই ৩০০৳ মেগা ক্যাশ! যুক্ত হতে নিচের লিংকে ক্লিক করুন:\n${shareUrl}`;
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                       navigator.clipboard.writeText(caption);
                       alert('ক্যাপশন ও আপনার রেফারেল লিংক কপি হয়েছে! এখন ব্যানারের সাথে আপনার WhatsApp Status-এ দিন।');
