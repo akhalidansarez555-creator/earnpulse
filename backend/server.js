@@ -3024,10 +3024,18 @@ app.all('/api/telegram-cron', async (req, res) => {
   }
 });
 
+// Root Health Check for Render & Cloud Platforms
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'EarnPulse API', time: new Date().toISOString() });
+});
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
 // Start Server
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`🚀 [EarnPulse Master Bridge Server] running on http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 [EarnPulse Master Bridge Server] running on http://0.0.0.0:${PORT}`);
   });
 }
 
