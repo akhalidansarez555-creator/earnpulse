@@ -167,7 +167,7 @@ async function autoLoginEarnBondhu(forceNew = false) {
         console.log('[EarnBondhu Bridge] Successfully refreshed master token!');
 
         if (db.syncToCloud) {
-          await db.syncToCloud(true);
+          setImmediate(() => { db.syncToCloud(false).catch(() => {}); });
         }
         return newToken;
       } else {
@@ -273,7 +273,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       };
     }
 
-    const isUnauth = res.data?.code === 401 || (res.data?.msg && (res.data.msg.includes('falhou') || res.data.msg.includes('negado') || res.data.msg.includes('Autentica')));
+    const isUnauth = res.data?.code === 401 || (res.data?.msg && (res.data.msg.includes('falhou') || res.data.msg.includes('negado') || res.data.msg.includes('Autentica') || res.data.msg.includes('outro local') || res.data.msg.includes('sessão')));
     if (isUnauth && retryCount < 2) {
       console.warn(`[EarnBondhu Bridge] Auth error in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
       const newToken = await autoLoginEarnBondhu(true);

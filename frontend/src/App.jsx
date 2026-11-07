@@ -925,21 +925,42 @@ export default function App() {
     }, 150);
   };
 
-  // Get 8-Digit Pairing Code
+  // Get 8-Digit Pairing Code (Blazing Fast with Dual Failover)
   const handleGetPairingCode = async () => {
     if (!inputPhone) return;
     setPairingLoading(true);
     setActivePairingCode('');
 
     try {
-      const res = await fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ phoneNumber: inputPhone, countryCode: '880' })
-      });
+      const endpoints = [
+        `${API_BASE}/whatsapp/get-pairing-code`,
+        `https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`
+      ];
+
+      let res = null;
+      for (const ep of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 7000);
+          const r = await fetch(ep, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ phoneNumber: inputPhone, countryCode: '880' }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (r.ok) {
+            res = r;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      if (!res) throw new Error('Network error');
+
       const data = await res.json();
       if (data && data.success) {
         if (data.alreadyOnline || data.pairingCode === 'CONNECTED') {
@@ -955,7 +976,7 @@ export default function App() {
           setActivePairingCode((data.pairingCode || '').replace(/[^a-zA-Z0-9]/g, ''));
           setIsWaitingConnection(true);
           setConnectionSuccess(false);
-          fetchUserData();
+          fetchUserData(false);
         }
       } else {
         let errorMsg = data?.msg || '';
