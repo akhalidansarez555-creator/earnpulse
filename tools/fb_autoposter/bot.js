@@ -148,16 +148,63 @@ const TARGET_GROUPS = [
 ];
 
 const BACKEND_HEARTBEAT_URL = 'https://earnpulse-mpdd.onrender.com/api/admin/fb-bot/heartbeat';
+const PID_FILE = path.join(__dirname, 'fb_bot.pid');
+
+let lastHeartbeatData = { status: 'active', total_posts: 0, reason: '🟢 ফেসবুক অটোমেশন পুরোদমে সক্রিয়' };
 
 async function sendHeartbeat(data) {
+  if (data) lastHeartbeatData = { ...lastHeartbeatData, ...data };
   try {
     await fetch(BACKEND_HEARTBEAT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify(lastHeartbeatData)
     });
   } catch (e) {}
 }
+
+// Keep-alive timer so backend never marks offline while bot is running or resting
+setInterval(() => {
+  if (lastHeartbeatData.status === 'active' || lastHeartbeatData.status === 'waiting_login') {
+    sendHeartbeat(lastHeartbeatData);
+  }
+}, 40000);
+
+function registerProcessLock(isHeadless) {
+  try {
+    if (fs.existsSync(PID_FILE)) {
+      const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim());
+      if (oldPid && oldPid !== process.pid) {
+        try {
+          process.kill(oldPid, 0); // Check if alive
+          if (isHeadless) {
+            console.log(`⚠️ ব্যাকগ্রাউন্ড বট ইতিমধ্যে সক্রিয় আছে (PID: ${oldPid})`);
+            process.exit(0);
+          } else {
+            console.log(`🔄 পূর্বের ব্যাকগ্রাউন্ড প্রসেস (PID: ${oldPid}) বন্ধ করে নতুন উইন্ডো চালু করা হচ্ছে...`);
+            try { process.kill(oldPid, 'SIGTERM'); } catch (e) {}
+          }
+        } catch (e) {
+          // Dead PID
+        }
+      }
+    }
+    fs.writeFileSync(PID_FILE, String(process.pid));
+  } catch (e) {}
+}
+
+function cleanupProcessLock() {
+  try {
+    if (fs.existsSync(PID_FILE)) {
+      const p = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim());
+      if (p === process.pid) fs.unlinkSync(PID_FILE);
+    }
+  } catch (e) {}
+}
+
+process.on('exit', cleanupProcessLock);
+process.on('SIGINT', () => { cleanupProcessLock(); process.exit(0); });
+process.on('SIGTERM', () => { cleanupProcessLock(); process.exit(0); });
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -427,17 +474,22 @@ async function startBot() {
     process.exit(1);
   }
 
-  // ক্রোম লঞ্চ করা (হেডলেস ছাড়া, যাতে ইউজার নিজে লগইন দেখতে পায়)
-  console.log('🌐 গুগল ক্রোম চালু করা হচ্ছে...');
+  const isHeadless = process.env.FB_BOT_HEADLESS === 'true' || process.argv.includes('--headless') || process.argv.includes('--hidden');
+  registerProcessLock(isHeadless);
+  await sleep(1000);
+
+  // ক্রোম লঞ্চ করা
+  console.log(`🌐 গুগল ক্রোম চালু করা হচ্ছে... ${isHeadless ? '(হাইড/ব্যাকগ্রাউন্ড মোড)' : '(দৃশ্যমান মোড)'}`);
   const browser = await puppeteer.launch({
     executablePath: CHROME_PATH,
     userDataDir: USER_DATA_DIR,
-    headless: false,
+    headless: isHeadless ? "new" : false,
     defaultViewport: null,
     args: [
       '--start-maximized',
       '--disable-notifications',
-      '--disable-infobars'
+      '--disable-infobars',
+      '--disable-blink-features=AutomationControlled'
     ]
   });
 
@@ -453,6 +505,16 @@ async function startBot() {
   let isLoggedIn = cookies.some(c => c.name === 'c_user');
 
   if (!isLoggedIn) {
+    if (isHeadless) {
+      console.log('⚠️ হেডলেস মোডে ফেসবুক লগইন সেশন পাওয়া যায়নি।');
+      await sendHeartbeat({ 
+        status: 'waiting_login', 
+        reason: '⚠️ ফেসবুক লগইন প্রয়োজন — Desktop থেকে EarnPulse_FB_AutoPoster.bat ফাইল দিয়ে একবার লগইন করুন' 
+      });
+      await browser.close();
+      process.exit(1);
+    }
+
     console.log('\n----------------------------------------------------------------');
     console.log('⚠️  আপনি এখনো ফেসবুকে লগইন করেননি!');
     console.log('👉 খুলে যাওয়া ক্রোম ব্রাউজারে আপনার ফেসবুক আইডি ও পাসওয়ার্ড দিয়ে লগইন করুন।');
