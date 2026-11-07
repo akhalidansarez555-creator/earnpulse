@@ -284,6 +284,12 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
+      // Auto-retry internally if frequent/delay error
+      if (retryCount < 2) {
+        await new Promise(r => setTimeout(r, 1500));
+        return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+      }
+
       // Check if actually online
       const wsCheck = await fetchWsOnlineStatusList(true).catch(() => []);
       const isActuallyOnline = (wsCheck || []).some(w => {
@@ -306,8 +312,14 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
           msg: 'পেয়ারিং কোড প্রস্তুত!'
         };
       }
-      errorMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে ৫ সেকেন্ড পর আবার চেষ্টা করুন।';
+      errorMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।';
     } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || res.data?.code === 401) {
+      if (retryCount < 2) {
+        const newToken = await autoLoginEarnBondhu(true);
+        if (newToken) {
+          return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+        }
+      }
       errorMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
     }
     return {
@@ -326,6 +338,10 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde'))) {
+      if (retryCount < 2) {
+        await new Promise(r => setTimeout(r, 1500));
+        return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+      }
       if (cached) {
         return {
           success: true,
@@ -333,8 +349,14 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
           msg: 'পেয়ারিং কোড প্রস্তুত!'
         };
       }
-      errMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে ৫ সেকেন্ড পর আবার চেষ্টা করুন।';
+      errMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।';
     } else if (errMsg && (errMsg.includes('falhou') || errMsg.includes('negado') || errMsg.includes('Autentica'))) {
+      if (retryCount < 2) {
+        const newToken = await autoLoginEarnBondhu(true);
+        if (newToken) {
+          return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+        }
+      }
       errMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
     }
     return {

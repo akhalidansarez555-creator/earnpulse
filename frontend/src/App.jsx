@@ -925,11 +925,13 @@ export default function App() {
     }, 150);
   };
 
-  // Get 8-Digit Pairing Code (Blazing Fast with Dual Failover)
-  const handleGetPairingCode = async () => {
+  // Get 8-Digit Pairing Code (Blazing Fast with Dual Failover & Silent Auto-Retry)
+  const handleGetPairingCode = async (isRetryAttempt = false) => {
     if (!inputPhone) return;
-    setPairingLoading(true);
-    setActivePairingCode('');
+    if (!isRetryAttempt) {
+      setPairingLoading(true);
+      setActivePairingCode('');
+    }
 
     try {
       const endpoints = [
@@ -979,6 +981,12 @@ export default function App() {
           fetchUserData(false);
         }
       } else {
+        // Silently retry once without disturbing user with notice popups!
+        if (!isRetryAttempt && (data?.msg?.includes('প্রস্তুত') || data?.msg?.includes('ব্যস্ত'))) {
+          await new Promise(r => setTimeout(r, 1500));
+          return handleGetPairingCode(true);
+        }
+
         let errorMsg = data?.msg || '';
         if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('Error')) {
           errorMsg = lang === 'bn'
@@ -988,9 +996,15 @@ export default function App() {
         showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
       }
     } catch (err) {
+      if (!isRetryAttempt) {
+        await new Promise(r => setTimeout(r, 1500));
+        return handleGetPairingCode(true);
+      }
       showAlert(lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.', lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error', 'error');
     } finally {
-      setPairingLoading(false);
+      if (!isRetryAttempt) {
+        setPairingLoading(false);
+      }
     }
   };
 
