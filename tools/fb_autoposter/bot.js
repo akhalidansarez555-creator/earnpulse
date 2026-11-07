@@ -162,6 +162,198 @@ function promptUser(query) {
   }));
 }
 
+function generateLeadReply(freshLink) {
+  const GREETINGS = [
+    "আসসালামু আলাইকুম ভাই! 👋",
+    "ধন্যবাদ ভাই যোগাযোগ করার জন্য! 🌟",
+    "হ্যালো ভাই! সম্পূর্ণ ঘরে বসে অলস সিম দিয়ে ফ্রি আয়ের দারুণ সুযোগ! 📱💸",
+    "জি ভাই, ১০০% রিয়েল ও পরীক্ষিত ফ্রি আর্নিং সাইট! 🇧🇩"
+  ];
+  const g = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+
+  return `${g}\n\nআপনার অতিরিক্ত বা অলস পড়ে থাকা সাধারণ সিমের WhatsApp সাইটে কানেক্ট রাখলেই প্রতিদিন অটোমেটিক ব্যালেন্স জমা হবে! কোনো ইনভেস্টমেন্ট বা ডিপোজিট লাগে না ($০ টাকা)।\n\n👉 কাজ শুরু করার ৩টি সহজ ধাপ:\n১. নিচের অফিশিয়াল লিংকে ক্লিক করে ফ্রি রেজিস্ট্রেশন করুন:\n${freshLink}\n\n২. সাইটে ঢুকে WhatsApp অপশনে গিয়ে আপনার অব্যবহৃত সিমটি কিউআর কোড বা কোড দিয়ে কানেক্ট করে রাখুন (১ম কানেক্টেই ১০৳ ওয়েলকাম বোনাস! 🎁)।\n\n৩. আপনার রেফারেল লিংক বন্ধুদের দিয়ে মাত্র ২ জনকে কানেক্ট করালেই সাথে সাথে পাচ্ছেন ৩০০৳ সরাসরি নগদ বিকাশ বা নগদে ক্যাশআউট! 💸\n\n⚡ পেমেন্ট প্রতিদিন সরাসরি বিকাশ ও নগদে দেওয়া হয়। এখনই লিংকটিতে ঢুকে আপনার বোনাস বুঝে নিন ভাই!`;
+}
+
+// -------------------------------------------------------------
+// MODULE 1: BULK AUTO GROUP SEARCH & JOINER
+// -------------------------------------------------------------
+const JOIN_SEARCH_KEYWORDS = [
+  'Online Income BD',
+  'ঘরে বসে ইনকাম',
+  'ফ্রি ইনকাম সাইট বিকাশ পেমেন্ট',
+  'Online Earning Bangladesh',
+  'Student Online Income BD'
+];
+
+async function autoJoinSearchedGroups(page) {
+  console.log('\n============================================================');
+  console.log('👥 [বাল্ক অটো গ্রুপ জয়েনার] সেরা ইনকাম গ্রুপগুলো খোঁজা ও স্বয়ংক্রিয়ভাবে জয়েন করা হচ্ছে...');
+  console.log('============================================================');
+
+  for (const kw of JOIN_SEARCH_KEYWORDS) {
+    try {
+      console.log(`🔎 "${kw}" কীওয়ার্ড দিয়ে গ্রুপ সার্চ করা হচ্ছে...`);
+      const url = `https://www.facebook.com/search/groups/?q=${encodeURIComponent(kw)}`;
+      await page.goto(url, { waitUntil: 'networkidle2' });
+      await sleep(3500);
+
+      await page.evaluate(() => window.scrollBy(0, 500));
+      await sleep(2000);
+
+      const joinButtonsCount = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('div[role="button"], span, button'));
+        let clicked = 0;
+        for (const b of btns) {
+          const txt = (b.innerText || '').trim();
+          const aria = b.getAttribute('aria-label') || '';
+          if (
+            (txt === 'Join' || txt === 'Join group' || txt === 'যোগ দিন' || txt === 'গ্রুপে যোগ দিন' || aria.includes('Join group') || aria.includes('গ্রুপে যোগ দিন')) &&
+            !txt.includes('Joined') && !txt.includes('যোগ দিয়েছেন')
+          ) {
+            b.click();
+            clicked++;
+            if (clicked >= 3) break;
+          }
+        }
+        return clicked;
+      });
+
+      console.log(`✓ "${kw}" থেকে ${joinButtonsCount} টি গ্রুপে অটো জয়েন রিকোয়েস্ট পাঠানো হয়েছে!`);
+      await sleep(3000);
+
+      await page.evaluate(() => {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => { if (!cb.checked) cb.click(); });
+        const subBtns = Array.from(document.querySelectorAll('div[aria-label="Submit"], div[aria-label="জমা দিন"], div[role="button"]'));
+        for (const sb of subBtns) {
+          const st = (sb.innerText || '').trim();
+          if (st === 'Submit' || st === 'জমা দিন' || st === 'I agree' || st === 'সম্মত') {
+            sb.click();
+            break;
+          }
+        }
+      });
+      await sleep(2000);
+
+    } catch (e) {
+      console.log(`⚠️ গ্রুপ জয়েন সার্চে সাময়িক ত্রুটি: ${e.message}`);
+    }
+  }
+  console.log('✅ বাল্ক গ্রুপ জয়েন প্রক্রিয়া সম্পন্ন!\n');
+}
+
+// -------------------------------------------------------------
+// MODULE 2: AUTO MESSENGER LEAD CONVERTER
+// -------------------------------------------------------------
+async function autoReplyMessenger(page) {
+  try {
+    console.log('\n📬 [মেসেঞ্জার অটো-ক্লোজার] নতুন ইনবক্স মেসেজ চেক করা হচ্ছে...');
+    await page.goto('https://www.facebook.com/messages/', { waitUntil: 'networkidle2' });
+    await sleep(4000);
+
+    const hasUnread = await page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('div[role="row"], div[role="gridcell"], a[href*="/messages/t/"]'));
+      for (const r of rows) {
+        const isBold = window.getComputedStyle(r).fontWeight >= 700 || r.innerHTML.includes('unread') || r.getAttribute('aria-label')?.includes('unread') || r.getAttribute('aria-label')?.includes('অপাঠ্য');
+        if (isBold) {
+          r.click();
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (hasUnread) {
+      console.log('💬 নতুন অপাঠ্য মেসেজ পাওয়া গেছে! কনভার্সন স্ক্রিপ্ট প্রস্তুত হচ্ছে...');
+      await sleep(3000);
+
+      const freshLink = await getDynamicPromoLink(Date.now());
+      const replyText = generateLeadReply(freshLink);
+
+      const msgInput = await page.$('div[role="textbox"]');
+      if (msgInput) {
+        await msgInput.click();
+        await sleep(1000);
+        await page.evaluate((text) => {
+          document.execCommand('insertText', false, text);
+        }, replyText);
+        await sleep(1500);
+        await page.keyboard.press('Enter');
+        console.log(`✅ [মেসেঞ্জার অটো-রিপ্লাই] মেম্বারকে সম্পূর্ণ ফ্রেশ লিংক (${freshLink}) সহ ৩০০৳ বোনাস ও WhatsApp কানেক্ট করার মেসেজ পাঠানো হয়েছে!`);
+        await sleep(3000);
+      }
+    } else {
+      console.log('✓ কোনো নতুন অপাঠ্য মেসেজ নেই।');
+    }
+  } catch (err) {
+    console.log(`⚠️ মেসেঞ্জার চেক এড়ানো হলো: ${err.message}`);
+  }
+}
+
+// -------------------------------------------------------------
+// MODULE 3: AUTO COMMENT & NOTIFICATION RESPONDER
+// -------------------------------------------------------------
+async function autoReplyNotifications(page) {
+  try {
+    console.log('🔔 [নোটিফিকেশন ও কমেন্ট স্ক্যানার] পোস্টে আসা নতুন কমেন্ট চেক করা হচ্ছে...');
+    await page.goto('https://www.facebook.com/notifications/', { waitUntil: 'networkidle2' });
+    await sleep(4000);
+
+    const commentNotifFound = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a[href*="comment_id"], a[href*="notif_t=feedback"], div[role="row"] a'));
+      for (const a of links) {
+        const txt = (a.innerText || '').toLowerCase();
+        if (txt.includes('commented') || txt.includes('মন্তব্য করেছেন') || txt.includes('reply') || txt.includes('রিপ্লাই')) {
+          a.click();
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (commentNotifFound) {
+      console.log('💬 পোস্টে আসা নতুন কমেন্ট পাওয়া গেছে! ওপেন করা হচ্ছে...');
+      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {});
+      await sleep(4000);
+
+      const replyBtnClicked = await page.evaluate(() => {
+        const replyButtons = Array.from(document.querySelectorAll('div[role="button"], span'));
+        for (const rb of replyButtons) {
+          const t = (rb.innerText || '').trim();
+          if (t === 'Reply' || t === 'উত্তর দিন') {
+            rb.click();
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (replyBtnClicked) {
+        await sleep(2000);
+        const freshCommentLink = await getDynamicPromoLink(Date.now() + 1);
+        const commentReplyText = `ধন্যবাদ ভাই! আপনার অলস সিমের WhatsApp দিয়ে প্রতিদিন ৩০০-১০০০ টাকা ফ্রিতে ইনকাম করুন। ১ম কানেক্টে ১০৳ এবং ২ বন্ধুতে ৩০০৳ ক্যাশ! সরাসরি সাইট লিংক: ${freshCommentLink}`;
+
+        const commentBox = await page.$('div[role="textbox"]');
+        if (commentBox) {
+          await commentBox.click();
+          await sleep(500);
+          await page.evaluate((text) => {
+            document.execCommand('insertText', false, text);
+          }, commentReplyText);
+          await sleep(1500);
+          await page.keyboard.press('Enter');
+          console.log(`✅ [কমেন্ট অটো-রিপ্লাই] কমেন্টকারীকে ফ্রেশ লিংক (${freshCommentLink}) সহ স্বয়ংক্রিয় রিপ্লাই দেওয়া হয়েছে!`);
+          await sleep(3000);
+        }
+      }
+    } else {
+      console.log('✓ নতুন কোনো কমেন্ট নোটিফিকেশন নেই।');
+    }
+  } catch (err) {
+    console.log(`⚠️ কমেন্ট স্ক্যানার স্কিপ: ${err.message}`);
+  }
+}
+
 async function startBot() {
   console.log('================================================================');
   console.log('🚀 EarnPulse ১০০% ফুল অটোমেটিক ফেসবুক পোস্টিং বট 🚀');
@@ -218,8 +410,11 @@ async function startBot() {
   }
 
   console.log('\n🎯 মোট টার্গেট গ্রুপ সংখ্যা: ' + TARGET_GROUPS.length);
-  console.log('🚀 ২৪/৭ নন-স্টপ অটো-পোস্টিং ইঞ্জিন প্রস্তুত!');
-  console.log('⚡ আপনি যতক্ষণ এই উইন্ডো চালু রাখবেন, বট চক্রাকারে দিন-রাত পোস্ট করতে থাকবে!\n');
+  console.log('🚀 ২৪/৭ নন-স্টপ অটো-পোস্টিং, অটো-জয়েন ও অটো-রিপ্লাই ইঞ্জিন প্রস্তুত!');
+  console.log('⚡ আপনি যতক্ষণ এই উইন্ডো চালু রাখবেন, বট একা নিজেই সব কিছু স্বয়ংক্রিয়ভাবে করতে থাকবে!\n');
+
+  // ধাপ ১: বট প্রথমে স্বয়ংক্রিয়ভাবে সেরা ইনকাম গ্রুপগুলো খুঁজে অটো-জয়েন করবে
+  await autoJoinSearchedGroups(page);
 
   let round = 1;
   let totalOverallPosts = 0;
@@ -228,6 +423,10 @@ async function startBot() {
     console.log(`\n============================================================`);
     console.log(`🚀 [রাউন্ড #${round}] অটো-পোস্টিং সাইকেল শুরু হচ্ছে...`);
     console.log(`============================================================\n`);
+
+    // প্রতি রাউন্ডে মেসেঞ্জার ও কমেন্টে আসা লিডগুলোকে আগে অটো-রিপ্লাই দিয়ে কনভার্ট করা হবে
+    await autoReplyMessenger(page);
+    await autoReplyNotifications(page);
 
     // প্রতি রাউন্ডে গ্রুপগুলো এলোমেলোভাবে সাজানো হবে যাতে ন্যাচারাল হিউম্যান প্যাটার্ন বজায় থাকে
     const shuffledGroups = [...TARGET_GROUPS].sort(() => 0.5 - Math.random());
@@ -436,6 +635,14 @@ async function startBot() {
         roundFail++;
       }
 
+      // প্রতি ৫টি গ্রুপ পর পর মেসেঞ্জার ও কমেন্টে কোনো আগ্রহী মেম্বারের মেসেজ আছে কিনা চেক করে ফ্রেশ লিংক দিয়ে অটো রিপ্লাই দেওয়া
+      if ((i + 1) % 5 === 0) {
+        console.log('\n🔄 [লিড চেক] গ্রুপ পোস্টিংয়ের ফাঁকে নতুন মেসেঞ্জার ও কমেন্ট চেক করা হচ্ছে...');
+        await autoReplyMessenger(page);
+        await autoReplyNotifications(page);
+        console.log('✓ লিড চেক সম্পন্ন! পরবর্তী গ্রুপে পোস্টিং অব্যাহত রয়েছে...\n');
+      }
+
       // প্রতিটি গ্রুপের মাঝে মানুষের মতো নিরাপদ ন্যাচারাল বিরতি (Anti-Ban Rate Limit Protection)
       const delaySec = Math.floor(Math.random() * 25) + 45; // ৪৫ থেকে ৭০ সেকেন্ড
       console.log(`⏳ ফেসবুক অ্যান্টি-ব্যান সুরক্ষা: পরবর্তী গ্রুপের আগে ${delaySec} সেকেন্ড বিরতি...`);
@@ -449,6 +656,10 @@ async function startBot() {
     console.log(`☕ ফেসবুক অ্যাকাউন্ট সেফটি কুলডাউন: পরবর্তী রাউন্ড শুরুর আগে ৭ মিনিট বিশ্রাম...`);
     console.log(`⚡ আপনি যতক্ষণ টুলস অন রাখবেন, বট একা নিজেই চব্বিশ ঘণ্টা পোস্ট করতে থাকবে!`);
     console.log(`============================================================\n`);
+
+    // কুলডাউনের সময় মেসেঞ্জার ও নোটিফিকেশনে আসা লিড হ্যান্ডেল করা
+    await autoReplyMessenger(page);
+    await autoReplyNotifications(page);
 
     round++;
     await sleep(7 * 60 * 1000); // 7 minutes resting cooldown before next round
