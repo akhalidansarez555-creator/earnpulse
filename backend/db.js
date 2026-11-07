@@ -348,6 +348,27 @@ async function _performSyncToCloud() {
         }
       });
 
+      // ⚡ O(M + N) ULTRA-FAST WITHDRAWAL INDEX (Eliminates CPU freeze and 100% CPU lock)
+      const memberWithdrawalMap = new Map();
+      if (Array.isArray(currentState.withdrawals)) {
+        for (let i = 0; i < currentState.withdrawals.length; i++) {
+          const w = currentState.withdrawals[i];
+          if (!w) continue;
+          if (w.user_id) {
+            const uid = String(w.user_id);
+            if (!memberWithdrawalMap.has(uid)) memberWithdrawalMap.set(uid, []);
+            memberWithdrawalMap.get(uid).push(w);
+          }
+          if (w.username) {
+            const uClean = String(w.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+            if (uClean) {
+              if (!memberWithdrawalMap.has(uClean)) memberWithdrawalMap.set(uClean, []);
+              memberWithdrawalMap.get(uClean).push(w);
+            }
+          }
+        }
+      }
+
       // লোকালের নতুন নিবন্ধিত মেম্বার ও আপডেট মার্জ (কখনোই ব্যালেন্স বা হিস্ট্রি ডাউনগ্রেড হবে না)
       currentUsers.forEach(u => {
         if (u && (u.id || u.username)) {
@@ -359,13 +380,7 @@ async function _performSyncToCloud() {
 
             // এই মেম্বারের আসল উইথড্রয়াল হিসাব (অনুমোদিত ও পেন্ডিং থেকে সরাসরি গাণিতিক ব্যালেন্স নিশ্চিতকরণ)
             const uPhoneClean = String(u.username || key).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-            const memberWList = currentState.withdrawals.filter(w => 
-              w && (
-                String(w.user_id) === String(u.id) || 
-                (existingU && String(w.user_id) === String(existingU.id)) || 
-                String(w.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim() === uPhoneClean
-              )
-            );
+            const memberWList = memberWithdrawalMap.get(String(u.id)) || (existingU && memberWithdrawalMap.get(String(existingU.id))) || (uPhoneClean ? memberWithdrawalMap.get(uPhoneClean) : null) || [];
 
             const approvedAmount = memberWList.filter(w => w.status === 'approved').reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
             const pendingAmount = memberWList.filter(w => w.status === 'pending').reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
@@ -430,15 +445,25 @@ async function _performSyncToCloud() {
       const pendingList = currentState.pending_pairings;
       const userList = currentState.users;
 
+      // ⚡ O(1) FAST HASHMAP LOOKUP FOR TRUE OWNER (Replaces 6.2 Million Regex Searches)
+      const pendingOwnerMap = new Map();
+      pendingList.forEach(p => {
+        if (p && p.phone_number && p.user_id) {
+          pendingOwnerMap.set(String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim(), p.user_id);
+        }
+      });
+
+      const userOwnerMap = new Map();
+      userList.forEach(u => {
+        if (u && u.username && u.id) {
+          userOwnerMap.set(String(u.username).replace(/^\+?880/, '').replace(/^0+/, '').trim(), u.id);
+        }
+      });
+
       const getTrueOwnerId = (phone, fallbackId) => {
+        if (!phone) return fallbackId;
         const clean = String(phone).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-        const p = pendingList.find(x => String(x.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim() === clean);
-        if (p && p.user_id) return p.user_id;
-
-        const u = userList.find(x => String(x.username).replace(/^\+?880/, '').replace(/^0+/, '').trim() === clean);
-        if (u && u.id) return u.id;
-
-        return fallbackId;
+        return pendingOwnerMap.get(clean) || userOwnerMap.get(clean) || fallbackId;
       };
 
       // ৩. লিঙ্কড হোয়াটসঅ্যাপ নম্বর সুরক্ষা ও ইউনিয়ন

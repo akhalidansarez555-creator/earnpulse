@@ -808,15 +808,32 @@ export default function App() {
     const endpoint = isRegister ? '/auth/register' : '/auth/login';
 
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: String(authPhone).trim(),
-          password: authPassword,
-          inviteCode: authInviteCode
-        })
-      });
+      const payload = {
+        username: String(authPhone).trim(),
+        password: authPassword,
+        inviteCode: authInviteCode
+      };
+
+      // Try primary API_BASE with failover to direct Render endpoint
+      let res = null;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
+        res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (primaryErr) {
+        console.warn('Primary auth endpoint retry on direct cloud backend...', primaryErr.message);
+        res = await fetch(`https://earnpulse-mpdd.onrender.com/api${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
 
       let data = null;
       try {

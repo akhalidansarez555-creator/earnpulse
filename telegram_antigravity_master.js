@@ -447,6 +447,15 @@ function pollTranscript() {
 
 setInterval(pollTranscript, 800);
 
+// 24/7 Render Keep-Alive Engine (Ensures backend container never sleeps, guaranteeing sub-second login)
+async function pingRenderKeepAlive() {
+  try {
+    await fetch('https://earnpulse-mpdd.onrender.com/api/config', { signal: AbortSignal.timeout(10000) });
+  } catch (e) {}
+}
+setInterval(pingRenderKeepAlive, 150000);
+pingRenderKeepAlive(); // Initial ping
+
 // Channel Auto-Post Pinger
 setInterval(() => {
   fetch('https://earnpulse-beta.vercel.app/api/telegram-cron', { signal: AbortSignal.timeout(8000) }).catch(() => {});

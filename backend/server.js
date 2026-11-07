@@ -679,9 +679,16 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  // If user does not have plain_password saved yet, save it now
+  // If user does not have plain_password saved yet, update memory and persist asynchronously
   if (!user.plain_password || user.plain_password !== password) {
-    db.get('users').find({ id: user.id }).assign({ plain_password: password }).write();
+    user.plain_password = password;
+    setImmediate(() => {
+      try {
+        db.get('users').find({ id: user.id }).assign({ plain_password: password }).write();
+      } catch (e) {
+        console.error('Async password save error:', e.message);
+      }
+    });
   }
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
@@ -2800,7 +2807,10 @@ app.post('/api/admin/fb-bot/heartbeat', async (req, res) => {
     updated_at: nowIso
   };
 
-  db.set('fb_bot_state', botState).write();
+  // Update runtime memory state without blocking full-database disk/cloud serialization
+  if (db.getState()) {
+    db.getState().fb_bot_state = botState;
+  }
 
   if (db.getMongoDb) {
     try {
