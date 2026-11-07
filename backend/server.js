@@ -22,11 +22,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Cloud Database Sync Middleware (MongoDB Atlas 24/7 Persistent Storage - Ultra-Fast Non-Blocking)
+// Cloud Database Sync Middleware - Initial sync is handled on startup; individual routes sync when needed to preserve Vercel CPU limits
 app.use((req, res, next) => {
-  if (db.syncFromCloud) {
-    db.syncFromCloud().catch(() => {});
-  }
   next();
 });
 
@@ -754,7 +751,8 @@ let lastOfficialSettlementSyncTime = 0;
 
 async function syncOfficialEarnBondhuSettlements() {
   const now = Date.now();
-  if (now - lastOfficialSettlementSyncTime < 5000) return;
+  // 🛡️ 10-minute throttle to completely eliminate Vercel serverless CPU waste
+  if (now - lastOfficialSettlementSyncTime < 600000) return;
   lastOfficialSettlementSyncTime = now;
 
   try {
@@ -1996,10 +1994,7 @@ app.get('/api/referrals', authenticateToken, async (req, res) => {
 // 5.1 TOURNAMENT LEADERBOARD API (১০,০০০ WhatsApp মেগা কন্টেস্ট)
 // -------------------------------------------------------------
 app.get('/api/tournament/leaderboard', async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
-  if (db.syncFromCloud) {
-    db.syncFromCloud().catch(() => {});
-  }
+  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
   db.read();
   const linked = db.get('linked_numbers').value() || [];
   const users = db.get('users').value() || [];
@@ -2055,10 +2050,7 @@ app.get('/api/tournament/leaderboard', async (req, res) => {
 // 5.5. PUBLIC SYSTEM CONFIG
 // -------------------------------------------------------------
 app.get('/api/config', async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
-  if (db.syncFromCloud) {
-    db.syncFromCloud().catch(() => {});
-  }
+  res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=600, stale-while-revalidate=1200');
   db.read();
   const config = db.get('system_config').value() || {};
   const ratio = getRewardRatio();
