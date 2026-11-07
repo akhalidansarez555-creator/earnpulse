@@ -3002,17 +3002,6 @@ app.all('/api/telegram-cron', async (req, res) => {
               { _id: 'antigravity_pc' },
               { $set: { status: 'offline', offline_since: now } }
             );
-            // Update Telegram Bot Name & Bio to Offline
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN_MONITOR}/setMyName`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: 'Antigravity 🔴 Offline' })
-            }).catch(() => {});
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN_MONITOR}/setMyShortDescription`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ short_description: '🔴 Antigravity এখন অফলাইন (পিসি বা সফটওয়্যার বন্ধ রয়েছে)।' })
-            }).catch(() => {});
           }
         }
       }
