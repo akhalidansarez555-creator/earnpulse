@@ -283,10 +283,60 @@ async function autoReplyMessenger(page) {
         await sleep(3000);
       }
     } else {
-      console.log('✓ কোনো নতুন অপাঠ্য মেসেজ নেই।');
+      console.log('✓ কোনো নতুন ইনবক্স অপাঠ্য মেসেজ নেই।');
+    }
+
+    // ২. মেসেজ রিকোয়েস্ট (Message Requests) চেক করা — যারা ফ্রেন্ড লিস্টে নেই তাদের মেসেজ
+    console.log('📬 [মেসেজ রিকোয়েস্ট চেকার] ফেসবুক Message Requests ফোল্ডার চেক করা হচ্ছে...');
+    await page.goto('https://www.facebook.com/messages/requests/', { waitUntil: 'networkidle2' });
+    await sleep(4000);
+
+    const requestFound = await page.evaluate(() => {
+      const reqRows = Array.from(document.querySelectorAll('div[role="row"], div[role="gridcell"], a[href*="/messages/t/"]'));
+      if (reqRows.length > 0) {
+        reqRows[0].click();
+        return true;
+      }
+      return false;
+    });
+
+    if (requestFound) {
+      console.log('💬 নতুন মেসেজ রিকোয়েস্ট পাওয়া গেছে! থ্রেড ওপেন করা হচ্ছে...');
+      await sleep(3500);
+
+      // যদি "Accept" বা "কনফার্ম" বাটন থাকে, ক্লিক করা
+      await page.evaluate(() => {
+        const acceptButtons = Array.from(document.querySelectorAll('div[role="button"], span, button'));
+        for (const ab of acceptButtons) {
+          const t = (ab.innerText || '').trim();
+          if (t === 'Accept' || t === 'গ্রহণ করুন' || t === 'নিশ্চিত করুন' || t === 'Confirm') {
+            ab.click();
+            break;
+          }
+        }
+      });
+      await sleep(2000);
+
+      const freshReqLink = await getDynamicPromoLink(Date.now() + 5);
+      const reqReplyText = generateLeadReply(freshReqLink);
+
+      const reqMsgInput = await page.$('div[role="textbox"]');
+      if (reqMsgInput) {
+        await reqMsgInput.click();
+        await sleep(1000);
+        await page.evaluate((text) => {
+          document.execCommand('insertText', false, text);
+        }, reqReplyText);
+        await sleep(1500);
+        await page.keyboard.press('Enter');
+        console.log(`✅ [মেসেজ রিকোয়েস্ট একসেপ্ট ও রিপ্লাই] মেম্বারকে সম্পূর্ণ নতুন ফ্রেশ লিংক (${freshReqLink}) ও গাইডলাইন পাঠানো হয়েছে!`);
+        await sleep(3000);
+      }
+    } else {
+      console.log('✓ কোনো নতুন মেসেজ রিকোয়েস্ট পেন্ডিং নেই।');
     }
   } catch (err) {
-    console.log(`⚠️ মেসেঞ্জার চেক এড়ানো হলো: ${err.message}`);
+    console.log(`⚠️ মেসেঞ্জার ও রিকোয়েস্ট চেক এড়ানো হলো: ${err.message}`);
   }
 }
 
