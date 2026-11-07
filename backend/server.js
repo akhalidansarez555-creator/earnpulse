@@ -2789,7 +2789,11 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
   }
 
   if (withdraw.status !== 'pending') {
-    return res.status(400).json({ success: false, msg: `এই রিকোয়েস্টটি ইতোমধ্যেই ${withdraw.status === 'approved' ? 'অনুমোদিত' : 'বাতিল'} করা হয়েছে` });
+    return res.json({ 
+      success: true, 
+      msg: `এই রিকোয়েস্টটি ইতোমধ্যেই ${withdraw.status === 'approved' ? 'অনুমোদিত' : 'বাতিল'} রয়েছে!`,
+      withdrawal: withdraw 
+    });
   }
 
   const nowIso = new Date().toISOString();
