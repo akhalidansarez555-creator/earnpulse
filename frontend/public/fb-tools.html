@@ -493,40 +493,54 @@
 </div>
 
 <script>
+  // Dynamic Randomized Link Pool (Protects against domain-level spam filters!)
+  const DYNAMIC_LINKS = [
+    { name: "is.gd শর্টনার", url: "https://is.gd/0me4kp" },
+    { name: "clck.ru শর্টনার", url: "https://clck.ru/3Wtnys" },
+    { name: "rebrand.ly শর্টনার", url: "https://rebrand.ly/earnpulse-whatsapp-9bba96" },
+    { name: "earnpulse.app/join", url: "https://earnpulse-beta.vercel.app/join" },
+    { name: "earnpulse.app/bonus", url: "https://earnpulse-beta.vercel.app/bonus" },
+    { name: "earnpulse.app/cash", url: "https://earnpulse-beta.vercel.app/cash" },
+    { name: "earnpulse.app/start", url: "https://earnpulse-beta.vercel.app/start" },
+    { name: "earnpulse.app/income", url: "https://earnpulse-beta.vercel.app/income" },
+    { name: "earnpulse.app/free", url: "https://earnpulse-beta.vercel.app/free" },
+    { name: "earnpulse.app/bounty", url: "https://earnpulse-beta.vercel.app/bounty" }
+  ];
+  let currentLinkIndex = 0;
+
   // 10 Psychologically Crafty Anti-Ban Variations
-  const PROMO_LINK = "https://rebrand.ly/earnpulse-whatsapp-9bba96";
   const POST_VARIANTS = [
     {
       tag: "ভ্যারিয়েন্ট #১: সরাসরি নগদ অফার হুক 🔥",
-      text: `ঘরে অলস পড়ে থাকা যেকোনো সাধারণ সিম দিয়ে WhatsApp কানেক্ট রাখলেই প্রতিদিন ৩০০-১০০০ টাকা নগদ ইনকাম! 📱💸\n\n✅ ১ম নম্বর কানেক্ট করলেই ১০৳ ফ্রি ওয়েলকাম উপহার!\n✅ মাত্র ২ জন বন্ধুকে যুক্ত করালেই পাচ্ছেন ৩০০৳ নগদ ক্যাশ বিকাশ/নগদে!\n✅ কোনো কাজ নেই, শুধু নম্বর কানেক্ট থাকলেই প্রতি ২৪ ঘণ্টায় অটো ইনকাম!\n\n👉 সাইট লিংক কমেন্টে দেওয়া হলো অথবা এখনই শুরু করুন:\n${PROMO_LINK}\n\n#OnlineIncomeBD #GhoreBoseInkam #WhatsAppEarning #BkashPayment`
+      template: `ঘরে অলস পড়ে থাকা যেকোনো সাধারণ সিম দিয়ে WhatsApp কানেক্ট রাখলেই প্রতিদিন ৩০০-১০০০ টাকা নগদ ইনকাম! 📱💸\n\n✅ ১ম নম্বর কানেক্ট করলেই ১০৳ ফ্রি ওয়েলকাম উপহার!\n✅ মাত্র ২ জন বন্ধুকে যুক্ত করালেই পাচ্ছেন ৩০০৳ নগদ ক্যাশ বিকাশ/নগদে!\n✅ কোনো কাজ নেই, শুধু নম্বর কানেক্ট থাকলেই প্রতি ২৪ ঘণ্টায় অটো ইনকাম!\n\n👉 সাইট লিংক কমেন্টে দেওয়া হলো অথবা এখনই শুরু করুন:\n{{LINK}}\n\n#OnlineIncomeBD #GhoreBoseInkam #WhatsAppEarning #BkashPayment`
     },
     {
       tag: "ভ্যারিয়েন্ট #২: বেকার ও স্টুডেন্টদের ফ্রেন্ডলি হুক 🎓",
-      text: `ছাত্র-ছাত্রী ও বেকার ভাইদের জন্য ঘরে বসে মোবাইল দিয়ে ইনকামের সেরা সুযোগ! 🎓🇧🇩\n\nআপনার অতিরিক্ত বা অলস সিমের WhatsApp সাইটে কানেক্ট রাখলেই ২৪ ঘণ্টা অটো ব্যালেন্স যোগ হতে থাকবে।\n\n🎁 বিশেষ ধামাকা অফার: ২ জন বন্ধুকে রেফার করলেই সাথে সাথে ৩০০৳ নগদ বোনাস!\n💵 সর্বনিম্ন টাকা হলেই বিকাশ ও নগদে নিশ্চিত ক্যাশআউট।\n\n📌 এখনই অ্যাকাউন্ট খুলে বোনাস বুঝে নিন:\n${PROMO_LINK}\n\n#StudentIncome #DailyEarning #PartTimeJobBD`
+      template: `ছাত্র-ছাত্রী ও বেকার ভাইদের জন্য ঘরে বসে মোবাইল দিয়ে ইনকামের সেরা সুযোগ! 🎓🇧🇩\n\nআপনার অতিরিক্ত বা অলস সিমের WhatsApp সাইটে কানেক্ট রাখলেই ২৪ ঘণ্টা অটো ব্যালেন্স যোগ হতে থাকবে।\n\n🎁 বিশেষ ধামাকা অফার: ২ জন বন্ধুকে রেফার করলেই সাথে সাথে ৩০০৳ নগদ বোনাস!\n💵 সর্বনিম্ন টাকা হলেই বিকাশ ও নগদে নিশ্চিত ক্যাশআউট।\n\n📌 এখনই অ্যাকাউন্ট খুলে বোনাস বুঝে নিন:\n{{LINK}}\n\n#StudentIncome #DailyEarning #PartTimeJobBD`
     },
     {
       tag: "ভ্যারিয়েন্ট #৩: প্রমাণ ও বিশ্বাসযোগ্যতা হুক 🏆",
-      text: `হাতে একটা স্মার্টফোন আর একটা অলস সিম থাকলেই চলবে—প্রতিদিন ৫০০-১০০০ টাকা বিকাশ ও নগদে ইনস্ট্যান্ট পেমেন্ট! ⚡\n\n💯 ১০০% রিয়েল ও পরীক্ষিত আর্নিং প্ল্যাটফর্ম EarnPulse।\n🔹 ১ম কানেক্টেই পাচ্ছেন ইনস্ট্যান্ট ১০৳ ওয়েলকাম ব্যালেন্স।\n🔹 বন্ধুদের স্ট্যাটাস বা লিংক শেয়ার করে মাত্র ২ জনে ৩০০৳ সরাসরি ক্যাশ!\n\n👇 আর দেরি না করে এখনই শুরু করুন:\n${PROMO_LINK}\n\n#RealIncomeSite #BkashNagadPayment #TrustedBD`
+      template: `হাতে একটা স্মার্টফোন আর একটা অলস সিম থাকলেই চলবে—প্রতিদিন ৫০০-১০০০ টাকা বিকাশ ও নগদে ইনস্ট্যান্ট পেমেন্ট! ⚡\n\n💯 ১০০% রিয়েল ও পরীক্ষিত আর্নিং প্ল্যাটফর্ম EarnPulse।\n🔹 ১ম কানেক্টেই পাচ্ছেন ইনস্ট্যান্ট ১০৳ ওয়েলকাম ব্যালেন্স।\n🔹 বন্ধুদের স্ট্যাটাস বা লিংক শেয়ার করে মাত্র ২ জনে ৩০০৳ সরাসরি ক্যাশ!\n\n👇 আর দেরি না করে এখনই শুরু করুন:\n{{LINK}}\n\n#RealIncomeSite #BkashNagadPayment #TrustedBD`
     },
     {
       tag: "ভ্যারিয়েন্ট #৪: সিমের অলসতা দূরীকরণ হুক 📲",
-      text: `সিম শুধু মোবাইলে ফেলে রেখে কী লাভ? সেই অলস সিমের WhatsApp কানেক্ট করে প্রতিদিন আয় করুন ফ্রি পকেট খরচ! 💰\n\n✔️ কোনো ইনভেস্ট নেই ($০ টাকা খরচ)\n✔️ প্রতিদিন অটোমেটিক ব্যালেন্স জমা\n✔️ ২ বন্ধু রেফার করলেই ৩০০৳ ধামাকা ক্যাশ!\n✔️ বিকাশ ও নগদ উইথড্র সুবিধা\n\n🚀 এখনই ফ্রি জয়েন করুন:\n${PROMO_LINK}\n\n#FreeIncomeBD #NoInvestment #WhatsAppIncome`
+      template: `সিম শুধু মোবাইলে ফেলে রেখে কী লাভ? সেই অলস সিমের WhatsApp কানেক্ট করে প্রতিদিন আয় করুন ফ্রি পকেট খরচ! 💰\n\n✔️ কোনো ইনভেস্ট নেই ($০ টাকা খরচ)\n✔️ প্রতিদিন অটোমেটিক ব্যালেন্স জমা\n✔️ ২ বন্ধু রেফার করলেই ৩০০৳ ধামাকা ক্যাশ!\n✔️ বিকাশ ও নগদ উইথড্র সুবিধা\n\n🚀 এখনই ফ্রি জয়েন করুন:\n{{LINK}}\n\n#FreeIncomeBD #NoInvestment #WhatsAppIncome`
     },
     {
       tag: "ভ্যারিয়েন্ট #৫: সীমিত সময়ের মেগা ক্যাশ হুক ⏳",
-      text: `🚨 সীমিত সময়ের জন্য বিশাল আর্নিং অফার চলছে! 🚨\n\nযেকোনো WhatsApp কানেক্ট রাখলেই প্রতিদিন অটো ইনকাম + মাত্র ২ জনকে যুক্ত করলেই ৩০০৳ ইনস্ট্যান্ট ক্যাশ বিকাশ/নগদে নিয়ে নিন!\n\nপেমেন্ট নিয়ে কোনো চিন্তা নেই, হাজার হাজার ইউজার প্রতিদিন পেমেন্ট নিচ্ছে।\n\nলিংক: ${PROMO_LINK}\n(বিস্তারিত কমেন্টে দেওয়া আছে)\n\n#OfferBD #MegaCashBounty #EarnPulse`
+      template: `🚨 সীমিত সময়ের জন্য বিশাল আর্নিং অফার চলছে! 🚨\n\nযেকোনো WhatsApp কানেক্ট রাখলেই প্রতিদিন অটো ইনকাম + মাত্র ২ জনকে যুক্ত করলেই ৩০০৳ ইনস্ট্যান্ট ক্যাশ বিকাশ/নগদে নিয়ে নিন!\n\nপেমেন্ট নিয়ে কোনো চিন্তা নেই, হাজার হাজার ইউজার প্রতিদিন পেমেন্ট নিচ্ছে।\n\nলিংক: {{LINK}}\n(বিস্তারিত কমেন্টে দেওয়া আছে)\n\n#OfferBD #MegaCashBounty #EarnPulse`
     },
     {
       tag: "ভ্যারিয়েন্ট #৬: পকেট খরচ হুক ☕",
-      text: `চা-নাস্তার খরচ এখন আসবে আপনার মোবাইলের অলস WhatsApp থেকে! ☕📱\n\nমাত্র ৫ সেকেন্ডে QR কোড বা ৮ ডিজিটের কোড দিয়ে নম্বর কানেক্ট করুন। প্রথম কানেক্টেই ১০ টাকা ফ্রি!\nআর ২ জন বন্ধুকে যুক্ত করলেই ৩০০ টাকা ক্যাশ বোনাস!\n\nনিচের লিংকে ক্লিক করে অ্যাকাউন্ট করুন:\n${PROMO_LINK}\n\n#PocketMoney #DailyCash #OnlineIncome`
+      template: `চা-নাস্তার খরচ এখন আসবে আপনার মোবাইলের অলস WhatsApp থেকে! ☕📱\n\nমাত্র ৫ সেকেন্ডে QR কোড বা ৮ ডিজিটের কোড দিয়ে নম্বর কানেক্ট করুন। প্রথম কানেক্টেই ১০ টাকা ফ্রি!\nআর ২ জন বন্ধুকে যুক্ত করলেই ৩০০ টাকা ক্যাশ বোনাস!\n\nনিচের লিংকে ক্লিক করে অ্যাকাউন্ট করুন:\n{{LINK}}\n\n#PocketMoney #DailyCash #OnlineIncome`
     },
     {
       tag: "ভ্যারিয়েন্ট #৭: সরাসরি প্রশ্ন হুক ❓",
-      text: `আপনার ফোনে কি ২টা সিম আছে? একটা সিম দিয়ে কি নিয়মিত WhatsApp ব্যবহার করেন না?\n\nতাহলে সেই অলস নম্বরটি EarnPulse-এ কানেক্ট করে আজ থেকেই প্রতিদিন নিশ্চিত আয় শুরু করুন! 💸\n\n✨ ১ম কানেক্টে ১০৳ বোনাস\n✨ ২ রেফারেই ৩০০৳ নগদ বিকাশ ক্যাশ\n✨ ১০০% ফ্রি রেজিস্ট্রেশন\n\nক্লিক করুন: ${PROMO_LINK}\n\n#AskIncome #BDJobs #MakeMoneyOnline`
+      template: `আপনার ফোনে কি ২টা সিম আছে? একটা সিম দিয়ে কি নিয়মিত WhatsApp ব্যবহার করেন না?\n\nতাহলে সেই অলস নম্বরটি EarnPulse-এ কানেক্ট করে আজ থেকেই প্রতিদিন নিশ্চিত আয় শুরু করুন! 💸\n\n✨ ১ম কানেক্টে ১০৳ বোনাস\n✨ ২ রেফারেই ৩০০৳ নগদ বিকাশ ক্যাশ\n✨ ১০০% ফ্রি রেজিস্ট্রেশন\n\nক্লিক করুন: {{LINK}}\n\n#AskIncome #BDJobs #MakeMoneyOnline`
     },
     {
       tag: "ভ্যারিয়েন্ট #৮: রেফারাল ধামাকা হুক 👥",
-      text: `🔥 রেফার করে আনলিমিটেড ইনকাম করুন! 🔥\n\nমাত্র ২ জন বন্ধুকে এনে WhatsApp কানেক্ট করালেই সাথে সাথে পাচ্ছেন ৩০০৳ সরাসরি ক্যাশ! সাথে বন্ধুদের নম্বর থেকে লাইফটাইম ১৫% কমিশন! 🤑\n\nপেমেন্ট বিকাশ ও নগদে। কোনো ডিপোজিট নেই!\n\nলিংক: ${PROMO_LINK}\n\n#ReferralBonus #TeamEarning #UnlimitedCash`
+      template: `🔥 রেফার করে আনলিমিটেড ইনকাম করুন! 🔥\n\nমাত্র ২ জন বন্ধুকে এনে WhatsApp কানেক্ট করালেই সাথে সাথে পাচ্ছেন ৩০০৳ সরাসরি ক্যাশ! সাথে বন্ধুদের নম্বর থেকে লাইফটাইম ১৫% কমিশন! 🤑\n\nপেমেন্ট বিকাশ ও নগদে। কোনো ডিপোজিট নেই!\n\nলিংক: {{LINK}}\n\n#ReferralBonus #TeamEarning #UnlimitedCash`
     }
   ];
 
@@ -565,20 +579,24 @@
 
   function renderPost() {
     const v = POST_VARIANTS[currentVariantIndex];
-    document.getElementById('postTag').innerText = v.tag;
-    document.getElementById('postBox').innerText = v.text;
+    const linkObj = DYNAMIC_LINKS[currentLinkIndex];
+    const fullText = v.template.replace(/\{\{LINK\}\}/g, linkObj.url);
+
+    document.getElementById('postTag').innerHTML = `${v.tag} &nbsp;•&nbsp; <span style="color: #60a5fa;">🔗 লিংক: ${linkObj.name}</span>`;
+    document.getElementById('postBox').innerText = fullText;
   }
 
   function spinPost() {
     currentVariantIndex = (currentVariantIndex + 1) % POST_VARIANTS.length;
+    currentLinkIndex = (currentLinkIndex + 1) % DYNAMIC_LINKS.length;
     renderPost();
-    showToast('নতুন পোস্ট ভ্যারিয়েন্ট লোড হয়েছে!');
+    showToast(`নতুন ভ্যারিয়েন্ট ও র্যান্ডম লিংক (${DYNAMIC_LINKS[currentLinkIndex].name}) লোড হয়েছে!`);
   }
 
   function copyPostText() {
     const text = document.getElementById('postBox').innerText;
     navigator.clipboard.writeText(text).then(() => {
-      showToast('✓ পোস্ট লেখা ক্লিপবোর্ডে কপি হয়েছে!');
+      showToast('✓ পোস্ট লেখা ও র্যান্ডম লিংক ক্লিপবোর্ডে কপি হয়েছে!');
       const btn = document.getElementById('copyBtn');
       const old = btn.innerText;
       btn.innerText = '✓ কপি সম্পন্ন!';
@@ -594,7 +612,12 @@
   }
 
   function launchGroup(idx, query) {
-    // 1. First copy the active post text automatically
+    // প্রতি গ্রুপে নতুন ভিন্ন ভিন্ন র্যান্ডম শর্ট লিংক অ্যাসাইন করা হবে
+    currentLinkIndex = idx % DYNAMIC_LINKS.length;
+    currentVariantIndex = (idx * 2) % POST_VARIANTS.length;
+    renderPost();
+
+    // 1. First copy the active post text with randomized link automatically
     copyPostText();
 
     // 2. Mark this group as completed
