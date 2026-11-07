@@ -2750,6 +2750,74 @@ app.post('/api/admin/config', authenticateToken, requireAdmin, async (req, res) 
   });
 });
 
+// -------------------------------------------------------------
+// FACEBOOK AUTO-BOT LIVE MONITORING API
+// -------------------------------------------------------------
+app.get('/api/admin/fb-bot/status', authenticateToken, requireAdmin, async (req, res) => {
+  let botState = db.get('fb_bot_state').value();
+  if (!botState && db.getMongoDb) {
+    try {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
+        if (doc && doc.data && doc.data.fb_bot_state) {
+          botState = doc.data.fb_bot_state;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!botState) {
+    botState = {
+      status: 'offline',
+      reason: 'বট এখনো চালু করা হয়নি। Desktop থেকে EarnPulse_FB_AutoPoster.bat ফাইলটি রান করুন।',
+      total_posts: 0,
+      last_active: null
+    };
+  } else {
+    // If no heartbeat received for > 2.5 minutes, mark as offline/stopped
+    if (botState.last_active && (Date.now() - new Date(botState.last_active).getTime() > 150000)) {
+      if (botState.status === 'active') {
+        botState.status = 'offline';
+        botState.reason = '🔴 বট বন্ধ রয়েছে (কম্পিউটার অফ করা হয়েছে অথবা অ্যাপ্লিকেশন ক্লোজ করা হয়েছে)';
+      }
+    }
+  }
+
+  return res.json({ success: true, botState });
+});
+
+app.post('/api/admin/fb-bot/heartbeat', async (req, res) => {
+  const { status, total_posts, reason, current_target, error } = req.body;
+  const nowIso = new Date().toISOString();
+
+  const botState = {
+    status: status || 'active',
+    total_posts: Number(total_posts) || 0,
+    current_target: current_target || '',
+    reason: reason || (status === 'error' ? (error || 'অজানা ত্রুটি') : `পোস্টিং সক্রিয়: ${current_target || 'গ্রুপ প্রসেসিং চলছে'}`),
+    last_active: nowIso,
+    updated_at: nowIso
+  };
+
+  db.set('fb_bot_state', botState).write();
+
+  if (db.getMongoDb) {
+    try {
+      const mdb = await db.getMongoDb();
+      if (mdb) {
+        await mdb.collection('app_state').updateOne(
+          { _id: 'earnpulse_store' },
+          { $set: { 'data.fb_bot_state': botState, updated_at: new Date() } },
+          { upsert: true }
+        );
+      }
+    } catch (e) {}
+  }
+
+  return res.json({ success: true, botState });
+});
+
 app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   const idStr = String(req.params.id);

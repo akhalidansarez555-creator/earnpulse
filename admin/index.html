@@ -629,6 +629,65 @@
       <button type="submit" class="save-btn">💾 সেটিংস সংরক্ষণ করুন</button>
     </form>
   </div>
+
+  <!-- 🤖 FACEBOOK AUTO-BOT LIVE MONITOR (এডমিন প্যানেলের নিচে সার্বক্ষণিক লাইভ স্ট্যাটাস) -->
+  <div class="card" id="fbBotCard" style="margin-top: 24px; border: 1px solid rgba(24, 119, 242, 0.35); background: linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #1877f2, #0d5bbd); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 14px rgba(24, 119, 242, 0.4);">
+          🚀
+        </div>
+        <div>
+          <h2 style="font-size: 17px; font-weight: 800; color: #fff; margin: 0; display: flex; align-items: center; gap: 8px;">
+            ফেসবুক অটো-বট লাইভ মনিটর
+            <span id="fbBotBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 800; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">
+              ● অফলাইন / বন্ধ
+            </span>
+          </h2>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            স্বয়ংক্রিয় গ্রুপ পোস্ট, কমেন্ট রিপ্লাই ও মেসেঞ্জার কনভার্সন লাইভ ট্র্যাকার
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a href="/fb-tools.html" target="_blank" class="action-btn" style="background: rgba(24, 119, 242, 0.15); color: #60a5fa; border: 1px solid rgba(24, 119, 242, 0.3); text-decoration: none; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 8px;">
+          🛠️ ওয়েব টুল ওপেন
+        </a>
+      </div>
+    </div>
+
+    <!-- Live Status Box -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">লাইভ স্ট্যাটাস</div>
+        <div id="fbBotStatusText" style="font-size: 15px; font-weight: 800; color: #f87171; margin-top: 4px;">
+          অফলাইন (চালু নেই)
+        </div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">মোট সফল পোস্ট</div>
+        <div id="fbBotTotalPosts" style="font-size: 18px; font-weight: 800; color: #34d399; margin-top: 4px;">
+          ০ টি
+        </div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">সর্বশেষ সিঙ্ক / হার্টবিট</div>
+        <div id="fbBotLastSeen" style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 6px;">
+          এখনো চালু করা হয়নি
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Log / Diagnostic Alert Box -->
+    <div id="fbBotLogBox" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 14px; font-size: 13px; color: #e2e8f0; line-height: 1.6;">
+      <div style="font-weight: 700; color: #fbbf24; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+        <span>📋</span> রিয়েল-টাইম সমস্যা ও অ্যাক্টিভিটি রিপোর্ট:
+      </div>
+      <div id="fbBotReasonText" style="color: #94a3b8;">
+        বট চালু হলে এখানে সরাসরি গ্রুপের নাম ও সফল পোস্টের বিবরণ আসবে। আর কোনো কারণে অফ হয়ে গেলে (যেমন: ফেসবুক আইডি লগআউট বা লিমিট) তার কারণ এখানে স্পষ্টভাবে দেখা যাবে।
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- WhatsApp Detail Modal (মেম্বারের সংযুক্ত হোয়াটসঅ্যাপ পপআপ তালিকা) -->
@@ -1148,6 +1207,73 @@
       }).join('');
     } else {
       waT.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">কোনো হোয়াটসঅ্যাপ নম্বর পাওয়া যায়নি</td></tr>';
+    }
+
+    // 5. Facebook Auto-Bot Live Monitor Fetch
+    try {
+      const fbRes = await fetch(`${API_BASE}/admin/fb-bot/status?_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      if (fbRes.ok) {
+        const fbD = await fbRes.json();
+        if (fbD && fbD.botState) {
+          updateFbBotUI(fbD.botState);
+        }
+      }
+    } catch (e) {}
+  }
+
+  function updateFbBotUI(s) {
+    const badge = document.getElementById('fbBotBadge');
+    const statusText = document.getElementById('fbBotStatusText');
+    const totalPosts = document.getElementById('fbBotTotalPosts');
+    const lastSeen = document.getElementById('fbBotLastSeen');
+    const reasonText = document.getElementById('fbBotReasonText');
+
+    if (!badge || !s) return;
+
+    totalPosts.innerText = `${s.total_posts || 0} টি`;
+    if (s.last_active) {
+      const p = new Date(s.last_active).getTime();
+      const elapsed = Math.floor((Date.now() - p) / 1000);
+      lastSeen.innerText = elapsed < 60 ? 'এইমাত্র' : `${Math.floor(elapsed / 60)} মিনিট আগে`;
+    } else {
+      lastSeen.innerText = 'এখনো চালু করা হয়নি';
+    }
+
+    if (s.status === 'active') {
+      badge.style.background = 'rgba(16, 185, 129, 0.15)';
+      badge.style.color = '#34d399';
+      badge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+      badge.innerHTML = '🟢 ফেসবুক লাইভ (সক্রিয়)';
+
+      statusText.style.color = '#34d399';
+      statusText.innerText = 'সক্রিয় (পোস্টিং ও রিপ্লাই চলছে)';
+
+      reasonText.style.color = '#a7f3d0';
+      reasonText.innerText = s.reason || 'বট পুরোদমে গ্রুপে পোস্ট ও রিপ্লাই দিচ্ছে...';
+    } else if (s.status === 'waiting_login') {
+      badge.style.background = 'rgba(245, 158, 11, 0.15)';
+      badge.style.color = '#fbbf24';
+      badge.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+      badge.innerHTML = '🟡 লগইন অপেক্ষা';
+
+      statusText.style.color = '#fbbf24';
+      statusText.innerText = 'ফেসবুক লগইন প্রয়োজন';
+
+      reasonText.style.color = '#fde68a';
+      reasonText.innerText = s.reason || 'ক্রোম ব্রাউজারে ফেসবুক আইডি ও পাসওয়ার্ড দিয়ে লগইন সম্পন্ন করুন।';
+    } else {
+      badge.style.background = 'rgba(239, 68, 68, 0.15)';
+      badge.style.color = '#f87171';
+      badge.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+      badge.innerHTML = '🔴 ফেসবুক লাইভ বন্ধ';
+
+      statusText.style.color = '#f87171';
+      statusText.innerText = 'অফলাইন / বন্ধ';
+
+      reasonText.style.color = '#fca5a5';
+      reasonText.innerText = s.reason || 'বট বন্ধ রয়েছে (কম্পিউটার অফ করা হয়েছে অথবা অ্যাপ্লিকেশন ক্লোজ করা হয়েছে)।';
     }
   }
 

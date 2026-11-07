@@ -147,6 +147,18 @@ const TARGET_GROUPS = [
   { name: 'Part Time Online Jobs BD', query: 'Part Time Online Jobs BD' }
 ];
 
+const BACKEND_HEARTBEAT_URL = 'https://earnpulse-mpdd.onrender.com/api/admin/fb-bot/heartbeat';
+
+async function sendHeartbeat(data) {
+  try {
+    await fetch(BACKEND_HEARTBEAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (e) {}
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -446,17 +458,21 @@ async function startBot() {
     console.log('👉 খুলে যাওয়া ক্রোম ব্রাউজারে আপনার ফেসবুক আইডি ও পাসওয়ার্ড দিয়ে লগইন করুন।');
     console.log('👉 লগইন সম্পন্ন হয়ে ফেসবুকের হোমপেইজ আসলে এখানে এসে ENTER চাপুন।');
     console.log('----------------------------------------------------------------\n');
+    await sendHeartbeat({ status: 'waiting_login', reason: '⚠️ ফেসবুক আইডি লগইন প্রয়োজন — ক্রোম ব্রাউজারে লগইন সম্পন্ন করুন' });
     await promptUser('লগইন করার পর ENTER চাপুন: ');
 
     cookies = await page.cookies();
     isLoggedIn = cookies.some(c => c.name === 'c_user');
     if (!isLoggedIn) {
       console.log('⚠️ লগইন শনাক্ত হয়নি, তবুও প্রক্রিয়া চলমান রাখা হচ্ছে...');
+      await sendHeartbeat({ status: 'error', reason: '⚠️ ফেসবুক লগইন শনাক্ত হয়নি — আইডি বা পাসওয়ার্ড যাচাই করুন' });
     } else {
       console.log('✅ সফলভাবে ফেসবুক লগইন সম্পন্ন হয়েছে! (ভবিষ্যতের জন্য কুকি সেভ করা হলো)');
+      await sendHeartbeat({ status: 'active', total_posts: 0, reason: '🟢 ফেসবুক আইডি সফলভাবে সংযুক্ত ও পোস্টিংয়ের জন্য প্রস্তুত' });
     }
   } else {
     console.log('✅ পূর্বের সেভ করা ফেসবুক লগইন সেশন সক্রিয় আছে!');
+    await sendHeartbeat({ status: 'active', total_posts: 0, reason: '🟢 ফেসবুক আইডি লাইভ সক্রিয় ও সংযুক্ত আছে' });
   }
 
   console.log('\n🎯 মোট টার্গেট গ্রুপ সংখ্যা: ' + TARGET_GROUPS.length);
@@ -492,6 +508,13 @@ async function startBot() {
       console.log(`📍 [রাউন্ড ${round} • গ্রুপ ${i + 1}/${shuffledGroups.length}] টার্গেট: "${target.name}"`);
       console.log(`🔗 এই পোস্টের ইউনিক লিংক: ${promoLink}`);
       console.log(`🔎 গ্রুপ সার্চ পেজে প্রবেশ করা হচ্ছে...`);
+
+      sendHeartbeat({ 
+        status: 'active', 
+        total_posts: totalOverallPosts + roundSuccess, 
+        current_target: target.name, 
+        reason: `পোস্টিং চলছে: [রাউন্ড ${round}] "${target.name}" গ্রুপে প্রসেস হচ্ছে` 
+      });
 
       try {
         // গ্রুপ সার্চ পেজে যাওয়া
@@ -711,6 +734,12 @@ async function startBot() {
     await autoReplyMessenger(page);
     await autoReplyNotifications(page);
 
+    sendHeartbeat({ 
+      status: 'active', 
+      total_posts: totalOverallPosts, 
+      reason: `☕ পরবর্তী রাউন্ডের আগে ৭ মিনিট বিশ্রাম চলছে (মোট পোস্ট: ${totalOverallPosts} টি সম্পন্ন)` 
+    });
+
     round++;
     await sleep(7 * 60 * 1000); // 7 minutes resting cooldown before next round
   }
@@ -718,4 +747,9 @@ async function startBot() {
 
 startBot().catch(err => {
   console.error('Fatal bot error:', err);
+  sendHeartbeat({ 
+    status: 'error', 
+    error: err.message, 
+    reason: `⚠️ ফেসবুক সমস্যা: ${err.message}` 
+  });
 });
