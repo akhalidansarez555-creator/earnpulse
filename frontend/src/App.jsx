@@ -460,7 +460,7 @@ export default function App() {
       window.history.pushState({ type: 'tab', tab: newTab }, '', '#' + newTab);
     }
     if (newTab === 'whatsapp') {
-      fetchUserData(true);
+      fetchUserData(false);
     }
   };
 
@@ -581,18 +581,37 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [token]);
 
-  // Fetch User Info (Persistent & Resilient)
+  // Fetch User Info (Persistent & Resilient with Dual Failover)
   const fetchUserData = async (forceFresh = false) => {
     if (!token) return;
     try {
-      const url = `${API_BASE}/user/me?_t=${Date.now()}${forceFresh ? '&fresh=1' : ''}`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Pragma: 'no-cache'
-        }
-      });
+      const endpoints = [
+        `${API_BASE}/user/me?_t=${Date.now()}${forceFresh ? '&fresh=1' : ''}`,
+        `https://earnpulse-mpdd.onrender.com/api/user/me?_t=${Date.now()}${forceFresh ? '&fresh=1' : ''}`
+      ];
+      
+      let res = null;
+      for (const ep of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
+          const r = await fetch(ep, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache'
+            },
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (r.ok || r.status === 401 || r.status === 403) {
+            res = r;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      if (!res) return;
       
       // ONLY log out if the server explicitly rejects the token as invalid/expired (HTTP 401 or 403)
       if (res.status === 401 || res.status === 403) {
@@ -608,7 +627,7 @@ export default function App() {
         if (data.config && data.config.min_withdraw_amount) {
           setMinWithdrawAmount(parseFloat(data.config.min_withdraw_amount) || 100);
         }
-        if (data.linkedNumbers) {
+        if (data.linkedNumbers && Array.isArray(data.linkedNumbers)) {
           setLinkedNumbers(data.linkedNumbers);
           localStorage.setItem('cached_linked_numbers', JSON.stringify(data.linkedNumbers));
         }

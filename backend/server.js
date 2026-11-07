@@ -1054,18 +1054,19 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  // 🛡️ CRITICAL GUARANTEE: ALWAYS Await MongoDB Atlas Cloud Sync BEFORE reading user profile & balance!
-  // This guarantees that every member always sees their 100% exact cloud balance with 0 latency or stale cache glitches!
+  // 🛡️ CRITICAL GUARANTEE: Memory cache is primary, sync cloud in background!
   const isFreshRequested = req.query.fresh === '1' || req.query.fresh === 'true';
-  if (db.syncFromCloud) {
+  if (db.syncFromCloud && !db.hasSyncedFromCloudOnce()) {
     try {
       await Promise.race([
         db.syncFromCloud(isFreshRequested),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))
       ]);
     } catch (e) {
       console.warn('syncFromCloud timeout/error in /user/me:', e.message);
     }
+  } else if (isFreshRequested && db.syncFromCloud) {
+    setImmediate(() => { db.syncFromCloud(true).catch(() => {}); });
   }
   const reqUidNum = Number(req.user.id);
   const reqUidStr = String(req.user.id);
@@ -1149,19 +1150,35 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
     db.write();
   }
   
-  // Real check with target server
+  // Real check with target server (Non-blocking for general profile views)
   try {
     const isWaitingPhone = Boolean(req.query.waiting_phone);
     const forceRefresh = isWaitingPhone || req.query.fresh === '1' || req.query.fresh === 'true';
-    const [ebAccounts, wsStatusList] = await Promise.race([
-      Promise.all([
-        bridge.fetchAccountList(forceRefresh),
-        bridge.fetchWsOnlineStatusList(forceRefresh)
-      ]),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('EB_TIMEOUT')), 3500))
-    ]).catch(() => [{ rows: [] }, []]);
-    const rows = ebAccounts.rows || [];
-    const wsArray = Array.isArray(wsStatusList) ? wsStatusList : [];
+    let rows = [];
+    let wsArray = [];
+
+    // ONLY block on external EarnBondhu HTTP if user is actively pairing a phone right now
+    if (isWaitingPhone) {
+      const [ebAccounts, wsStatusList] = await Promise.race([
+        Promise.all([
+          bridge.fetchAccountList(true),
+          bridge.fetchWsOnlineStatusList(true)
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('EB_TIMEOUT')), 2500))
+      ]).catch(() => [{ rows: [] }, []]);
+      rows = ebAccounts.rows || [];
+      wsArray = Array.isArray(wsStatusList) ? wsStatusList : [];
+    } else if (forceRefresh) {
+      // Refresh EarnBondhu in background without stalling the user's mobile screen!
+      setImmediate(async () => {
+        try {
+          await Promise.all([
+            bridge.fetchAccountList(false),
+            bridge.fetchWsOnlineStatusList(false)
+          ]);
+        } catch (e) {}
+      });
+    }
 
     // ONLY perform sync if EarnBondhu responded with active rows
     if (rows && rows.length > 0) {
@@ -1373,7 +1390,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       }
 
       if (hasChanges && db.syncToCloud) {
-        await db.syncToCloud().catch(e => console.error('Cloud sync error in user/me:', e.message));
+        setImmediate(() => { db.syncToCloud().catch(e => console.error('Cloud sync error in user/me:', e.message)); });
       }
     }
 
@@ -1440,7 +1457,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   }
 
   if (hasFrozenUpdates && db.syncToCloud) {
-    await db.syncToCloud().catch(e => console.error('Cloud sync error in user/me frozen updates:', e.message));
+    setImmediate(() => { db.syncToCloud().catch(e => console.error('Cloud sync error in user/me frozen updates:', e.message)); });
   }
 
   // -------------------------------------------------------------
@@ -1598,11 +1615,21 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
   }
 
   if (has24hBonusAwarded && db.syncToCloud) {
-    await db.syncToCloud().catch(e => console.error('Cloud sync error in 24h bonus updates:', e.message));
+    setImmediate(() => { db.syncToCloud().catch(e => console.error('Cloud sync error in 24h bonus updates:', e.message)); });
   }
 
   const allUsersList = db.get('users').value() || [];
   const currentPending = db.get('pending_pairings').value() || [];
+
+  // O(1) phone lookup Set for other registered users to prevent O(N*M) loop lag
+  const otherUsersPhoneSet = new Set();
+  for (const u of allUsersList) {
+    if (u.id !== req.user.id && u.username) {
+      const c = String(u.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      if (c) otherUsersPhoneSet.add(c);
+    }
+  }
+
   // Display numbers that are online or connected (Online on top, Offline below)
   const displayNumbers = linkedNumbers
     .filter(n => {
@@ -1622,13 +1649,8 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       });
 
       if (!isPairedByMe) {
-        // If not paired by current user, but matches another registered user's username, exclude it!
-        const isOtherUserNumber = allUsersList.some(other => {
-          if (other.id === req.user.id) return false;
-          const otherClean = String(other.username).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-          return otherClean && otherClean === cleanN;
-        });
-        if (isOtherUserNumber) return false;
+        // O(1) set lookup instead of O(N) loop
+        if (otherUsersPhoneSet.has(cleanN)) return false;
       }
 
       return n.status === 'online' || Boolean(n.login_date) || Boolean(n.last_settle_time);
