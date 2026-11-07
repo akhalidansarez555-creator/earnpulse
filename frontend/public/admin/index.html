@@ -1211,15 +1211,16 @@
 
     // 5. Facebook Auto-Bot Live Monitor Fetch
     try {
-      const fbRes = await fetch(`${API_BASE}/admin/fb-bot/status?_t=${Date.now()}`, {
+      fetch(`${API_BASE}/admin/fb-bot/status?_t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${adminToken}` }
-      });
-      if (fbRes.ok) {
-        const fbD = await fbRes.json();
+      })
+      .then(r => r.json())
+      .then(fbD => {
         if (fbD && fbD.botState) {
           updateFbBotUI(fbD.botState);
         }
-      }
+      })
+      .catch(() => {});
     } catch (e) {}
   }
 
