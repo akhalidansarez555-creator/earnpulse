@@ -2428,34 +2428,6 @@ export default function App() {
             
 
 
-            {/* 100% Security & Anti-Ban Safety Assurance */}
-            <div style={{
-              background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
-              borderRadius: '16px',
-              border: '1.5px solid #86efac',
-              padding: '11px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              boxShadow: '0 2px 8px rgba(34, 197, 94, 0.12)'
-            }}>
-              <div style={{
-                width: '36px', height: '36px', borderRadius: '10px',
-                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0, fontSize: '18px',
-                boxShadow: '0 3px 8px rgba(34, 197, 94, 0.3)'
-              }}>
-                🛡️
-              </div>
-              <div style={{ fontSize: '11px', color: '#166534', lineHeight: 1.45 }}>
-                <strong style={{ color: '#14532d', fontSize: '12px', display: 'block', marginBottom: '2px' }}>
-                  ✓ ১০০% নিরাপদ ও এনক্রিপ্টেড সংযোগ:
-                </strong>
-                আপনার ব্যক্তিগত চ্যাট বা তথ্যের কোনো পরিবর্তন হয় না। শুধু অনলাইন কানেকশনের জন্য আয় নিশ্চিত হয়। ঘরে থাকা যেকোনো অব্যবহৃত বা সাধারণ সিমের WhatsApp অনায়াসে যুক্ত করতে পারেন।
-              </div>
-            </div>
-
             {/* Pairing Code Box */}
             <div className="app-card" style={{ padding: '18px' }}>
               <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}>

@@ -187,7 +187,7 @@ export const translations = {
     inviteAndEarnSub: "Rewards for every active friend",
     inviteCodeLabel: "Invitation Code",
     copyCode: "Copy",
-    earningDetails: "Earnings Breakdown",
+    earningDetails: "Earnings Details",
     importantNotice: "Important Notices",
     myTeam: "My Team",
     changePassword: "Change Password",
