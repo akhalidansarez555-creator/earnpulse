@@ -2684,6 +2684,8 @@ export default function App() {
                       <RefreshCw size={18} style={{ animation: 'spin 1.2s linear infinite' }} />
                       <span>{lang === 'bn' ? 'কোড তৈরি হচ্ছে...' : 'Generating Code...'}</span>
                     </>
+                  ) : activePairingCode ? (
+                    <span>{lang === 'bn' ? 'নতুন কোড নিন' : 'Get New Code'}</span>
                   ) : (
                     <span>{t.getCodeBtn}</span>
                   )}
@@ -2695,6 +2697,17 @@ export default function App() {
                 <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', marginBottom: '8px' }}>
                   {t.step2Verify}
                 </div>
+                {pairingLoading && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    marginBottom: '10px', padding: '6px 10px', borderRadius: '10px',
+                    background: '#fef3c7', border: '1px solid #fde68a',
+                    fontSize: '12px', fontWeight: 'bold', color: '#b45309'
+                  }}>
+                    <RefreshCw size={14} style={{ animation: 'spin 1.2s linear infinite' }} />
+                    <span>{lang === 'bn' ? 'কোড তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Generating code, please wait...'}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                   {[0, 1, 2, 3].map((idx) => (
                     <div key={idx} style={{
@@ -2702,7 +2715,7 @@ export default function App() {
                       background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '18px', fontWeight: 'bold', color: '#15803d', fontFamily: 'monospace'
                     }}>
-                      {activePairingCode[idx] || ''}
+                      {activePairingCode[idx] || (pairingLoading ? '•' : '')}
                     </div>
                   ))}
                   <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: '#94a3b8' }}>-</div>
@@ -2712,7 +2725,7 @@ export default function App() {
                       background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '18px', fontWeight: 'bold', color: '#15803d', fontFamily: 'monospace'
                     }}>
-                      {activePairingCode[idx] || ''}
+                      {activePairingCode[idx] || (pairingLoading ? '•' : '')}
                     </div>
                   ))}
                 </div>
