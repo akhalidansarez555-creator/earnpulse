@@ -2646,9 +2646,14 @@ export default function App() {
                   <input
                     id="whatsapp-phone-input"
                     type="tel"
-                    placeholder="17XXXXXXXX"
+                    placeholder="XXXXXXXXXX"
                     value={inputPhone}
-                    onChange={(e) => setInputPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) => {
+                      let val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val.startsWith('880')) val = val.slice(3);
+                      if (val.startsWith('0')) val = val.slice(1);
+                      setInputPhone(val);
+                    }}
                     maxLength={10}
                     style={{
                       flex: 1, padding: '10px 14px', borderRadius: '10px',
@@ -2657,12 +2662,30 @@ export default function App() {
                   />
                 </div>
                 <button
+                  id="get-pairing-code-btn"
                   onClick={handleGetPairingCode}
                   disabled={pairingLoading || !inputPhone}
                   className="action-btn-green"
-                  style={{ width: '100%', marginTop: '10px', fontSize: '14px' }}
+                  style={{
+                    width: '100%',
+                    marginTop: '10px',
+                    fontSize: '15px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: (pairingLoading || !inputPhone) ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  {pairingLoading ? (lang === 'bn' ? 'কোড প্রস্তুত হচ্ছে...' : 'Generating Code...') : t.getCodeBtn}
+                  {pairingLoading ? (
+                    <>
+                      <RefreshCw size={18} style={{ animation: 'spin 1.2s linear infinite' }} />
+                      <span>{lang === 'bn' ? 'কোড তৈরি হচ্ছে...' : 'Generating Code...'}</span>
+                    </>
+                  ) : (
+                    <span>{t.getCodeBtn}</span>
+                  )}
                 </button>
               </div>
 
