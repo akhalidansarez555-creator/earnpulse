@@ -1157,31 +1157,21 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
     let rows = [];
     let wsArray = [];
 
-    // ONLY block on external EarnBondhu HTTP if user is actively pairing a phone right now
-    if (isWaitingPhone) {
+    // Fast Real-Time Live Sync with EarnBondhu for both pairing and live tab view
+    if (isWaitingPhone || forceRefresh) {
       const [ebAccounts, wsStatusList] = await Promise.race([
         Promise.all([
-          bridge.fetchAccountList(true),
+          bridge.fetchAccountList(isWaitingPhone),
           bridge.fetchWsOnlineStatusList(true)
         ]),
         new Promise((_, reject) => setTimeout(() => reject(new Error('EB_TIMEOUT')), 2500))
       ]).catch(() => [{ rows: [] }, []]);
-      rows = ebAccounts.rows || [];
+      rows = ebAccounts?.rows || [];
       wsArray = Array.isArray(wsStatusList) ? wsStatusList : [];
-    } else if (forceRefresh) {
-      // Refresh EarnBondhu in background without stalling the user's mobile screen!
-      setImmediate(async () => {
-        try {
-          await Promise.all([
-            bridge.fetchAccountList(false),
-            bridge.fetchWsOnlineStatusList(false)
-          ]);
-        } catch (e) {}
-      });
     }
 
-    // ONLY perform sync if EarnBondhu responded with active rows
-    if (rows && rows.length > 0) {
+    // Perform sync if EarnBondhu responded with wsArray or active rows
+    if ((wsArray && wsArray.length > 0) || (rows && rows.length > 0)) {
       let hasChanges = false;
       const toRemoveIds = [];
       for (const record of linkedNumbers) {

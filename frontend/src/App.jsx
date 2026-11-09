@@ -13,95 +13,55 @@ const API_BASE = '/api';
 
 // 24-Hour Live Countdown Timer (Main Site Exact Match: ২৪ ঘণ্টা থেকে ০-এর দিকে নামতে থাকে, ০ হওয়ার পর আবার ২৪ ঘণ্টা থেকে নামতে শুরু করে)
 function WhatsAppCountdownTimer({
-  loginDate,
-  createTime,
   status,
   unSettleSeconds,
-  lastSettleTime,
-  frozenElapsedSeconds,
   remainingSeconds,
-  onlineTimeMs,
-  offlineAt,
-  updatedAt
+  frozenElapsedSeconds
 }) {
   const isOnline = String(status || '').toLowerCase() === 'online';
-  const [timeStr, setTimeStr] = useState('24 : 00 : 00');
+  const o = 86400; // 24 hours
 
-  useEffect(() => {
-    const calc = () => {
-      const o = 86400; // 24 hours (86,400s)
-
-      // 1. If offline: frozen at remaining countdown time (e.g. 20:49:06)
-      if (!isOnline) {
-        let remaining = o;
-        if (frozenElapsedSeconds !== undefined && frozenElapsedSeconds !== null && frozenElapsedSeconds > 0) {
-          remaining = Number(frozenElapsedSeconds);
-        } else if (remainingSeconds !== undefined && remainingSeconds !== null && remainingSeconds > 0) {
-          remaining = Number(remainingSeconds);
-        } else if (unSettleSeconds !== undefined && unSettleSeconds !== null) {
-          remaining = Math.max(0, o - (Number(unSettleSeconds) % o));
-        }
-        remaining = ((remaining % o) + o) % o;
-        if (remaining === 0) remaining = o;
-
-        const hours = Math.floor(remaining / 3600);
-        const minutes = Math.floor((remaining % 3600) / 60);
-        const seconds = remaining % 60;
-        const fmt = (x) => String(x).padStart(2, '0');
-        return `${fmt(hours)} : ${fmt(minutes)} : ${fmt(seconds)}`;
-      }
-
-      // 2. If online: counts DOWN from base remaining time live every second!
-      let baseRemaining = o;
-      if (remainingSeconds !== undefined && remainingSeconds !== null && remainingSeconds > 0) {
-        baseRemaining = Number(remainingSeconds);
-      } else if (unSettleSeconds !== undefined && unSettleSeconds !== null) {
-        baseRemaining = Math.max(0, o - (Number(unSettleSeconds) % o));
-      }
-
-      const now = Math.floor(Date.now() / 1000);
-      let settleTimestamp = now;
-      const settleStr = lastSettleTime || loginDate;
-      if (settleStr) {
-        if (settleStr.includes('T')) {
-          settleTimestamp = Math.floor(new Date(settleStr).getTime() / 1000);
-        } else {
-          settleTimestamp = Math.floor(new Date(settleStr.replace(' ', 'T') + '+06:00').getTime() / 1000);
-        }
-      }
-
-      const h = Math.max(0, now - settleTimestamp);
-
-      // Remaining seconds countdown (decreases as time passes)
-      let currentRemaining = baseRemaining - h;
-
-      // When it reaches 0 or below, it restarts countdown from 24 hours again!
-      let cycleRemaining = ((currentRemaining % o) + o) % o;
-      if (cycleRemaining === 0) {
-        cycleRemaining = o; // 24:00:00
-      }
-
-      const hours = Math.floor(cycleRemaining / 3600);
-      const minutes = Math.floor((cycleRemaining % 3600) / 60);
-      const seconds = cycleRemaining % 60;
-      const fmt = (x) => String(x).padStart(2, '0');
-      return `${fmt(hours)} : ${fmt(minutes)} : ${fmt(seconds)}`;
-    };
-
-    setTimeStr(calc());
-
-    // If offline: STOP / FREEZE! Do not start ticking interval
-    if (!isOnline) {
-      return;
+  // Compute exact base remaining seconds from EarnBondhu
+  const calcBase = () => {
+    let rem = o;
+    if (frozenElapsedSeconds !== undefined && frozenElapsedSeconds !== null && Number(frozenElapsedSeconds) > 0) {
+      rem = Number(frozenElapsedSeconds);
+    } else if (remainingSeconds !== undefined && remainingSeconds !== null && Number(remainingSeconds) > 0) {
+      rem = Number(remainingSeconds);
+    } else if (unSettleSeconds !== undefined && unSettleSeconds !== null) {
+      rem = Math.max(0, o - (Number(unSettleSeconds) % o));
     }
+    rem = ((rem % o) + o) % o;
+    if (rem === 0) rem = o;
+    return rem;
+  };
 
-    // If online: tick downwards every 1 second
+  const [currentRemaining, setCurrentRemaining] = useState(calcBase);
+
+  // Sync with live server updates
+  useEffect(() => {
+    setCurrentRemaining(calcBase());
+  }, [unSettleSeconds, remainingSeconds, frozenElapsedSeconds, status]);
+
+  // If online: tick downwards by 1 second every second
+  useEffect(() => {
+    if (!isOnline) return; // If offline, NEVER tick! Completely frozen!
+
     const interval = setInterval(() => {
-      setTimeStr(calc());
+      setCurrentRemaining(prev => {
+        if (prev <= 1) return o;
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [unSettleSeconds, lastSettleTime, loginDate, createTime, status, frozenElapsedSeconds, remainingSeconds, onlineTimeMs, offlineAt, updatedAt, isOnline]);
+  }, [isOnline]);
+
+  const hours = Math.floor(currentRemaining / 3600);
+  const minutes = Math.floor((currentRemaining % 3600) / 60);
+  const seconds = currentRemaining % 60;
+  const fmt = (x) => String(x).padStart(2, '0');
+  const timeStr = `${fmt(hours)} : ${fmt(minutes)} : ${fmt(seconds)}`;
 
   return (
     <div style={{
@@ -254,7 +214,14 @@ export default function App() {
 
   // When an old member (already logged in) clicks the register link from Telegram, take them straight to Home
   useEffect(() => {
-    if (token && (window.location.pathname.startsWith('/register') || window.location.pathname.startsWith('/login'))) {
+    // Instant WhatsApp tab sync upon tab selection
+  useEffect(() => {
+    if (activeTab === 'whatsapp' && token) {
+      fetchUserData(true);
+    }
+  }, [activeTab, token]);
+
+  if (token && (window.location.pathname.startsWith('/register') || window.location.pathname.startsWith('/login'))) {
       window.history.replaceState({ type: 'tab', tab: 'home' }, '', '/#home');
       setActiveTab('home');
     }
@@ -722,7 +689,7 @@ export default function App() {
   // Periodic Live Background Sync for WhatsApp List & Balance (Ultra-Optimized to prevent excessive Vercel CPU drain)
   useEffect(() => {
     if (!token) return;
-    const intervalMs = activeTab === 'whatsapp' ? 45000 : 90000;
+    const intervalMs = activeTab === 'whatsapp' ? 4000 : 30000;
     const syncInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchUserData(activeTab === 'whatsapp');
@@ -3042,12 +3009,12 @@ export default function App() {
                   action: () => setShowNoticeModal(true) 
                 },
                 { 
-                  title: '🔥 মেগা বোনাস অফার', 
+                  title: lang === 'bn' ? '🔥 মেগা বোনাস অফার' : '🔥 Mega Bonus Offer', 
                   icon: '🎁', 
                   action: () => setShowOfferModal(true) 
                 },
                 { 
-                  title: 'অফিসিয়াল টেলিগ্রাম চ্যানেল', 
+                  title: lang === 'bn' ? 'অফিসিয়াল টেলিগ্রাম চ্যানেল' : 'Official Telegram Channel', 
                   icon: '📢', 
                   action: () => {
                     if (isInsideApp()) {
