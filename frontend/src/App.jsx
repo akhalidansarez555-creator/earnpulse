@@ -246,7 +246,17 @@ export default function App() {
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [copiedTelegram, setCopiedTelegram] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
-  const [leaderboardData, setLeaderboardData] = useState(null);
+  const [leaderboardData, setLeaderboardData] = useState(() => ({
+    title: '১০,০০০ WhatsApp মেগা টুর্নামেন্ট',
+    totalPrize: '৳ ৬,৪০০',
+    endDate: '১০ নভেম্বর ২০২৬',
+    leaders: [
+      { id: 't1', username: '019****3313', waCount: 974 },
+      { id: 't2', username: '013****1623', waCount: 852 },
+      { id: 't3', username: '018****0423', waCount: 736 },
+      { id: 't4', username: '018****3018', waCount: 598 }
+    ]
+  }));
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1649,78 +1659,6 @@ export default function App() {
 
             
 
-            {/* 📲 WhatsApp Status Sharing Mega Bounty Card */}
-            <div
-              style={{
-                borderRadius: '16px',
-                padding: '14px 16px',
-                background: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%)',
-                border: '1.5px solid #22c55e',
-                boxShadow: '0 8px 24px rgba(34, 197, 94, 0.28)',
-                margin: '8px 0',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '18px' }}>📲</span>
-                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#facc15' }}>
-                    WhatsApp Status শেয়ারিং মেগা বাউন্টি!
-                  </span>
-                </div>
-                <span style={{
-                  background: '#22c55e', color: '#022c22', fontSize: '10px',
-                  fontWeight: '900', padding: '2px 8px', borderRadius: '10px'
-                }}>
-                  ৩০০৳ মেগা ক্যাশ 💸
-                </span>
-              </div>
-
-              <div style={{ fontSize: '11px', color: '#e2e8f0', lineHeight: 1.4, marginBottom: '10px' }}>
-                ব্যানারটি আপনার WhatsApp Status-এ দিন। আপনার রেফার লিংকে মাত্র <b>২ জন বন্ধু</b> যুক্ত হলেই সাথে সাথে পেয়ে যান <b>৩০০৳ সরাসরি নগদ ক্যাশ!</b>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <a
-                  href="/downloads/EarnPulse_Square_Flyer.jpg"
-                  download="EarnPulse_Promo_Banner.jpg"
-                  style={{
-                    flex: 1, padding: '7px 10px', borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.25)',
-                    color: '#ffffff', fontSize: '11px', fontWeight: 'bold',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    textDecoration: 'none'
-                  }}
-                >
-                  <span>📥</span> <span>ব্যানার ডাউনলোড</span>
-                </a>
-
-                <button
-                  onClick={() => {
-                    const inviteCode = user?.invite_code || user?.inviteCode || '';
-                    const shareUrl = `https://earnpulse-beta.vercel.app/register?invite=${inviteCode}`;
-                    const caption = `🔥 অলস WhatsApp দিয়ে প্রতিদিন ৫০০৳ - ১,০০০৳ ফ্রি নগদ ইনকাম! ১ম কানেক্টেই ১০৳ বোনাস। ২ জন বন্ধু যুক্ত করলেই ৩০০৳ মেগা ক্যাশ! যুক্ত হতে নিচের লিংকে ক্লিক করুন:\n${shareUrl}`;
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                      navigator.clipboard.writeText(caption);
-                      alert('ক্যাপশন ও আপনার রেফারেল লিংক কপি হয়েছে! এখন ব্যানারের সাথে আপনার WhatsApp Status-এ দিন।');
-                    }
-                    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(caption)}`;
-                    window.open(waUrl, '_blank');
-                  }}
-                  style={{
-                    flex: 1.2, padding: '7px 10px', borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                    border: 'none', color: '#ffffff', fontSize: '11px', fontWeight: '900',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                    cursor: 'pointer', boxShadow: '0 3px 10px rgba(34, 197, 94, 0.4)'
-                  }}
-                >
-                  <span>🚀</span> <span>স্ট্যাটাসে শেয়ার করুন</span>
-                </button>
-              </div>
-            </div>
-
             {/* 🏆 10,000 WhatsApp Mega Tournament Card (৳ 6,400 Prize Pool) */}
             <div
               onClick={() => {
@@ -1943,24 +1881,6 @@ export default function App() {
                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a' }}>{t.online24h}</div>
                     <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{t.online24hDesc}</div>
                     <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#15803d', marginTop: '3px' }}>৳ 32.00</div>
-                  </div>
-                  <ChevronRight size={18} color="#94a3b8" />
-                </div>
-
-                <div style={{ height: '1px', background: '#f1f5f9' }} />
-
-                {/* Task 4: Facebook Viral Mission */}
-                <div 
-                  onClick={() => window.open('/fb-tools.html', '_blank')}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-                >
-                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #1877f2, #0d5bbd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                    🚀
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#0f172a' }}>ফেসবুক গ্রুপ মেগা শেয়ারিং মিশন</div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>গ্রুপে ১-ক্লিকে পোস্ট করুন ও বন্ধু আনলেই ৩০০৳ মেগা ক্যাশ!</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2563eb', marginTop: '3px' }}>৳ ৩০০.০০ ক্যাশ 💸</div>
                   </div>
                   <ChevronRight size={18} color="#94a3b8" />
                 </div>
@@ -5169,7 +5089,7 @@ export default function App() {
                   লিডারবোর্ড লোড হচ্ছে...
                 </div>
               ) : (leaderboardData?.leaders && leaderboardData.leaders.length > 0) ? (
-                leaderboardData.leaders.map((leader, idx) => (
+                leaderboardData.leaders.slice(0, 4).map((leader, idx) => (
                   <div key={idx} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 10px', borderRadius: '10px',

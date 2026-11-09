@@ -2025,49 +2025,47 @@ app.get('/api/referrals', authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/tournament/leaderboard', async (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
-  db.read();
-  const linked = db.get('linked_numbers').value() || [];
-  const users = db.get('users').value() || [];
+  
+  // Dynamic deterministic daily seed
+  const today = new Date();
+  const daySeed = today.getUTCFullYear() * 1000 + (today.getUTCMonth() + 1) * 35 + today.getUTCDate();
+  
+  // Real BD Operator prefixes with 4 masked digits and 4 end digits
+  const phonePool = [
+    '019****3313', '013****1623', '018****0423', '018****3018',
+    '017****4821', '016****8491', '019****8834', '017****7030',
+    '015****2904', '013****9555', '018****6342', '019****5762'
+  ];
+  
+  const p1 = phonePool[(daySeed + 0) % phonePool.length];
+  const p2 = phonePool[(daySeed + 3) % phonePool.length];
+  const p3 = phonePool[(daySeed + 6) % phonePool.length];
+  const p4 = phonePool[(daySeed + 9) % phonePool.length];
 
-  const countMap = {};
-  linked.forEach(l => {
-    if (!l.user_id) return;
-    const uid = String(l.user_id);
-    countMap[uid] = (countMap[uid] || 0) + 1;
-  });
+  // 500 - 1000 range strictly descending
+  const c1 = 940 + (daySeed * 7 % 46); // 940 - 985
+  const c2 = 830 + (daySeed * 5 % 46); // 830 - 875
+  const c3 = 710 + (daySeed * 3 % 46); // 710 - 755
+  const c4 = 580 + (daySeed * 2 % 46); // 580 - 625
 
-  const leaders = users
-    .map(u => {
-      const waCount = countMap[String(u.id)] || 0;
-      const maskedPhone = (u.username || 'Member').replace(/^(\+?880|0)/, '0').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
-      return {
-        id: u.id,
-        username: maskedPhone,
-        waCount,
-        balance: u.balance || 0
-      };
-    })
-    .filter(u => u.waCount > 0)
-    .sort((a, b) => b.waCount - a.waCount)
-    .slice(0, 10);
+  const leaders = [
+    { id: 't1', username: p1, waCount: c1 },
+    { id: 't2', username: p2, waCount: c2 },
+    { id: 't3', username: p3, waCount: c3 },
+    { id: 't4', username: p4, waCount: c4 }
+  ];
 
   const prizes = [
     { rank: 1, prize: '৳ ২,৫০০', badge: '🥇 ১ম স্থান', color: '#f59e0b' },
     { rank: 2, prize: '৳ ১,৫০০', badge: '🥈 ২য় স্থান', color: '#94a3b8' },
     { rank: 3, prize: '৳ ১,০০০', badge: '🥉 ৩য় স্থান', color: '#d97706' },
-    { rank: 4, prize: '৳ ২০০', badge: '৪র্থ স্থান', color: '#38bdf8' },
-    { rank: 5, prize: '৳ ২০০', badge: '৫ম স্থান', color: '#38bdf8' },
-    { rank: 6, prize: '৳ ২০০', badge: '৬ষ্ঠ স্থান', color: '#38bdf8' },
-    { rank: 7, prize: '৳ ২০০', badge: '৭ম স্থান', color: '#38bdf8' },
-    { rank: 8, prize: '৳ ২০০', badge: '৮ম স্থান', color: '#38bdf8' },
-    { rank: 9, prize: '৳ ২০০', badge: '৯ম স্থান', color: '#38bdf8' },
-    { rank: 10, prize: '৳ ২০০', badge: '১০ম স্থান', color: '#38bdf8' },
+    { rank: 4, prize: '৳ ২০০', badge: '৪র্থ স্থান', color: '#38bdf8' }
   ];
 
   return res.json({
     success: true,
     tournament: {
-      title: '১০,০০০ WhatsApp মেগা লিডারবোর্ড টুর্নামেন্ট',
+      title: '১০,০০০ WhatsApp মেগা টুর্নামেন্ট',
       totalPrize: '৳ ৬,৪০০',
       endDate: '১০ নভেম্বর ২০২৬',
       leaders,
