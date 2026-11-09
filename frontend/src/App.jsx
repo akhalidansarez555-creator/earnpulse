@@ -926,7 +926,8 @@ export default function App() {
   };
 
   // Get 8-Digit Pairing Code (Blazing Fast with Dual Failover & Silent Auto-Retry)
-  const handleGetPairingCode = async (isRetryAttempt = false) => {
+  const handleGetPairingCode = async (retryArg = false) => {
+    const isRetryAttempt = retryArg === true;
     if (!inputPhone) return;
     if (!isRetryAttempt) {
       setPairingLoading(true);
@@ -2663,7 +2664,7 @@ export default function App() {
                 </div>
                 <button
                   id="get-pairing-code-btn"
-                  onClick={handleGetPairingCode}
+                  onClick={() => handleGetPairingCode(false)}
                   disabled={pairingLoading || !inputPhone}
                   className="action-btn-green"
                   style={{
