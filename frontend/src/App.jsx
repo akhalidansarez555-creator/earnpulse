@@ -212,16 +212,16 @@ export default function App() {
     }
   }, []);
 
-  // When an old member (already logged in) clicks the register link from Telegram, take them straight to Home
-  useEffect(() => {
-    // Instant WhatsApp tab sync upon tab selection
+  // Instant WhatsApp tab sync upon tab selection
   useEffect(() => {
     if (activeTab === 'whatsapp' && token) {
       fetchUserData(true);
     }
   }, [activeTab, token]);
 
-  if (token && (window.location.pathname.startsWith('/register') || window.location.pathname.startsWith('/login'))) {
+  // When an old member (already logged in) clicks the register link from Telegram, take them straight to Home
+  useEffect(() => {
+    if (token && (window.location.pathname.startsWith('/register') || window.location.pathname.startsWith('/login'))) {
       window.history.replaceState({ type: 'tab', tab: 'home' }, '', '/#home');
       setActiveTab('home');
     }
