@@ -745,21 +745,14 @@ export default function App() {
     };
   }, [token, activeTab]);
 
-  // Real-time WhatsApp connection listener (স্মার্ট ও রিসোর্স-সেভার লাইভ চেকার)
+  // Real-time WhatsApp connection listener (Ultra-Fast Instant Detection)
   useEffect(() => {
     let interval = null;
     let pollCount = 0;
     const cleanInput = inputPhone ? String(inputPhone).replace(/^[0+]/, '').trim() : '';
 
     if (isWaitingConnection && cleanInput.length >= 8 && token) {
-      interval = setInterval(async () => {
-        if (typeof document !== 'undefined' && document.hidden) return;
-        pollCount++;
-        if (pollCount > 50) { // Max 100 seconds auto-poll during pairing
-          if (interval) clearInterval(interval);
-          return;
-        }
-
+      const checkConnection = async () => {
         try {
           const res = await fetch(`${API_BASE}/user/me?_t=${Date.now()}&waiting_phone=${encodeURIComponent(cleanInput)}`, {
             headers: {
@@ -804,13 +797,46 @@ export default function App() {
             }
           }
         } catch (e) {}
-      }, 2000); // Check every 2 seconds for ultra-fast instant detection!
-    }
+      };
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isWaitingConnection, inputPhone, token]);
+      // 1. Check immediately on mount!
+      checkConnection();
+
+      // 2. Poll every 1.2s actively (runs even in background so WhatsApp link is detected without delay)
+      interval = setInterval(() => {
+        pollCount++;
+        if (pollCount > 85) { // ~100 seconds max poll
+          if (interval) clearInterval(interval);
+          return;
+        }
+        checkConnection();
+      }, 1200);
+
+      // 3. Instant trigger on window focus and visibilitychange (Instant trigger when user returns from WhatsApp!)
+      const handleReturnToApp = () => {
+        if (typeof document !== 'undefined' && !document.hidden) {
+          checkConnection();
+        }
+      };
+
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', handleReturnToApp);
+      }
+      if (typeof window !== 'undefined') {
+        window.addEventListener('focus', handleReturnToApp);
+      }
+
+      return () => {
+        if (interval) clearInterval(interval);
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('visibilitychange', handleReturnToApp);
+        }
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('focus', handleReturnToApp);
+        }
+      };
+    }
+  }, [isWaitingConnection, inputPhone, token, lang]);
 
   // Auth Handler
   const handleAuth = async (e) => {
@@ -1654,61 +1680,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* High-Conversion WhatsApp Activation Callout for Users without Active WhatsApp */}
-            {(() => {
-              const onlineCount = (linkedNumbers || []).filter(n => String(n?.status || '').toLowerCase() === 'online').length;
-              if (onlineCount > 0) return null;
-              return (
-                <div
-                  onClick={() => setActiveTab('whatsapp')}
-                  style={{
-                    margin: '12px 0 6px',
-                    padding: '14px 16px',
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                    border: '2px solid #22c55e',
-                    boxShadow: '0 8px 24px rgba(34, 197, 94, 0.25)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img
-                      src="/brand/whatsapp.svg"
-                      alt="WhatsApp"
-                      style={{
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '12px',
-                        flexShrink: 0,
-                        boxShadow: '0 4px 14px rgba(37, 211, 102, 0.45)',
-                        objectFit: 'contain'
-                      }}
-                    />
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>🎁 ১ম WhatsApp-এ ১০৳ নগদ উপহার!</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#e2e8f0', marginTop: '2px' }}>
-                        এখনই ১টি কানেক্ট করলেই সাথে সাথে ১০৳ ব্যালেন্সে যোগ হবে!
-                      </div>
-                    </div>
-                  </div>
-                  <button style={{
-                    padding: '8px 14px', borderRadius: '20px',
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    color: '#1a1005', fontWeight: '900', fontSize: '11px',
-                    border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)'
-                  }}>
-                    ১০৳ উপহার নিন ➔
-                  </button>
-                </div>
-              );
-            })()}
+            
 
             {/* 📲 WhatsApp Status Sharing Mega Bounty Card */}
             <div
@@ -2566,34 +2538,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Multi-WhatsApp Earning Multiplier Card (1 Phone, Multiple Accounts) */}
-            <div style={{
-              background: 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
-              borderRadius: '18px', padding: '14px 16px', color: '#ffffff',
-              boxShadow: '0 8px 24px -4px rgba(6, 78, 59, 0.45)',
-              border: '1.5px solid rgba(251, 191, 36, 0.5)',
-              position: 'relative', overflow: 'hidden'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '20px' }}>💡</span>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: '900', color: '#fbbf24', letterSpacing: '0.2px' }}>
-                    {lang === 'bn' ? '১ ফোনেই ৩-৪টি WhatsApp খুলে আয় ৩ গুণ করুন!' : 'Connect 3-4 WhatsApp on 1 Phone!'}
-                  </div>
-                  <div style={{ fontSize: '10.5px', color: '#e2e8f0' }}>
-                    {lang === 'bn' ? 'বেশি নম্বর কানেক্ট করে নিশ্চিত বড় ক্যাশ বোনাস নিন' : 'Earn more with multiple numbers'}
-                  </div>
-                </div>
-              </div>
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.25)', borderRadius: '12px', padding: '10px 12px',
-                fontSize: '11px', color: '#f1f5f9', lineHeight: 1.55, border: '1px solid rgba(255, 255, 255, 0.1)'
-              }}>
-                <div>• <strong>WhatsApp Business:</strong> প্লে-স্টোর থেকে নামিয়ে অন্য সিম দিয়ে সহজেই আরেকটি নম্বর কানেক্ট করুন।</div>
-                <div style={{ marginTop: '4px' }}>• <strong>Dual Apps / App Clone:</strong> মোবাইল Settings-এ Dual App অন করে আরও ২টি একাউন্ট চালান।</div>
-                <div style={{ marginTop: '4px' }}>• <strong>পরিবারের নম্বর:</strong> পরিবারের অবসর নম্বরগুলো যুক্ত করে প্রতিদিন <strong>১৬০৳ - ৩২০৳</strong> আয় ও ১,০০০৳ মেগা ক্যাশ বক্স নিন!</div>
-              </div>
-            </div>
+            
+
 
             {/* 100% Security & Anti-Ban Safety Assurance */}
             <div style={{
@@ -4957,20 +4903,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Secret Trick: 1 Phone Multiple WhatsApp */}
-              <div style={{
-                padding: '8px 10px', borderRadius: '12px',
-                background: 'rgba(251, 191, 36, 0.08)',
-                border: '1px dashed rgba(251, 191, 36, 0.4)',
-                fontSize: '10px', color: '#fef3c7', lineHeight: 1.45
-              }}>
-                <div style={{ fontWeight: '800', color: '#fbbf24', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>💡</span> <span>১টি ফোনেই ৪-১০টি WhatsApp চালানোর ট্রিক:</span>
-                </div>
-                <div>• WhatsApp মূল অ্যাপ (১টি) + WhatsApp Business (১টি)</div>
-                <div>• ফোনের Dual Apps / App Clone দিয়ে আরও ২টি</div>
-                <div>• পরিবারের অন্য সিম দিয়ে কোড নিয়ে সহজেই ১০টি যুক্ত করুন!</div>
-              </div>
+              
 
             </div>
 
