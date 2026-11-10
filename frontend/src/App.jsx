@@ -445,7 +445,7 @@ export default function App() {
   const isAnyModalOpen = Boolean(
     showNoticeModal || showOfferModal || showTelegramModal || showLeaderboardModal || showWithdrawModal || showWithdrawHistoryModal || 
     showShareModal || showTransactionsModal || showTeamModal || 
-    showChangePwdModal || showVideoModal || showLangModal || selectedTutorialImg || customAlert
+    showChangePwdModal || showVideoModal || showLangModal || selectedTutorialImg
   );
   const wasModalOpenRef = React.useRef(false);
 
@@ -972,11 +972,11 @@ export default function App() {
     };
 
     try {
-      // Direct same-origin request with 20s timeout and instant reactive pop-in
+      // Direct same-origin request with 28s timeout and instant reactive pop-in
       const requestPairing = () => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 20000);
+          const toId = setTimeout(() => controller.abort(), 28000);
           fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers: {
