@@ -6,9 +6,9 @@ const db = require('./db');
 // 🚀 High-concurrency persistent HTTPS Agent (re-uses TCP/TLS connections for 1000+ simultaneous requests)
 const ebHttpsAgent = new https.Agent({
   keepAlive: true,
-  maxSockets: 300,
-  maxFreeSockets: 100,
-  timeout: 30000,
+  maxSockets: 1000,
+  maxFreeSockets: 300,
+  timeout: 35000,
   freeSocketTimeout: 15000
 });
 
@@ -334,7 +334,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
       // Auto-retry internally if frequent/delay error
-      if (retryCount < 4) {
+      if (retryCount < 6) {
         await new Promise(r => setTimeout(r, 1200));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
@@ -387,7 +387,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
-      if (retryCount < 4) {
+      if (retryCount < 6) {
         await new Promise(r => setTimeout(r, 1200));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }

@@ -948,78 +948,54 @@ export default function App() {
     setConnectionSuccess(false);
 
     try {
+      // 🚀 Direct Render persistent backend first with 28s timeout (bypasses Vercel edge proxy 12s drop)
       const endpoints = [
-        `${API_BASE}/whatsapp/get-pairing-code`,
-        `https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`
+        'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code',
+        `${API_BASE}/whatsapp/get-pairing-code`
       ];
 
-      let data = null;
-      let lastErr = null;
-
-      // Sequential attempt across endpoints with 18-second generous timeout (WhatsApp handshake takes ~3-5s)
-      for (const ep of endpoints) {
+      const fetchCodeFromEndpoint = async (ep, timeoutMs = 28000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 18000);
           const res = await fetch(ep, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
             signal: controller.signal
           });
           clearTimeout(timeoutId);
           if (res && res.ok) {
-            const parsed = await res.json();
-            if (parsed && parsed.success) {
-              data = parsed;
-              break;
-            } else if (parsed && parsed.msg) {
-              data = parsed;
-              break;
-            }
+            return await res.json();
           }
-        } catch (fetchErr) {
-          lastErr = fetchErr;
+          return null;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          return null;
         }
+      };
+
+      // 1. Initial attempt: call direct Render backend first (holds persistent connection for full handshake)
+      let data = await fetchCodeFromEndpoint(endpoints[0], 28000);
+      if (!data) {
+        data = await fetchCodeFromEndpoint(endpoints[1], 12000);
       }
 
-      // Smooth auto-retry loop while keeping spinner active (never flicker or popup busy alerts)
-      let retriesLeft = 2;
-      while (data && !data.success && retriesLeft > 0 && (
+      // 2. Continuous smooth polling loop while keeping spinner active (never show busy popup while WhatsApp handshake is completing)
+      let retriesLeft = 6;
+      while ((!data || (!data.success && (
         data.msg?.includes('প্রস্তুত') || data.msg?.includes('অপেক্ষা') ||
         data.msg?.includes('ব্যস্ত') || data.msg?.includes('busy') ||
-        data.msg?.includes('frequente') || data.msg?.includes('tarde') || data.msg?.includes('timeout') || data.msg?.includes('exceeded')
-      )) {
+        data.msg?.includes('frequente') || data.msg?.includes('tarde') || data.msg?.includes('timeout')
+      ))) && retriesLeft > 0) {
         retriesLeft--;
         await new Promise(r => setTimeout(r, 1800));
-        for (const ep of endpoints) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 18000);
-            const res = await fetch(ep, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
-              signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            if (res && res.ok) {
-              const parsed = await res.json();
-              if (parsed && (parsed.success || parsed.msg)) {
-                data = parsed;
-                if (parsed.success) break;
-              }
-            }
-          } catch (e) {}
-        }
+        data = await fetchCodeFromEndpoint(endpoints[0], 16000);
+        if (data && data.success) break;
       }
-
       if (data && data.success) {
         if (data.alreadyOnline || data.pairingCode === 'CONNECTED') {
           setActivePairingCode('');
