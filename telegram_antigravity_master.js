@@ -47,6 +47,8 @@ function log(msg) {
 const ADMIN_CHAT_ID = 5314046368;
 const PINNED_MSG_ID = 377;
 
+const CURRENT_CONVERSATION_ID = '291ed710-af3c-4dd8-a885-03f6b0ce406e';
+
 // Dynamic active conversation detection
 function getActiveConversationId() {
   try {
@@ -57,34 +59,7 @@ function getActiveConversationId() {
     }
   } catch (e) {}
 
-  try {
-    const BRAIN_DIR = 'C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain';
-    if (fs.existsSync(BRAIN_DIR)) {
-      const dirs = fs.readdirSync(BRAIN_DIR).filter(d => {
-        const p = path.join(BRAIN_DIR, d, '.system_generated', 'logs', 'transcript.jsonl');
-        if (!fs.existsSync(p)) return false;
-        try {
-          const fd = fs.openSync(p, 'r');
-          const buf = Buffer.alloc(2048);
-          fs.readSync(fd, buf, 0, 2048, 0);
-          fs.closeSync(fd);
-          return buf.toString('utf8').toLowerCase().includes('whatshap');
-        } catch (err) {
-          return false;
-        }
-      });
-      if (dirs.length > 0) {
-        dirs.sort((a, b) => {
-          const ta = fs.statSync(path.join(BRAIN_DIR, a, '.system_generated', 'logs', 'transcript.jsonl')).mtimeMs;
-          const tb = fs.statSync(path.join(BRAIN_DIR, b, '.system_generated', 'logs', 'transcript.jsonl')).mtimeMs;
-          return tb - ta;
-        });
-        return dirs[0];
-      }
-    }
-  } catch (e) {}
-
-  return '291ed710-af3c-4dd8-a885-03f6b0ce406e';
+  return CURRENT_CONVERSATION_ID;
 }
 
 function getTranscriptPath() {

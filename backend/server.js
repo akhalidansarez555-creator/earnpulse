@@ -2860,35 +2860,34 @@ app.post('/api/admin/fb-bot/heartbeat', async (req, res) => {
 app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   const idStr = String(req.params.id);
+  const idNum = Number(req.params.id);
   const { status, adminNote } = req.body;
 
   if (!['approved', 'rejected'].includes(status)) {
     return res.status(400).json({ success: false, msg: 'অবৈধ স্ট্যাটাস' });
   }
 
-  // সর্বদা ক্লাউড অ্যাটলাস থেকে ফ্রেশ ডেটা নিশ্চিত করুন
-  if (db.syncFromCloud) {
-    try {
-      await Promise.race([
-        db.syncFromCloud(),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
-      ]);
-    } catch (e) {}
-  }
-  db.read();
+  const nowIso = new Date().toISOString();
+  let withdraw = null;
 
-  let withdraw = (db.get('withdrawals').value() || []).find(w => w && (w.id === id || String(w.id) === idStr));
-  if (!withdraw && db.getMongoDb) {
+  // 🛡️ ১. সরাসরি মোঙ্গোডিবি ক্লাউড অ্যাটলাস থেকে লাইভ উইথড্রয়াল বের করা
+  let mdb = null;
+  if (db.getMongoDb) {
     try {
-      const mdb = await db.getMongoDb();
+      mdb = await db.getMongoDb();
       if (mdb) {
         const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
         if (doc && doc.data && Array.isArray(doc.data.withdrawals)) {
-          withdraw = doc.data.withdrawals.find(w => w && (w.id === id || String(w.id) === idStr));
-          db.setState(doc.data);
+          withdraw = doc.data.withdrawals.find(w => w && (w.id === idNum || w.id === id || String(w.id) === idStr));
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('MongoDB direct fetch error in withdraw:', e.message);
+    }
+  }
+
+  if (!withdraw) {
+    withdraw = (db.get('withdrawals').value() || []).find(w => w && (w.id === idNum || w.id === id || String(w.id) === idStr));
   }
 
   if (!withdraw) {
@@ -2903,21 +2902,32 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
     });
   }
 
-  const nowIso = new Date().toISOString();
-  const updatedWithdrawal = {
-    ...withdraw,
-    status,
-    admin_note: adminNote || '',
-    processed_at: nowIso
-  };
-
+  const targetWithdrawId = withdraw.id;
   const targetUidNum = Number(withdraw.user_id);
   const targetUidStr = String(withdraw.user_id);
   const targetUName = withdraw.username ? String(withdraw.username).trim() : '';
   const refundAmt = Number(withdraw.amount) || 0;
 
-  // ⚡ লোকাল মেমোরি ও লোডিবি তাৎক্ষণিক আপডেট (< ২ মিলি-সেকেন্ড)
-  const wIdx = (db.get('withdrawals').value() || []).findIndex(w => w && (w.id === id || String(w.id) === idStr || Number(w.id) === id));
+  // 🛡️ ২. সরাসরি মোঙ্গোডিবি ক্লাউড অ্যাটলাসে অ্যাটমিক ও চিরস্থায়ী আপডেট (কখনোই রিভার্ট হবে না)
+  if (mdb) {
+    try {
+      const updateFields = {
+        'data.withdrawals.$.status': status,
+        'data.withdrawals.$.admin_note': adminNote || '',
+        'data.withdrawals.$.processed_at': nowIso,
+        updated_at: new Date()
+      };
+      await mdb.collection('app_state').updateOne(
+        { _id: 'earnpulse_store', 'data.withdrawals.id': targetWithdrawId },
+        { $set: updateFields }
+      );
+    } catch (e) {
+      console.error('Atlas direct withdraw update error:', e.message);
+    }
+  }
+
+  // ⚡ ৩. লোকাল মেমোরি ও লোডিবি সাথে সাথে আপডেট
+  const wIdx = (db.get('withdrawals').value() || []).findIndex(w => w && (w.id === targetWithdrawId || String(w.id) === String(targetWithdrawId)));
   if (wIdx !== -1) {
     db.get('withdrawals').nth(wIdx).assign({
       status,
@@ -2925,6 +2935,7 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
       processed_at: nowIso
     }).value();
   }
+
   if (status === 'rejected') {
     const targetClean = String(targetUName || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
     const uIdx = (db.get('users').value() || []).findIndex(u => {
@@ -2939,10 +2950,21 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
     });
     if (uIdx !== -1) {
       const u = db.get('users').nth(uIdx).value();
+      const newBal = parseFloat(((Number(u.balance) || 0) + refundAmt).toFixed(2));
+      const newWithdrawn = parseFloat(Math.max(0, (Number(u.total_withdrawn) || 0) - refundAmt).toFixed(2));
       db.get('users').nth(uIdx).assign({
-        balance: parseFloat(((Number(u.balance) || 0) + refundAmt).toFixed(2)),
-        total_withdrawn: parseFloat(Math.max(0, (Number(u.total_withdrawn) || 0) - refundAmt).toFixed(2))
+        balance: newBal,
+        total_withdrawn: newWithdrawn
       }).value();
+
+      if (mdb) {
+        try {
+          await mdb.collection('app_state').updateOne(
+            { _id: 'earnpulse_store', 'data.users.id': u.id },
+            { $set: { 'data.users.$.balance': newBal, 'data.users.$.total_withdrawn': newWithdrawn, updated_at: new Date() } }
+          );
+        } catch (e) {}
+      }
     }
     db.get('earnings_log').push({
       id: Date.now(),
@@ -2955,14 +2977,20 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
       created_at: nowIso
     }).value();
   }
+
   db.write();
 
-  // 🛡️ ব্যাকগ্রাউন্ডে সরাসরি মোঙ্গোডিবি ক্লাউড অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট সেভ
+  // 🛡️ ৪. ক্লাউড সিঙ্ক শতভাগ নিশ্চিত করা
   if (db.syncToCloud) {
-    setImmediate(() => {
-      db.syncToCloud(true).catch(e => console.error('Atlas admin withdraw sync error:', e.message));
-    });
+    await db.syncToCloud(true).catch(e => console.error('Atlas admin withdraw sync error:', e.message));
   }
+
+  const updatedWithdrawal = {
+    ...withdraw,
+    status,
+    admin_note: adminNote || '',
+    processed_at: nowIso
+  };
 
   return res.json({
     success: true,
