@@ -320,7 +320,7 @@ async function monitorPresence() {
     currentPresence = determinedOnline;
     lastHeartbeatTime = now;
     await updatePresence(determinedOnline, true);
-  } else if (now - lastHeartbeatTime > 30000) {
+  } else if (now - lastHeartbeatTime > 8000) {
     lastHeartbeatTime = now;
     await updatePresence(determinedOnline, false);
   }
