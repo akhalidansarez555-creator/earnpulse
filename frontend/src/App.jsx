@@ -999,7 +999,7 @@ export default function App() {
       const requestPairing = () => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 38000);
+          const toId = setTimeout(() => controller.abort(), 55000);
           fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers: {
@@ -1034,9 +1034,9 @@ export default function App() {
         onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
-      // If not resolved yet, keep polling up to 25 more seconds before showing any notice!
+      // If not resolved yet, keep polling up to 35 more seconds before showing any notice!
       if (!isResolved) {
-        for (let waitCount = 0; waitCount < 25; waitCount++) {
+        for (let waitCount = 0; waitCount < 35; waitCount++) {
           if (isResolved) break;
           await new Promise(r => setTimeout(r, 1000));
         }

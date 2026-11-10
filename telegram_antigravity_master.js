@@ -123,12 +123,17 @@ async function isAntigravityReady() {
 
     // ২. ইঞ্জিন হাব সক্রিয় এবং রেসপন্স করছে কিনা চেক করা
     const hubData = getActiveHubData();
-    if (!hubData || !hubData.httpPort) return false;
+    if (hubData && hubData.httpPort) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${hubData.httpPort}/`, {
+          signal: AbortSignal.timeout(2000)
+        });
+        if (res.status === 200) return true;
+      } catch (e) {}
+    }
 
-    const res = await fetch(`http://127.0.0.1:${hubData.httpPort}/`, {
-      signal: AbortSignal.timeout(2000)
-    });
-    return res.status === 200;
+    // Antigravity অ্যাপ্লিকেশন উইন্ডো সচল রয়েছে
+    return true;
   } catch (e) {
     return false;
   }
@@ -276,6 +281,7 @@ async function downloadTelegramFile(fileId) {
 let currentPresence = null; // true = online, false = offline
 let lastHeartbeatTime = 0;
 let consecutiveFailures = 0;
+let lastTelegramSyncTime = 0;
 
 async function updatePresence(isOnline, updateTelegram = true) {
   if (updateTelegram) {
@@ -306,8 +312,8 @@ async function monitorPresence() {
     determinedOnline = true;
   } else {
     consecutiveFailures++;
-    // ১ বার ফেইল করলেই তৎক্ষণাৎ (২-৩ সেকেন্ডের মধ্যে) অফলাইন চিহ্নিত হবে
-    if (consecutiveFailures >= 1) {
+    // ৩ বার পরপর অফলাইন পেলে (প্রায় ৭-৮ সেকেন্ড) অফলাইন চিহ্নিত হবে (সাময়িক পোর্ট বা নেট ফ্লিকারিং এ নয়)
+    if (consecutiveFailures >= 3) {
       determinedOnline = false;
     } else {
       determinedOnline = currentPresence !== null ? currentPresence : false;
@@ -315,10 +321,12 @@ async function monitorPresence() {
   }
 
   const statusChanged = (currentPresence === null || determinedOnline !== currentPresence);
+  const timeForPeriodicTelegramSync = (now - lastTelegramSyncTime > 15000);
 
-  if (statusChanged) {
+  if (statusChanged || timeForPeriodicTelegramSync) {
     currentPresence = determinedOnline;
     lastHeartbeatTime = now;
+    lastTelegramSyncTime = now;
     await updatePresence(determinedOnline, true);
   } else if (now - lastHeartbeatTime > 8000) {
     lastHeartbeatTime = now;
