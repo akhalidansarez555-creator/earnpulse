@@ -928,14 +928,24 @@ export default function App() {
     }, 150);
   };
 
-  // Get 8-Digit Pairing Code (Blazing Fast with Dual Failover & Silent Auto-Retry)
-  const handleGetPairingCode = async (retryArg = false) => {
-    const isRetryAttempt = retryArg === true;
-    if (!inputPhone) return;
-    if (!isRetryAttempt) {
-      setPairingLoading(true);
-      setActivePairingCode('');
+  // Get 8-Digit Pairing Code (Rock-Solid, Ultra-Smooth & Instant Blink Display)
+  const handleGetPairingCode = async () => {
+    if (!inputPhone || pairingLoading) return;
+
+    const cleanPhone = String(inputPhone).replace(/[^0-9]/g, '').replace(/^880/, '').replace(/^0+/, '').trim();
+    if (!cleanPhone || cleanPhone.length < 9) {
+      showAlert(
+        lang === 'bn' ? 'সঠিক ১০ ডিজিটের মোবাইল নম্বর দিন' : 'Please enter a valid 10-digit mobile number',
+        lang === 'bn' ? 'সতর্কতা' : 'Notice',
+        'error'
+      );
+      return;
     }
+
+    setPairingLoading(true);
+    setActivePairingCode('');
+    setIsWaitingConnection(false);
+    setConnectionSuccess(false);
 
     try {
       const endpoints = [
@@ -943,43 +953,39 @@ export default function App() {
         `https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`
       ];
 
-      const fetchCodeReq = async (ep, timeoutMs) => {
+      let data = null;
+      let lastErr = null;
+
+      // Sequential attempt across endpoints with 18-second generous timeout (WhatsApp handshake takes ~3-5s)
+      for (const ep of endpoints) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-          const r = await fetch(ep, {
+          const timeoutId = setTimeout(() => controller.abort(), 18000);
+          const res = await fetch(ep, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`
             },
-            body: JSON.stringify({ phoneNumber: inputPhone, countryCode: '880' }),
+            body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
             signal: controller.signal
           });
           clearTimeout(timeoutId);
-          if (r && r.ok) return r;
-        } catch (e) {}
-        return null;
-      };
-
-      // ⚡ Fast parallel-failover: Try primary first, if not resolved in 2.5s fire direct endpoint
-      let res = await Promise.race([
-        fetchCodeReq(endpoints[0], 10000),
-        new Promise(r => setTimeout(() => r('FAST_FAILOVER_TRIGGER'), 2500))
-      ]);
-
-      if (res === 'FAST_FAILOVER_TRIGGER' || !res) {
-        // Fire failover in parallel, whichever finishes first delivers code instantly
-        const [r1, r2] = await Promise.allSettled([
-          fetchCodeReq(endpoints[0], 8000),
-          fetchCodeReq(endpoints[1], 8000)
-        ]);
-        res = (r1.status === 'fulfilled' && r1.value) ? r1.value : ((r2.status === 'fulfilled' && r2.value) ? r2.value : null);
+          if (res && res.ok) {
+            const parsed = await res.json();
+            if (parsed && parsed.success) {
+              data = parsed;
+              break;
+            } else if (parsed && parsed.msg) {
+              data = parsed;
+              break;
+            }
+          }
+        } catch (fetchErr) {
+          lastErr = fetchErr;
+        }
       }
 
-      if (!res) throw new Error('Network error');
-
-      const data = await res.json();
       if (data && data.success) {
         if (data.alreadyOnline || data.pairingCode === 'CONNECTED') {
           setActivePairingCode('');
@@ -991,18 +997,14 @@ export default function App() {
             setConnectionSuccess(false);
           }, 7000);
         } else {
-          setActivePairingCode((data.pairingCode || '').replace(/[^a-zA-Z0-9]/g, ''));
+          const rawCode = (data.pairingCode || '').replace(/[^a-zA-Z0-9]/g, '');
+          // Immediately populate the 8-digit code seamlessly without flashing
+          setActivePairingCode(rawCode);
           setIsWaitingConnection(true);
           setConnectionSuccess(false);
           fetchUserData(false);
         }
       } else {
-        // Silently retry once without disturbing user with notice popups!
-        if (!isRetryAttempt && (data?.msg?.includes('প্রস্তুত') || data?.msg?.includes('ব্যস্ত'))) {
-          await new Promise(r => setTimeout(r, 1500));
-          return handleGetPairingCode(true);
-        }
-
         let errorMsg = data?.msg || '';
         if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('Error')) {
           errorMsg = lang === 'bn'
@@ -1012,15 +1014,14 @@ export default function App() {
         showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
       }
     } catch (err) {
-      if (!isRetryAttempt) {
-        await new Promise(r => setTimeout(r, 1500));
-        return handleGetPairingCode(true);
-      }
-      showAlert(lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.', lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error', 'error');
+      showAlert(
+        lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.',
+        lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error',
+        'error'
+      );
     } finally {
-      if (!isRetryAttempt) {
-        setPairingLoading(false);
-      }
+      // ONLY reset loading when all logic has fully completed!
+      setPairingLoading(false);
     }
   };
 
@@ -2524,7 +2525,7 @@ export default function App() {
                 </div>
                 <button
                   id="get-pairing-code-btn"
-                  onClick={() => handleGetPairingCode(false)}
+                  onClick={handleGetPairingCode}
                   disabled={pairingLoading || !inputPhone}
                   className="action-btn-green"
                   style={{
@@ -2536,7 +2537,8 @@ export default function App() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    cursor: (pairingLoading || !inputPhone) ? 'not-allowed' : 'pointer'
+                    cursor: (pairingLoading || !inputPhone) ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   {pairingLoading ? (
@@ -2560,7 +2562,7 @@ export default function App() {
                 {pairingLoading && (
                   <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                    marginBottom: '10px', padding: '6px 10px', borderRadius: '10px',
+                    marginBottom: '10px', padding: '8px 12px', borderRadius: '10px',
                     background: '#fef3c7', border: '1px solid #fde68a',
                     fontSize: '12px', fontWeight: 'bold', color: '#b45309'
                   }}>
@@ -2568,45 +2570,59 @@ export default function App() {
                     <span>{lang === 'bn' ? 'কোড তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Generating code, please wait...'}</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
                   {[0, 1, 2, 3].map((idx) => (
                     <div key={idx} style={{
-                      width: '34px', height: '42px', borderRadius: '6px', border: '1.5px solid #cbd5e1',
-                      background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '18px', fontWeight: 'bold', color: '#15803d', fontFamily: 'monospace'
+                      width: '36px', height: '44px', borderRadius: '8px',
+                      border: activePairingCode ? '2px solid #16a34a' : (pairingLoading ? '1.5px solid #f59e0b' : '1.5px solid #cbd5e1'),
+                      background: activePairingCode ? '#f0fdf4' : (pairingLoading ? '#fffbeb' : '#f8fafc'),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '19px', fontWeight: 'bold',
+                      color: activePairingCode ? '#15803d' : (pairingLoading ? '#d97706' : '#94a3b8'),
+                      fontFamily: 'monospace',
+                      boxShadow: activePairingCode ? '0 2px 8px rgba(22, 163, 74, 0.2)' : 'none',
+                      transition: 'all 0.2s ease'
                     }}>
-                      {activePairingCode[idx] || (pairingLoading ? '•' : '')}
+                      {activePairingCode ? activePairingCode[idx] : (pairingLoading ? '•' : '')}
                     </div>
                   ))}
-                  <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: '#94a3b8' }}>-</div>
+                  <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: '#94a3b8', fontSize: '16px' }}>-</div>
                   {[4, 5, 6, 7].map((idx) => (
                     <div key={idx} style={{
-                      width: '34px', height: '42px', borderRadius: '6px', border: '1.5px solid #cbd5e1',
-                      background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '18px', fontWeight: 'bold', color: '#15803d', fontFamily: 'monospace'
+                      width: '36px', height: '44px', borderRadius: '8px',
+                      border: activePairingCode ? '2px solid #16a34a' : (pairingLoading ? '1.5px solid #f59e0b' : '1.5px solid #cbd5e1'),
+                      background: activePairingCode ? '#f0fdf4' : (pairingLoading ? '#fffbeb' : '#f8fafc'),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '19px', fontWeight: 'bold',
+                      color: activePairingCode ? '#15803d' : (pairingLoading ? '#d97706' : '#94a3b8'),
+                      fontFamily: 'monospace',
+                      boxShadow: activePairingCode ? '0 2px 8px rgba(22, 163, 74, 0.2)' : 'none',
+                      transition: 'all 0.2s ease'
                     }}>
-                      {activePairingCode[idx] || (pairingLoading ? '•' : '')}
+                      {activePairingCode ? activePairingCode[idx] : (pairingLoading ? '•' : '')}
                     </div>
                   ))}
                 </div>
 
                 {activePairingCode && (
-                  <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                  <div style={{ textAlign: 'center', marginTop: '12px' }}>
                     <button
                       onClick={() => copyToClipboard(activePairingCode)}
                       style={{
-                        padding: '6px 14px', borderRadius: '6px', background: '#15803d',
-                        color: '#fff', fontSize: '12px', fontWeight: 'bold', border: 'none', cursor: 'pointer'
+                        padding: '8px 18px', borderRadius: '8px', background: '#15803d',
+                        color: '#fff', fontSize: '13px', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        boxShadow: '0 3px 10px rgba(21, 128, 61, 0.25)'
                       }}
                     >
-                      <Copy size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                      {copied ? t.copied : t.copyCodeBtn}
+                      <Copy size={14} />
+                      <span>{copied ? t.copied : t.copyCodeBtn}</span>
                     </button>
                   </div>
                 )}
 
-                {/* Live Waiting Animation Indicator */}
-                {isWaitingConnection && (
+                {/* Live Waiting Animation Indicator - ONLY shown when activePairingCode is present */}
+                {Boolean(activePairingCode && isWaitingConnection) && (
                   <div style={{
                     marginTop: '14px', padding: '12px', borderRadius: '12px',
                     background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
