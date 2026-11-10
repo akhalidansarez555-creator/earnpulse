@@ -972,11 +972,11 @@ export default function App() {
     };
 
     try {
-      // Direct same-origin request with 28s timeout and instant reactive pop-in
+      // Direct same-origin request with 38s timeout and instant reactive pop-in
       const requestPairing = () => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 28000);
+          const toId = setTimeout(() => controller.abort(), 38000);
           fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers: {
