@@ -973,7 +973,7 @@ export default function App() {
 
     let pollInterval = null;
     try {
-      // 🚀 Active status polling alongside POST (Immune to Vercel/proxy timeouts)
+      // 🚀 Rocket-Speed status polling (650ms) alongside POST (Immune to Vercel/proxy timeouts)
       pollInterval = setInterval(async () => {
         if (isResolved) {
           if (pollInterval) clearInterval(pollInterval);
@@ -991,7 +991,7 @@ export default function App() {
             }
           }
         } catch (e) {}
-      }, 1200);
+      }, 650);
 
       // Direct same-origin request with 38s timeout and instant reactive pop-in
       const requestPairing = () => {
