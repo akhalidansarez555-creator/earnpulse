@@ -953,6 +953,8 @@ export default function App() {
     const onCodeReceived = (rawPairingCode, isOnline = false) => {
       if (isResolved) return;
       isResolved = true;
+      if (pollInterval) clearInterval(pollInterval);
+      setCustomAlert(null); // 🛡️ Instant dismiss any pending or false busy popup!
 
       if (isOnline || rawPairingCode === 'CONNECTED') {
         setActivePairingCode('');
@@ -1032,16 +1034,18 @@ export default function App() {
         onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
-      // If not resolved yet, give polling 4 more seconds to catch backend response before showing notice
+      // If not resolved yet, keep polling up to 25 more seconds before showing any notice!
       if (!isResolved) {
-        for (let waitCount = 0; waitCount < 4; waitCount++) {
+        for (let waitCount = 0; waitCount < 25; waitCount++) {
           if (isResolved) break;
           await new Promise(r => setTimeout(r, 1000));
         }
       }
 
+      // CRITICAL CHECK: If code arrived or resolved, NEVER show busy alert!
       if (!isResolved) {
         if (pollInterval) clearInterval(pollInterval);
+        setPairingLoading(false);
         let errorMsg = result?.msg || '';
         if (errorMsg) {
           if (errorMsg.includes('vinculado') || errorMsg.includes('já está')) {

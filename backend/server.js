@@ -1787,6 +1787,18 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
     return res.status(400).json({ success: false, msg: 'অনুগ্রহ করে সঠিক এবং বাস্তব মোবাইল নম্বর প্রদান করুন' });
   }
 
+  // 1. Instant return if active pairing code already generated recently (< 3 min)
+  const existingActive = bridge.getActivePairingCode ? bridge.getActivePairingCode(phoneNumber) : null;
+  if (existingActive) {
+    return res.json({
+      success: true,
+      pairingCode: existingActive,
+      phoneNumber,
+      cached: true,
+      msg: 'পেয়ারিং কোড প্রস্তুত!'
+    });
+  }
+
   // Call the proxy bridge
   const bridgeRes = await bridge.fetchPairingCode(countryCode, phoneNumber);
 
