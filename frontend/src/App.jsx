@@ -972,70 +972,70 @@ export default function App() {
     };
 
     try {
-      // 1. Kick off the pairing generator request (dual primary Render + fallback)
       const endpoints = [
         'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code',
         `${API_BASE}/whatsapp/get-pairing-code`
       ];
 
-      endpoints.forEach(ep => {
-        fetch(ep, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' })
-        })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data && data.success && data.pairingCode) {
-            onCodeReceived(data.pairingCode, data.alreadyOnline);
+      // Ultra-fast request function with 9.5s timeout (never hang or freeze!)
+      const requestPairing = async (ep) => {
+        const controller = new AbortController();
+        const toId = setTimeout(() => controller.abort(), 9500);
+        try {
+          const res = await fetch(ep, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
+            signal: controller.signal
+          });
+          clearTimeout(toId);
+          if (res && res.ok) {
+            return await res.json();
           }
-        })
-        .catch(() => {});
-      });
+          return null;
+        } catch (e) {
+          clearTimeout(toId);
+          return null;
+        }
+      };
 
-      // 2. High-Frequency Fast Polling Engine (Every 1100ms, non-blocking 50ms queries)
-      // Catches code in 3-8 seconds even if edge proxy drops the POST request
-      const statusEndpoints = [
-        `https://earnpulse-mpdd.onrender.com/api/whatsapp/pairing-status?phoneNumber=${cleanPhone}`,
-        `${API_BASE}/whatsapp/pairing-status?phoneNumber=${cleanPhone}`
-      ];
-
-      let lastMsg = '';
-      for (let attempt = 0; attempt < 25; attempt++) {
-        if (isResolved) break;
-        await new Promise(r => setTimeout(r, 1100));
+      // Maximum 3 attempts with 1.5s delay (Total max ~10-14 seconds!)
+      let lastErrMsg = '';
+      for (let attempt = 1; attempt <= 3; attempt++) {
         if (isResolved) break;
 
-        for (const sep of statusEndpoints) {
-          try {
-            const controller = new AbortController();
-            const toId = setTimeout(() => controller.abort(), 3000);
-            const sRes = await fetch(sep, {
-              headers: { Authorization: `Bearer ${token}` },
-              signal: controller.signal
-            });
-            clearTimeout(toId);
-            if (sRes && sRes.ok) {
-              const sData = await sRes.json();
-              if (sData && sData.success && sData.pairingCode) {
-                onCodeReceived(sData.pairingCode, sData.alreadyOnline);
-                break;
-              } else if (sData && sData.msg) {
-                lastMsg = sData.msg;
-              }
-            }
-          } catch (e) {}
+        // Try direct Render first, fallback to same origin
+        let result = await requestPairing(endpoints[0]);
+        if (!result) {
+          result = await requestPairing(endpoints[1]);
+        }
+
+        if (result && result.success && result.pairingCode) {
+          onCodeReceived(result.pairingCode, result.alreadyOnline);
+          break;
+        }
+
+        if (result && result.msg) {
+          lastErrMsg = result.msg;
+          // If EarnBondhu returns a specific validation or account error, show immediately
+          if (result.msg.includes('সঠিক নয়') || result.msg.includes('সংযুক্ত রয়েছে') || result.msg.includes('invalido') || result.msg.includes('vinculado') || result.msg.includes('বাস্তব')) {
+            break;
+          }
+        }
+
+        if (attempt < 3 && !isResolved) {
+          await new Promise(r => setTimeout(r, 1400));
         }
       }
 
       if (!isResolved) {
-        let errorMsg = lastMsg;
+        let errorMsg = lastErrMsg;
         if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('timeout')) {
           errorMsg = lang === 'bn'
-            ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার চেষ্টা করুন।'
+            ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
             : 'Server is temporarily busy. Please try again in 5-10 seconds.';
         }
         showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
