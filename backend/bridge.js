@@ -333,9 +333,9 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      // Auto-retry internally if frequent/delay error with smart backoff
+      // Auto-retry internally if frequent/delay error with fast 800ms backoff
       if (retryCount < 2) {
-        await new Promise(r => setTimeout(r, (retryCount + 1) * 2200));
+        await new Promise(r => setTimeout(r, 800 * (retryCount + 1)));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
@@ -388,7 +388,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
       if (retryCount < 2) {
-        await new Promise(r => setTimeout(r, (retryCount + 1) * 2200));
+        await new Promise(r => setTimeout(r, 800 * (retryCount + 1)));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {
