@@ -972,17 +972,12 @@ export default function App() {
     };
 
     try {
-      const endpoints = [
-        `${API_BASE}/whatsapp/get-pairing-code`,
-        'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code'
-      ];
-
-      // Request pairing from a specific endpoint with fast instant trigger
-      const requestPairing = (ep) => {
+      // Direct same-origin request with 20s timeout and instant reactive pop-in
+      const requestPairing = () => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 24000);
-          fetch(ep, {
+          const toId = setTimeout(() => controller.abort(), 20000);
+          fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1009,35 +1004,13 @@ export default function App() {
         });
       };
 
-      // Parallel race across endpoints with dual failover
-      let lastErrMsg = '';
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        if (isResolved) break;
-
-        // Race same-origin Vercel and direct Render simultaneously!
-        const results = await Promise.all(endpoints.map(ep => requestPairing(ep)));
-        const successRes = results.find(r => r && r.success && r.pairingCode);
-
-        if (successRes && !isResolved) {
-          onCodeReceived(successRes.pairingCode, successRes.alreadyOnline);
-          break;
-        }
-
-        const msgRes = results.find(r => r && r.msg);
-        if (msgRes && msgRes.msg) {
-          lastErrMsg = msgRes.msg;
-          if (msgRes.msg.includes('সঠিক নয়') || msgRes.msg.includes('সংযুক্ত রয়েছে') || msgRes.msg.includes('invalido') || msgRes.msg.includes('vinculado') || msgRes.msg.includes('বাস্তব')) {
-            break;
-          }
-        }
-
-        if (attempt < 2 && !isResolved) {
-          await new Promise(r => setTimeout(r, 1200));
-        }
+      const result = await requestPairing();
+      if (result && result.success && result.pairingCode && !isResolved) {
+        onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
       if (!isResolved) {
-        let errorMsg = lastErrMsg;
+        let errorMsg = result?.msg || '';
         if (errorMsg) {
           if (errorMsg.includes('vinculado') || errorMsg.includes('já está')) {
             errorMsg = lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে।' : 'This WhatsApp number is already connected.';
@@ -1066,9 +1039,7 @@ export default function App() {
         );
       }
     } finally {
-      if (!isResolved) {
-        setPairingLoading(false);
-      }
+      setPairingLoading(false);
     }
   };
 
