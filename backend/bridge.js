@@ -334,8 +334,8 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
       // Auto-retry internally if frequent/delay error
-      if (retryCount < 2) {
-        await new Promise(r => setTimeout(r, 1500));
+      if (retryCount < 4) {
+        await new Promise(r => setTimeout(r, 1200));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
@@ -387,8 +387,8 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde'))) {
-      if (retryCount < 2) {
-        await new Promise(r => setTimeout(r, 1500));
+      if (retryCount < 4) {
+        await new Promise(r => setTimeout(r, 1200));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {

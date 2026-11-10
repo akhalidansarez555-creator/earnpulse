@@ -986,9 +986,15 @@ export default function App() {
         }
       }
 
-      if (data && !data.success && (data.msg?.includes('প্রস্তুত') || data.msg?.includes('অপেক্ষা'))) {
-        // Upstream preparing handshake: keep spinner active and retry smoothly
-        await new Promise(r => setTimeout(r, 2000));
+      // Smooth auto-retry loop while keeping spinner active (never flicker or popup busy alerts)
+      let retriesLeft = 2;
+      while (data && !data.success && retriesLeft > 0 && (
+        data.msg?.includes('প্রস্তুত') || data.msg?.includes('অপেক্ষা') ||
+        data.msg?.includes('ব্যস্ত') || data.msg?.includes('busy') ||
+        data.msg?.includes('frequente') || data.msg?.includes('tarde')
+      )) {
+        retriesLeft--;
+        await new Promise(r => setTimeout(r, 1800));
         for (const ep of endpoints) {
           try {
             const controller = new AbortController();
