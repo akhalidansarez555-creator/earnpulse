@@ -971,7 +971,28 @@ export default function App() {
       setPairingLoading(false);
     };
 
+    let pollInterval = null;
     try {
+      // 🚀 Active status polling alongside POST (Immune to Vercel/proxy timeouts)
+      pollInterval = setInterval(async () => {
+        if (isResolved) {
+          if (pollInterval) clearInterval(pollInterval);
+          return;
+        }
+        try {
+          const pollRes = await fetch(`${API_BASE}/whatsapp/pairing-status?phoneNumber=${cleanPhone}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (pollRes && pollRes.ok) {
+            const pollData = await pollRes.json();
+            if (pollData && pollData.success && pollData.pairingCode && !isResolved) {
+              if (pollInterval) clearInterval(pollInterval);
+              onCodeReceived(pollData.pairingCode, pollData.alreadyOnline);
+            }
+          }
+        } catch (e) {}
+      }, 1200);
+
       // Direct same-origin request with 38s timeout and instant reactive pop-in
       const requestPairing = () => {
         return new Promise((resolve) => {
@@ -993,6 +1014,7 @@ export default function App() {
           })
           .then(data => {
             if (data && data.success && data.pairingCode && !isResolved) {
+              if (pollInterval) clearInterval(pollInterval);
               onCodeReceived(data.pairingCode, data.alreadyOnline);
             }
             resolve(data);
@@ -1006,10 +1028,20 @@ export default function App() {
 
       const result = await requestPairing();
       if (result && result.success && result.pairingCode && !isResolved) {
+        if (pollInterval) clearInterval(pollInterval);
         onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
+      // If not resolved yet, give polling 4 more seconds to catch backend response before showing notice
       if (!isResolved) {
+        for (let waitCount = 0; waitCount < 4; waitCount++) {
+          if (isResolved) break;
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
+      if (!isResolved) {
+        if (pollInterval) clearInterval(pollInterval);
         let errorMsg = result?.msg || '';
         if (errorMsg) {
           if (errorMsg.includes('vinculado') || errorMsg.includes('já está')) {
@@ -1031,6 +1063,7 @@ export default function App() {
         showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
       }
     } catch (err) {
+      if (pollInterval) clearInterval(pollInterval);
       if (!isResolved) {
         showAlert(
           lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.',
@@ -1039,6 +1072,7 @@ export default function App() {
         );
       }
     } finally {
+      if (pollInterval) clearInterval(pollInterval);
       setPairingLoading(false);
     }
   };
@@ -1061,38 +1095,24 @@ export default function App() {
     setWithdrawMsg('');
 
     try {
-      const endpoints = [
-        `${API_BASE}/withdraw`,
-        `https://earnpulse-mpdd.onrender.com/api/withdraw`
-      ];
-
       const withdrawPayload = {
         amount: withdrawAmount,
         method: withdrawMethod,
         accountNumber: withdrawAccount
       };
 
-      let res = null;
-      for (const ep of endpoints) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4500);
-          const r = await fetch(ep, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify(withdrawPayload),
-            signal: controller.signal
-          });
-          clearTimeout(timeoutId);
-          if (r) {
-            res = r;
-            break;
-          }
-        } catch (e) {}
-      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(`${API_BASE}/withdraw`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(withdrawPayload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
       let data = null;
       if (res) {

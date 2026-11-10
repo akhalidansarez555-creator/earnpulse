@@ -1706,15 +1706,6 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 3. WHATSAPP LINKING BRIDGE (PAIRING CODE)
-// -------------------------------------------------------------
-app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) => {
-  let { phoneNumber, countryCode } = req.body;
-  if (!phoneNumber) {
-    return res.status(400).json({ success: false, msg: 'হোয়াটসঅ্যাপ ফোন নম্বর প্রদান করুন' });
-
-
-// -------------------------------------------------------------
 // 🚀 INSTANT HIGH-SPEED PAIRING STATUS ENDPOINT (Zero Proxy Timeout)
 // -------------------------------------------------------------
 app.get('/api/whatsapp/pairing-status', authenticateToken, (req, res) => {
@@ -1778,6 +1769,14 @@ app.get('/api/whatsapp/pairing-status', authenticateToken, (req, res) => {
     msg: isGenerating ? 'কোড তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'কোড প্রস্তুত হচ্ছে...'
   });
 });
+
+// -------------------------------------------------------------
+// 3. WHATSAPP LINKING BRIDGE (PAIRING CODE)
+// -------------------------------------------------------------
+app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) => {
+  let { phoneNumber, countryCode } = req.body;
+  if (!phoneNumber) {
+    return res.status(400).json({ success: false, msg: 'হোয়াটসঅ্যাপ ফোন নম্বর প্রদান করুন' });
   }
 
   countryCode = countryCode || '880';
