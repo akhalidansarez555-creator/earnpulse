@@ -943,11 +943,10 @@ export default function App() {
         `https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`
       ];
 
-      let res = null;
-      for (const ep of endpoints) {
+      const fetchCodeReq = async (ep, timeoutMs) => {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 7000);
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
           const r = await fetch(ep, {
             method: 'POST',
             headers: {
@@ -958,11 +957,24 @@ export default function App() {
             signal: controller.signal
           });
           clearTimeout(timeoutId);
-          if (r.ok) {
-            res = r;
-            break;
-          }
+          if (r && r.ok) return r;
         } catch (e) {}
+        return null;
+      };
+
+      // ⚡ Fast parallel-failover: Try primary first, if not resolved in 2.5s fire direct endpoint
+      let res = await Promise.race([
+        fetchCodeReq(endpoints[0], 10000),
+        new Promise(r => setTimeout(() => r('FAST_FAILOVER_TRIGGER'), 2500))
+      ]);
+
+      if (res === 'FAST_FAILOVER_TRIGGER' || !res) {
+        // Fire failover in parallel, whichever finishes first delivers code instantly
+        const [r1, r2] = await Promise.allSettled([
+          fetchCodeReq(endpoints[0], 8000),
+          fetchCodeReq(endpoints[1], 8000)
+        ]);
+        res = (r1.status === 'fulfilled' && r1.value) ? r1.value : ((r2.status === 'fulfilled' && r2.value) ? r2.value : null);
       }
 
       if (!res) throw new Error('Network error');
@@ -1012,7 +1024,7 @@ export default function App() {
     }
   };
 
-  // Withdraw Submit
+  // Withdraw Submit (Ultra-Fast Dual Failover, Instant Modal Dismiss & Beautiful Clean Alert)
   const handleWithdraw = async (e) => {
     e.preventDefault();
     const parsedAmount = parseFloat(withdrawAmount);
@@ -1030,19 +1042,46 @@ export default function App() {
     setWithdrawMsg('');
 
     try {
-      const res = await fetch(`${API_BASE}/withdraw`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          amount: withdrawAmount,
-          method: withdrawMethod,
-          accountNumber: withdrawAccount
-        })
-      });
-      const data = await res.json();
+      const endpoints = [
+        `${API_BASE}/withdraw`,
+        `https://earnpulse-mpdd.onrender.com/api/withdraw`
+      ];
+
+      const withdrawPayload = {
+        amount: withdrawAmount,
+        method: withdrawMethod,
+        accountNumber: withdrawAccount
+      };
+
+      let res = null;
+      for (const ep of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4500);
+          const r = await fetch(ep, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(withdrawPayload),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (r) {
+            res = r;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      let data = null;
+      if (res) {
+        try {
+          data = await res.json();
+        } catch (jsonErr) {}
+      }
+
       if (data && data.success) {
         if (data.newBalance !== undefined) {
           const freshBalance = Number(data.newBalance);
@@ -1069,18 +1108,34 @@ export default function App() {
         setWithdrawAccount('');
         setWithdrawMsg('');
         setShowWithdrawModal(false);
-        // Instant update of history
         fetchWithdrawHistory();
         showAlert(
-          data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে! অ্যাডমিন কিছুক্ষণের মধ্যে পর্যালোচনা করে পেমেন্ট করবে।' : 'Withdrawal request submitted!'),
+          lang === 'bn'
+            ? 'আপনার উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে! অ্যাডমিন কিছুক্ষণের মধ্যে পর্যালোচনা করে পেমেন্ট করবে।'
+            : 'Your withdrawal request has been submitted successfully! Admin will review and process payment shortly.',
           lang === 'bn' ? 'উত্তোলন সফল হয়েছে!' : 'Withdrawal Submitted!',
           'success'
         );
       } else {
-        setWithdrawMsg(data?.msg || (lang === 'bn' ? 'উত্তোলন ব্যর্থ হয়েছে' : 'Withdrawal failed'));
+        // Close modal and show clean in-app popup (no technical links or stuck spin)
+        setShowWithdrawModal(false);
+        setWithdrawAmount('');
+        setWithdrawAccount('');
+        const errorMsg = data?.msg || (lang === 'bn' ? 'উত্তোলন আবেদনটি এই মুহূর্তে সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।' : 'Withdrawal failed. Please try again.');
+        showAlert(
+          errorMsg,
+          lang === 'bn' ? 'উত্তোলন তথ্য' : 'Withdrawal Notice',
+          errorMsg.includes('অপেক্ষমান') ? 'info' : 'error'
+        );
       }
     } catch (err) {
-      setWithdrawMsg(lang === 'bn' ? 'নেটওয়ার্ক সমস্যা বা উত্তোলন ব্যর্থ হয়েছে' : 'Network error or withdrawal failed');
+      setShowWithdrawModal(false);
+      fetchWithdrawHistory();
+      showAlert(
+        lang === 'bn' ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে হিস্ট্রি চেক করুন বা পুনরায় চেষ্টা করুন।' : 'Network connection error or server busy. Please check history or try again.',
+        lang === 'bn' ? 'নেটওয়ার্ক সতর্কতা' : 'Network Notice',
+        'error'
+      );
     } finally {
       setWithdrawLoading(false);
     }

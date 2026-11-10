@@ -244,6 +244,58 @@ async function _performSyncFromCloud() {
           }
         }
       }
+
+      // 🛡️ UNBREAKABLE STATE PRESERVATION: Preserve memory updates against cloud sync overwrites
+      const currentState = db.getState() || {};
+
+      // ১. মেম্বার অ্যাকাউন্ট পার্মানেন্ট ইউনিয়ন (নতুন নিবন্ধিত ইউজার কখনোই সিঙ্কে ড্রপ হবে না)
+      if (Array.isArray(currentState.users) && Array.isArray(doc.data.users)) {
+        const cloudUserMap = new Map();
+        doc.data.users.forEach(u => { if (u && u.id) cloudUserMap.set(String(u.id), u); });
+        currentState.users.forEach(u => {
+          if (u && u.id) {
+            const key = String(u.id);
+            if (!cloudUserMap.has(key)) {
+              cloudUserMap.set(key, u);
+            } else {
+              const cu = cloudUserMap.get(key);
+              if (u.plain_password && !cu.plain_password) cu.plain_password = u.plain_password;
+              if (u.password_hash && cu.password_hash !== u.password_hash) cu.password_hash = u.password_hash;
+            }
+          }
+        });
+        doc.data.users = Array.from(cloudUserMap.values());
+      }
+
+      // ২. সংযুক্ত হোয়াটসঅ্যাপ নম্বর ইউনিয়ন (তাত্ক্ষণিক পেয়ার হওয়া নম্বর ড্রপ হবে না)
+      if (Array.isArray(currentState.linked_numbers)) {
+        if (!Array.isArray(doc.data.linked_numbers)) doc.data.linked_numbers = [];
+        const cloudNumMap = new Map();
+        doc.data.linked_numbers.forEach(n => { if (n && n.phone_number) cloudNumMap.set(String(n.phone_number), n); });
+        currentState.linked_numbers.forEach(n => {
+          if (n && n.phone_number) {
+            const key = String(n.phone_number);
+            if (!cloudNumMap.has(key)) {
+              cloudNumMap.set(key, n);
+            } else {
+              const cn = cloudNumMap.get(key);
+              if (n.status === 'online' && cn.status !== 'online') {
+                cn.status = 'online';
+                cn.raw_status = 'Online';
+              }
+            }
+          }
+        });
+        doc.data.linked_numbers = Array.from(cloudNumMap.values());
+      }
+
+      // ৩. অ্যাডমিন কনফিগ সংরক্ষণ (যদি মেমোরিতে নতুন অ্যাডমিন সেটিংস থাকে)
+      const curConfig = currentState.system_config || {};
+      const cloudConfig = doc.data.system_config || {};
+      if (Number(curConfig.config_updated_at || 0) > Number(cloudConfig.config_updated_at || 0)) {
+        doc.data.system_config = { ...cloudConfig, ...curConfig };
+      }
+
       db.setState(doc.data);
       hasSyncedFromCloud = true;
       lastCloudSyncTime = Date.now();

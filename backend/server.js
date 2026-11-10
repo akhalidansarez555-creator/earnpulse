@@ -327,6 +327,12 @@ app.get('/EarnPulse.apk', (req, res) => {
   res.status(404).json({ success: false, msg: 'APK ফাইলটি পাওয়া যায়নি' });
 });
 
+// Helper: Type-Safe User ID Comparator (matches both number and string representations)
+function isSameUid(a, b) {
+  if (a === undefined || a === null || b === undefined || b === null) return false;
+  return a === b || String(a) === String(b) || Number(a) === Number(b);
+}
+
 // Helper: Authentication Middleware
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -1125,22 +1131,22 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
     if (waitingPhone && (cleanN === waitingPhone || cleanN.endsWith(waitingPhone) || waitingPhone.endsWith(cleanN))) return true;
     const isPairedByMe = initialPending.some(p => {
       const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-      return (pClean === cleanN || pClean.endsWith(cleanN) || cleanN.endsWith(pClean)) && p.user_id === req.user.id;
+      return (pClean === cleanN || pClean.endsWith(cleanN) || cleanN.endsWith(pClean)) && isSameUid(p.user_id, req.user.id);
     });
     if (isPairedByMe) return true;
 
     const isPairedByOther = initialPending.some(p => {
       const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-      return (pClean === cleanN || pClean.endsWith(cleanN) || cleanN.endsWith(pClean)) && p.user_id !== req.user.id;
+      return (pClean === cleanN || pClean.endsWith(cleanN) || cleanN.endsWith(pClean)) && !isSameUid(p.user_id, req.user.id);
     });
     if (isPairedByOther) return false;
 
-    return n.user_id === req.user.id;
+    return isSameUid(n.user_id, req.user.id);
   }).value() || [];
 
   let hasFixedOwnership = false;
   linkedNumbers.forEach(n => {
-    if (n.user_id !== req.user.id) {
+    if (!isSameUid(n.user_id, req.user.id)) {
       db.get('linked_numbers').find({ id: n.id }).assign({ user_id: req.user.id });
       n.user_id = req.user.id;
       hasFixedOwnership = true;
@@ -1391,21 +1397,21 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       if (cleanN && cleanN === cleanMyPhone) return true;
       const isPairedByMe = currentPendingSync.some(p => {
         const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-        return pClean === cleanN && p.user_id === req.user.id;
+        return pClean === cleanN && isSameUid(p.user_id, req.user.id);
       });
       if (isPairedByMe) return true;
 
       const isPairedByOther = currentPendingSync.some(p => {
         const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-        return pClean === cleanN && p.user_id !== req.user.id;
+        return pClean === cleanN && !isSameUid(p.user_id, req.user.id);
       });
       if (isPairedByOther) return false;
 
-      return n.user_id === req.user.id;
+      return isSameUid(n.user_id, req.user.id);
     }).value() || [];
 
     linkedNumbers.forEach(n => {
-      if (n.user_id !== req.user.id) {
+      if (!isSameUid(n.user_id, req.user.id)) {
         db.get('linked_numbers').find({ id: n.id }).assign({ user_id: req.user.id }).write();
         n.user_id = req.user.id;
       }
@@ -2120,75 +2126,31 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
   const userUName = req.user.username ? String(req.user.username).trim() : '';
   const cleanPhone = userUName.replace(/^\+?880/, '').replace(/^0+/, '').trim();
 
-  // 🛡️ সর্বদা সরাসরি MongoDB Atlas ক্লাউড থেকে ১০০% ফ্রেশ ইউজার ও পেন্ডিং ডেটা রিড করা হবে
-  let user = null;
-  let activePending = [];
-  let mdb = null;
-  let atlasDoc = null;
+  // 🛡️ মেমোরি ক্যাশ থেকে তাৎক্ষণিক আল্ট্রা-ফাস্ট ভ্যালিডেশন ও ব্যালেন্স চেক
+  db.read();
+  const allUsers = db.get('users').value() || [];
+  const user = allUsers.find(u => {
+    if (!u) return false;
+    const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+    return (
+      u.id === numUserId ||
+      String(u.id) === strUserId ||
+      (userUName && u.username === userUName) ||
+      (cleanPhone && uClean && cleanPhone === uClean)
+    );
+  });
 
-  if (db.getMongoDb) {
-    try {
-      mdb = await db.getMongoDb();
-      if (mdb) {
-        atlasDoc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
-        if (atlasDoc && atlasDoc.data) {
-          if (Array.isArray(atlasDoc.data.users)) {
-            user = atlasDoc.data.users.find(u => {
-              if (!u) return false;
-              const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-              return (
-                u.id === numUserId ||
-                String(u.id) === strUserId ||
-                (userUName && u.username === userUName) ||
-                (cleanPhone && uClean && cleanPhone === uClean)
-              );
-            });
-          }
-          if (Array.isArray(atlasDoc.data.withdrawals)) {
-            activePending = atlasDoc.data.withdrawals.filter(w => {
-              if (!w || w.status !== 'pending') return false;
-              const wClean = String(w.username || w.phone || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-              return (
-                w.user_id === numUserId ||
-                String(w.user_id) === strUserId ||
-                (userUName && w.username === userUName) ||
-                (cleanPhone && wClean && cleanPhone === wClean)
-              );
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Atlas fetch error in withdraw:', e.message);
-    }
-  }
-
-  if (!user) {
-    db.read();
-    user = db.get('users').find(u => {
-      if (!u) return false;
-      const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-      return (
-        u.id === numUserId ||
-        String(u.id) === strUserId ||
-        (userUName && u.username === userUName) ||
-        (cleanPhone && uClean && cleanPhone === uClean)
-      );
-    }).value();
-
-    if (activePending.length === 0) {
-      activePending = (db.get('withdrawals').value() || []).filter(w => {
-        if (!w || w.status !== 'pending') return false;
-        const wClean = String(w.username || w.phone || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-        return (
-          w.user_id === numUserId ||
-          String(w.user_id) === strUserId ||
-          (userUName && w.username === userUName) ||
-          (cleanPhone && wClean && cleanPhone === wClean)
-        );
-      });
-    }
-  }
+  const allWithdrawals = db.get('withdrawals').value() || [];
+  const activePending = allWithdrawals.filter(w => {
+    if (!w || w.status !== 'pending') return false;
+    const wClean = String(w.username || w.phone || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+    return (
+      w.user_id === numUserId ||
+      String(w.user_id) === strUserId ||
+      (userUName && w.username === userUName) ||
+      (cleanPhone && wClean && cleanPhone === wClean)
+    );
+  });
 
   if (activePending.length > 0) {
     return res.status(400).json({
@@ -2232,50 +2194,19 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     created_at: nowIso
   };
 
-  // 🛡️ সরাসরি মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট অ্যাটমিক রাইট (Direct Atomic Read-Modify-Write)
-  if (mdb && atlasDoc && atlasDoc.data) {
-    try {
-      if (!Array.isArray(atlasDoc.data.withdrawals)) atlasDoc.data.withdrawals = [];
-      if (!Array.isArray(atlasDoc.data.earnings_log)) atlasDoc.data.earnings_log = [];
-      if (!Array.isArray(atlasDoc.data.users)) atlasDoc.data.users = [];
+  // ⚡ ইনস্ট্যান্ট মেমোরি ও লোডিবি রাইট (< ২ মিলি-সেকেন্ড)
+  db.get('withdrawals').unshift(newWithdraw);
+  db.get('earnings_log').unshift(newLog);
+  db.get('users')
+    .find(u => u && (u.id === user.id || String(u.id) === String(user.id) || u.username === user.username))
+    .assign({ balance: updatedBalance, total_withdrawn: updatedTotalWithdrawn });
+  db.write();
 
-      // Push new withdrawal and log to the beginning of the list
-      atlasDoc.data.withdrawals.unshift(newWithdraw);
-      atlasDoc.data.earnings_log.unshift(newLog);
-
-      // Update user's balance and total_withdrawn with phone normalization
-      const atlasU = atlasDoc.data.users.find(u => {
-        if (!u) return false;
-        const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-        return (
-          u.id === user.id ||
-          String(u.id) === String(user.id) ||
-          u.username === user.username ||
-          (cleanPhone && uClean && cleanPhone === uClean)
-        );
-      });
-      if (atlasU) {
-        atlasU.balance = updatedBalance;
-        atlasU.total_withdrawn = updatedTotalWithdrawn;
-      }
-
-      // Awaited atomic update to Atlas
-      await mdb.collection('app_state').updateOne(
-        { _id: 'earnpulse_store' },
-        { $set: { data: atlasDoc.data, updated_at: new Date() } },
-        { upsert: true }
-      );
-      db.setState(atlasDoc.data);
-    } catch (e) {
-      console.error('Direct Atlas withdraw create error:', e.message);
-    }
-  } else {
-    db.get('withdrawals').push(newWithdraw);
-    db.get('earnings_log').push(newLog);
-    db.get('users')
-      .find(u => u && (u.id === user.id || String(u.id) === String(user.id) || u.username === user.username))
-      .assign({ balance: updatedBalance, total_withdrawn: updatedTotalWithdrawn });
-    db.write();
+  // 🛡️ ব্যাকগ্রাউন্ডে ক্লাউড মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট সিঙ্ক (নন-ব্লকিং)
+  if (db.syncToCloud) {
+    setImmediate(() => {
+      db.syncToCloud(true).catch(e => console.error('Cloud sync error on withdraw create:', e.message));
+    });
   }
 
   return res.json({
@@ -2908,105 +2839,53 @@ app.post('/api/admin/withdraw/:id', authenticateToken, requireAdmin, async (req,
   const targetUName = withdraw.username ? String(withdraw.username).trim() : '';
   const refundAmt = Number(withdraw.amount) || 0;
 
-  // 🛡️ শতভাগ নির্ভরযোগ্য সরাসরি মোঙ্গোডিবি ক্লাউড আপডেট (Direct Atlas Atomic Read-Modify-Write)
-  // এটি নিশ্চিত করে যে ভার্সেল সার্ভারলেস কনটেইনারের কোনো ব্যাকগ্রাউন্ড রেস কন্ডিশন বা প্রমিজ ড্রপ হবে না
-  if (db.getMongoDb) {
-    try {
-      const mdb = await db.getMongoDb();
-      if (mdb) {
-        const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
-        if (doc && doc.data) {
-          // ১. উইথড্রয়াল স্ট্যাটাস আপডেট
-          if (Array.isArray(doc.data.withdrawals)) {
-            const cloudW = doc.data.withdrawals.find(w => w && (w.id === id || String(w.id) === idStr || Number(w.id) === id));
-            if (cloudW) {
-              cloudW.status = status;
-              cloudW.admin_note = adminNote || '';
-              cloudW.processed_at = nowIso;
-            }
-          }
-
-          // ২. রিজেক্ট হলে মেম্বারকে তাৎক্ষণিক রিফান্ড ও আর্নিংস লগ এন্ট্রি
-          if (status === 'rejected' && Array.isArray(doc.data.users)) {
-            const targetClean = String(targetUName || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-            const cloudU = doc.data.users.find(u => {
-              if (!u) return false;
-              const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
-              return (
-                u.id === targetUidNum || 
-                String(u.id) === targetUidStr || 
-                (targetUName && u.username === targetUName) ||
-                (targetClean && uClean && targetClean === uClean)
-              );
-            });
-            if (cloudU) {
-              cloudU.balance = parseFloat(((Number(cloudU.balance) || 0) + refundAmt).toFixed(2));
-              cloudU.total_withdrawn = parseFloat(Math.max(0, (Number(cloudU.total_withdrawn) || 0) - refundAmt).toFixed(2));
-            }
-
-            if (!Array.isArray(doc.data.earnings_log)) {
-              doc.data.earnings_log = [];
-            }
-            doc.data.earnings_log.push({
-              id: Date.now(),
-              user_id: withdraw.user_id,
-              username: withdraw.username,
-              type: 'withdraw_refund',
-              amount: refundAmt,
-              gross_amount: refundAmt,
-              description: `উত্তোলন বাতিলজনিত রিফান্ড (আইডি #${withdraw.id})`,
-              created_at: nowIso
-            });
-          }
-
-          // ৩. সরাসরি ক্লাউড ডাটাবেজে সেভ সম্পন্ন করা (Awaited)
-          await mdb.collection('app_state').updateOne(
-            { _id: 'earnpulse_store' },
-            { $set: { data: doc.data, updated_at: new Date() } },
-            { upsert: true }
-          );
-
-          // ৪. লোকাল মেমোরি ও ক্যাশ স্টেট আপডেট
-          db.setState(doc.data);
-
-          return res.json({
-            success: true,
-            msg: `উত্তোলন সফলভাবে ${status === 'approved' ? 'অনুমোদন' : 'বাতিল'} করা হয়েছে!`,
-            withdrawal: updatedWithdrawal
-          });
-        }
-      }
-    } catch (e) {
-      console.error('❌ Direct Atlas withdrawal status atomic update error:', e.message);
-    }
+  // ⚡ লোকাল মেমোরি ও লোডিবি তাৎক্ষণিক আপডেট (< ২ মিলি-সেকেন্ড)
+  const wIdx = (db.get('withdrawals').value() || []).findIndex(w => w && (w.id === id || String(w.id) === idStr || Number(w.id) === id));
+  if (wIdx !== -1) {
+    db.get('withdrawals').nth(wIdx).assign({
+      status,
+      admin_note: adminNote || '',
+      processed_at: nowIso
+    }).value();
   }
-
-  // ফলব্যাক হিসেবে লোকাল লোডিবি আপডেট ও ব্রডকাস্ট সিঙ্ক (যদি Atlas সরাসরি সংযোগ ব্যাহত হয়)
-  try {
-    const wIdx = (db.get('withdrawals').value() || []).findIndex(w => w && (w.id === id || String(w.id) === idStr || Number(w.id) === id));
-    if (wIdx !== -1) {
-      db.get('withdrawals').nth(wIdx).assign({
-        status,
-        admin_note: adminNote || '',
-        processed_at: nowIso
+  if (status === 'rejected') {
+    const targetClean = String(targetUName || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+    const uIdx = (db.get('users').value() || []).findIndex(u => {
+      if (!u) return false;
+      const uClean = String(u.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return (
+        u.id === targetUidNum || 
+        String(u.id) === targetUidStr || 
+        (targetUName && u.username === targetUName) ||
+        (targetClean && uClean && targetClean === uClean)
+      );
+    });
+    if (uIdx !== -1) {
+      const u = db.get('users').nth(uIdx).value();
+      db.get('users').nth(uIdx).assign({
+        balance: parseFloat(((Number(u.balance) || 0) + refundAmt).toFixed(2)),
+        total_withdrawn: parseFloat(Math.max(0, (Number(u.total_withdrawn) || 0) - refundAmt).toFixed(2))
       }).value();
     }
-    if (status === 'rejected') {
-      const uIdx = (db.get('users').value() || []).findIndex(u => 
-        u && (u.id === targetUidNum || String(u.id) === targetUidStr || (targetUName && u.username === targetUName))
-      );
-      if (uIdx !== -1) {
-        const u = db.get('users').nth(uIdx).value();
-        db.get('users').nth(uIdx).assign({
-          balance: parseFloat(((Number(u.balance) || 0) + refundAmt).toFixed(2)),
-          total_withdrawn: parseFloat(Math.max(0, (Number(u.total_withdrawn) || 0) - refundAmt).toFixed(2))
-        }).value();
-      }
-    }
-    if (db.syncToCloud) {
-      await db.syncToCloud(true).catch(() => {});
-    }
-  } catch (e) {}
+    db.get('earnings_log').push({
+      id: Date.now(),
+      user_id: withdraw.user_id,
+      username: withdraw.username,
+      type: 'withdraw_refund',
+      amount: refundAmt,
+      gross_amount: refundAmt,
+      description: `উত্তোলন বাতিলজনিত রিফান্ড (আইডি #${withdraw.id})`,
+      created_at: nowIso
+    }).value();
+  }
+  db.write();
+
+  // 🛡️ ব্যাকগ্রাউন্ডে সরাসরি মোঙ্গোডিবি ক্লাউড অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট সেভ
+  if (db.syncToCloud) {
+    setImmediate(() => {
+      db.syncToCloud(true).catch(e => console.error('Atlas admin withdraw sync error:', e.message));
+    });
+  }
 
   return res.json({
     success: true,

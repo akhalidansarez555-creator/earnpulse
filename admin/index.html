@@ -783,6 +783,27 @@
 
 <script>
   const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api';
+  const DIRECT_CLOUD_API = 'https://earnpulse-mpdd.onrender.com/api';
+
+  async function adminFetch(endpoint, options = {}) {
+    const primaryUrl = `${API_BASE}${endpoint}`;
+    const fallbackUrl = `${DIRECT_CLOUD_API}${endpoint}`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(primaryUrl, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res && (res.ok || res.status === 400 || res.status === 401 || res.status === 403)) {
+        return res;
+      }
+    } catch (e) {
+      console.warn('Primary adminFetch timeout/error, failing over to direct cloud...', e.message);
+    }
+
+    return fetch(fallbackUrl, options);
+  }
+
   let adminToken = localStorage.getItem('admin_token') || '';
   let currentUsersList = [];
 
@@ -895,7 +916,7 @@
     if (!adminToken) return;
 
     try {
-      const res = await fetch(`${API_BASE}/admin/overview?_t=${Date.now()}`, {
+      const res = await adminFetch(`/admin/overview?_t=${Date.now()}`, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -1473,7 +1494,7 @@
 
     // ৬. ব্যাকগ্রাউন্ডে সুপার-ফাস্ট নেটওয়ার্ক রিকোয়েস্ট প্রেরণ
     try {
-      const res = await fetch(`${API_BASE}/admin/withdraw/${id}`, {
+      const res = await adminFetch(`/admin/withdraw/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({ status })
@@ -1482,6 +1503,8 @@
       if (!res.ok || !d || !d.success) {
         showToast(d?.msg || 'উত্তোলন স্ট্যাটাস আপডেটে সমস্যা হয়েছে', 'error');
         loadAdminData();
+      } else {
+        showToast(status === 'approved' ? '✓ উত্তোলন সফলভাবে অনুমোদিত হয়েছে!' : '✓ উত্তোলন বাতিল হয়েছে', 'success');
       }
     } catch (err) {
       console.error('Withdraw action error:', err);
@@ -1501,14 +1524,14 @@
     const rInput = document.getElementById('rewardRatio');
     let rVal = parseInt(rInput.value, 10);
     if (isNaN(rVal) || rVal < 1 || rVal > 100) {
-      alert('অনুগ্রহ করে মেম্বার পেআউট পার্সেন্টেজ ১ থেকে ১০০ এর মধ্যে লিখুন (যেমন: ৮০)');
+      showToast('অনুগ্রহ করে মেম্বার পেআউট পার্সেন্টেজ ১ থেকে ১০০ এর মধ্যে লিখুন (যেমন: ৮০)', 'error');
       return;
     }
 
     const minInput = document.getElementById('minWithdraw');
     let minVal = parseFloat(minInput.value);
     if (isNaN(minVal) || minVal < 1) {
-      alert('অনুগ্রহ করে সঠিক সর্বনিম্ন উত্তোলনের পরিমাণ লিখুন');
+      showToast('অনুগ্রহ করে সঠিক সর্বনিম্ন উত্তোলনের পরিমাণ লিখুন', 'error');
       return;
     }
 
@@ -1516,7 +1539,7 @@
     btn.innerText = 'সংরক্ষণ হচ্ছে...';
 
     try {
-      const res = await fetch(`${API_BASE}/admin/config`, {
+      const res = await adminFetch(`/admin/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({
@@ -1528,10 +1551,10 @@
         })
       });
       const d = await res.json();
-      alert(d.msg || 'সেটিংস সফলভাবে সেভ হয়েছে!');
+      showToast(d?.msg || 'সেটিংস সফলভাবে সেভ হয়েছে!', 'success');
       loadAdminData();
     } catch (e) {
-      alert('সেভ ব্যর্থ হয়েছে! ইন্টারনেট সংযোগ চেক করুন।');
+      showToast('সেভ ব্যর্থ হয়েছে! ইন্টারনেট সংযোগ চেক করুন।', 'error');
     } finally {
       btn.disabled = false;
       btn.innerText = oldText;
@@ -1655,7 +1678,7 @@
         notice.style.display = 'none';
       }, 2500);
     } catch(e) {
-      alert('পাসওয়ার্ড: ' + input.value);
+      showToast('পাসওয়ার্ড: ' + input.value, 'success');
     }
   }
 

@@ -1,6 +1,16 @@
 const crypto = require('crypto');
 const axios = require('axios');
+const https = require('https');
 const db = require('./db');
+
+// 🚀 High-concurrency persistent HTTPS Agent (re-uses TCP/TLS connections for 1000+ simultaneous requests)
+const ebHttpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 300,
+  maxFreeSockets: 100,
+  timeout: 30000,
+  freeSocketTimeout: 15000
+});
 
 const RNE_PUBLIC_KEY = "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKoR8mX0rGKLqzcWmOzbfj64K8ZIgOdHnzkXSOVOZbFu/TJhZ7rFAN+eaGkl3C4buccQd/EjEsj9ir7ijT7h96MCAwEAAQ==";
 const CLIENT_ID = "209ef407810e3856f40870a9f0e769d7";
@@ -210,9 +220,13 @@ function getEarnBondhuClient() {
   return axios.create({
     baseURL: `${baseURL}/prod-api`,
     headers,
-    timeout: 8000
+    httpsAgent: ebHttpsAgent,
+    timeout: 10000
   });
 }
+
+// 🛡️ Simultaneous request deduplication Map for concurrent pairing requests
+const inFlightPairingRequests = new Map();
 
 /**
  * Request Pairing Code from EarnBondhu (with automatic token retry & failover)
@@ -230,6 +244,27 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       cached: true
     };
   }
+
+  // Deduplicate in-flight concurrent requests for the same number
+  if (inFlightPairingRequests.has(cleanPhone)) {
+    console.log(`[EarnBondhu Bridge] Sharing in-flight pairing request promise for ${cleanPhone}`);
+    return inFlightPairingRequests.get(cleanPhone);
+  }
+
+  const p = (async () => {
+    try {
+      return await _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount);
+    } finally {
+      inFlightPairingRequests.delete(cleanPhone);
+    }
+  })();
+
+  inFlightPairingRequests.set(cleanPhone, p);
+  return p;
+}
+
+async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0) {
+  const cached = activePairingCodeCache.get(cleanPhone);
 
   // Instant pre-check: if this phone number is already known to be online from cache, return immediately!
   try {
@@ -278,7 +313,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       console.warn(`[EarnBondhu Bridge] Auth error in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
       const newToken = await autoLoginEarnBondhu(true);
       if (newToken) {
-        return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
     }
 
@@ -287,7 +322,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       // Auto-retry internally if frequent/delay error
       if (retryCount < 2) {
         await new Promise(r => setTimeout(r, 1500));
-        return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
       // Check if actually online
@@ -317,7 +352,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       if (retryCount < 2) {
         const newToken = await autoLoginEarnBondhu(true);
         if (newToken) {
-          return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+          return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
         }
       }
       errorMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
@@ -333,14 +368,14 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       console.warn(`[EarnBondhu Bridge] Auth exception in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
       const newToken = await autoLoginEarnBondhu(true);
       if (newToken) {
-        return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde'))) {
       if (retryCount < 2) {
         await new Promise(r => setTimeout(r, 1500));
-        return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {
         return {
@@ -354,7 +389,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       if (retryCount < 2) {
         const newToken = await autoLoginEarnBondhu(true);
         if (newToken) {
-          return fetchPairingCode(countryCode, phoneNumber, retryCount + 1);
+          return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
         }
       }
       errMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
