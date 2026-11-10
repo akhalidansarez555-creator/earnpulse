@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EarnPulse | ফেসবুক অটো-মার্কেটিং ও মিশন লঞ্চার 🚀</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --accent: #3b82f6;
+      --fb-blue: #1877f2;
+      --gold: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      padding-bottom: 80px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    /* Header Card */
+    .hero-card {
+      background: linear-gradient(135deg, rgba(24, 119, 242, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(24, 119, 242, 0.25);
+      border: 1px solid rgba(24, 119, 242, 0.5);
+      color: #60a5fa;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .hero-title {
+      font-size: 22px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .hero-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 550px;
+      margin: 0 auto 16px auto;
+      line-height: 1.5;
+    }
+    .progress-bar-container {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      height: 12px;
+      overflow: hidden;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .progress-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #f1f5f9;
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Post Spinner Box */
+    .post-box {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: all;
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .post-tag {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .action-btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e2e8f0;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+    .btn-fb {
+      background: linear-gradient(135deg, #1877f2 0%, #0d5bbd 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(24, 119, 242, 0.35);
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    /* Banner preview section */
+    .banner-preview-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .banner-thumb {
+      width: 70px;
+      height: 70px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .banner-info {
+      flex: 1;
+    }
+    .banner-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .banner-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Group List Table/Cards */
+    .group-filter-box {
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .group-search-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+    .group-search-input:focus {
+      border-color: var(--accent);
+    }
+    .groups-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .group-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 12px 14px;
+      transition: 0.15s;
+    }
+    .group-item.completed {
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.04);
+    }
+    .group-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
+    }
+    .group-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .group-item.completed .group-num {
+      background: #10b981;
+      color: #fff;
+    }
+    .group-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .group-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .group-members {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .group-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Comment Closer */
+    .comment-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .comment-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 4px;
+    }
+    .comment-text {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #10b981;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 9999;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header Card -->
+  <div class="hero-card">
+    <div class="hero-badge">⚡ EarnPulse ভাইরাল অটো-গ্রোথ ইঞ্জিন</div>
+    <h1 class="hero-title">ফেসবুক অটো-মার্কেটিং ও মিশন লঞ্চার 🚀</h1>
+    <p class="hero-desc">
+      প্রতিদিন মাত্র ১০-১৫ মিনিট সময় দিন। প্রতিটি গ্রুপে ১-ক্লিকে লেখা কপি করে পোস্ট দিন। কোনো লেখা স্প্যাম হবে না (অটো এআই রোটেটর)। ২-৩ দিনে হাজার হাজার WhatsApp কানেক্ট নিশ্চিত!
+    </p>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-stats">
+      <span>আজকের মিশন প্রোগ্রেস:</span>
+      <span id="progressText">০ / ২০ গ্রুপে পোস্ট সম্পন্ন</span>
+    </div>
+  </div>
+
+  <!-- Step 1: Banner Download -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📥 ধাপ ১: স্কয়ার ব্যানার ও প্রুফ ফটো</div>
+        <div class="card-subtitle">ফেসবুক পোস্টে লেখাটির সাথে এই ব্যানারটি যুক্ত করলে ৫ গুণ বেশি রিচ ও ক্লিক পাবেন</div>
+      </div>
+    </div>
+    <div class="banner-preview-box">
+      <img src="/downloads/EarnPulse_Square_Flyer.jpg" alt="EarnPulse Square Flyer" class="banner-thumb">
+      <div class="banner-info">
+        <div class="banner-title">EarnPulse স্কয়ার ভাইরাল ব্যানার (৳৩০০ ক্যাশ অফার)</div>
+        <div class="banner-desc">ফেসবুক গ্রুপ, পেজ ও হোয়াটসঅ্যাপের জন্য নিখুঁত স্কয়ার রেশিও (1080x1080)</div>
+      </div>
+      <a href="/downloads/EarnPulse_Square_Flyer.jpg" download="EarnPulse_Square_Flyer.jpg" class="btn btn-primary btn-sm">
+        ⬇️ ডাউনলোড
+      </a>
+    </div>
+  </div>
+
+  <!-- Step 2: Anti-Ban AI Post Spinner -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">📋 ধাপ ২: অ্যান্টি-ব্যান পোস্ট ভ্যারিয়েন্ট জেনারেটর</div>
+        <div class="card-subtitle">ফেসবুকে স্প্যাম ব্লক এড়াতে প্রতি ক্লিকে ভিন্ন ভিন্ন ইউনিক শব্দ ও হুক তৈরি হবে</div>
+      </div>
+      <button onclick="spinPost()" class="btn btn-secondary btn-sm">
+        🎲 নতুন পোস্ট স্পিন
+      </button>
+    </div>
+
+    <div class="post-tag" id="postTag">ভ্যারিয়েন্ট #১: সরাসরি নগদ অফার হুক 🔥</div>
+    <div class="post-box" id="postBox" onclick="copyPostText()">
+      <!-- Dynamic Post Text -->
+    </div>
+
+    <div class="action-btn-row">
+      <button onclick="copyPostText()" class="btn btn-primary" id="copyBtn">
+        📋 লেখাটি কপি করুন
+      </button>
+      <button onclick="spinPost()" class="btn btn-secondary">
+        🔄 পরবর্তী ভ্যারিয়েন্ট
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 3: Top Bangladeshi Income Groups (One-Click Launcher) -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🎯 ধাপ ৩: ১-ক্লিক ফেসবুক গ্রুপ লঞ্চার (শীর্ষ ২০ গ্রুপ)</div>
+        <div class="card-subtitle">"অটো কপি ও ওপেন" চাপুন ➜ লেখা কপি হবে ও গ্রুপ খুলে যাবে ➜ পেস্ট করে পোস্ট দিন!</div>
+      </div>
+      <button onclick="resetProgress()" class="btn btn-secondary btn-sm" title="প্রোগ্রেস রিসেট করুন">
+        🔄 রিসেট
+      </button>
+    </div>
+
+    <div class="group-filter-box">
+      <input type="text" id="groupSearch" class="group-search-input" placeholder="🔍 গ্রুপের নাম দিয়ে ফিল্টার করুন..." oninput="filterGroups()">
+    </div>
+
+    <div class="groups-grid" id="groupsList">
+      <!-- Dynamic Groups List -->
+    </div>
+  </div>
+
+  <!-- Step 4: Instant Comment Responder Kit -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">💬 ধাপ ৪: ইনস্ট্যান্ট কমেন্ট ক্লোজার কিট</div>
+        <div class="card-subtitle">পোস্টে মানুষ যখন প্রশ্ন করবে, সাথে সাথে ১-ক্লিকে এই রিপ্লাইগুলো পেস্ট করে দিন</div>
+      </div>
+    </div>
+
+    <div class="comment-item">
+      <div class="comment-label">প্রশ্ন: "কীভাবে করবো?" / "কীভাবে কাজ করে?"</div>
+      <div class="comment-text" id="reply1">খুব সহজ ভাই! সাইটে রেজিস্ট্রেশন করে আপনার অলস পড়ে থাকা যেকোনো সিম দিয়ে WhatsApp স্ক্যান করে কানেক্ট রাখলেই প্রতিদিন অটো টাকা জমা হবে। ২ জন বন্ধু আনলেই সাথে সাথে ৩০০৳ নগদ ক্যাশ! সরাসরি সাইট লিংক: https://rebrand.ly/earnpulse-whatsapp-9bba96</div>
+      <button onclick="copyText('reply1', 'রিপ্লাই ১ কপি করা হয়েছে!')" class="btn btn-secondary btn-sm">📋 রিপ্লাই কপি করুন</button>
+    </div>
+
+    <div class="comment-item">
+      <div class="comment-label">প্রশ্ন: "টাকা কি সত্যি দেয়?" / "পেমেন্ট প্রুফ আছে?"</div>
+      <div class="comment-text" id="reply2">১০০% গ্যারান্টি ভাই! সর্বনিম্ন ১০০-২০০ টাকা হলেই প্রতিদিন বিকাশ ও নগদে সাথে সাথে পেমেন্ট ক্লিয়ার করে দেওয়া হচ্ছে। প্রতিদিন হাজার হাজার মেম্বার পেমেন্ট নিচ্ছে। এখনই ফ্রি রেজিস্টার করে দেখে নিন: https://rebrand.ly/earnpulse-whatsapp-9bba96</div>
+      <button onclick="copyText('reply2', 'রিপ্লাই ২ কপি করা হয়েছে!')" class="btn btn-secondary btn-sm">📋 রিপ্লাই কপি করুন</button>
+    </div>
+
+    <div class="comment-item">
+      <div class="comment-label">প্রশ্ন: "লিংক দেন" / "ইনবক্স করেন"</div>
+      <div class="comment-text" id="reply3">এই যে ভাই সরাসরি জয়েনিং লিংক: https://rebrand.ly/earnpulse-whatsapp-9bba96 (লিংকে ঢুকলেই ১ম কানেক্টে ১০৳ ওয়েলকাম উপহার এবং রেফার করলে প্রতিজনে বিশাল ক্যাশ বোনাস!)</div>
+      <button onclick="copyText('reply3', 'রিপ্লাই ৩ কপি করা হয়েছে!')" class="btn btn-secondary btn-sm">📋 রিপ্লাই কপি করুন</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Floating Toast Notification -->
+<div class="toast" id="toast">
+  <span>✓</span>
+  <span id="toastMsg">ক্লিপবোর্ডে কপি সম্পন্ন!</span>
+</div>
+
+<script>
+  // Dynamic Randomized Link Pool
+  const DYNAMIC_LINKS = [
+    { name: "is.gd শর্টনার", url: "https://is.gd/0me4kp" },
+    { name: "clck.ru শর্টনার", url: "https://clck.ru/3Wtnys" },
+    { name: "rebrand.ly শর্টনার", url: "https://rebrand.ly/earnpulse-whatsapp-9bba96" },
+    { name: "earnpulse.app/join", url: "https://earnpulse-beta.vercel.app/join" },
+    { name: "earnpulse.app/bonus", url: "https://earnpulse-beta.vercel.app/bonus" },
+    { name: "earnpulse.app/cash", url: "https://earnpulse-beta.vercel.app/cash" },
+    { name: "earnpulse.app/start", url: "https://earnpulse-beta.vercel.app/start" },
+    { name: "earnpulse.app/income", url: "https://earnpulse-beta.vercel.app/income" },
+    { name: "earnpulse.app/free", url: "https://earnpulse-beta.vercel.app/free" },
+    { name: "earnpulse.app/bounty", url: "https://earnpulse-beta.vercel.app/bounty" }
+  ];
+  let currentLinkIndex = 0;
+
+  // -------------------------------------------------------------
+  // UNLIMITED AI BANGLA POST COPY SYNTHESIZER (HIGH-CONVERSION MEDIUM LENGTH)
+  // -------------------------------------------------------------
+  const HOOKS = [
+    "📱 ঘরে অলস পড়ে থাকা সাধারণ সিম দিয়ে WhatsApp কানেক্ট রাখলেই দৈনিক ৩০০-১০০০ টাকা নগদ ইনকাম! 💸",
+    "🔥 অতিরিক্ত বা অলস সিম ফেলে না রেখে মোবাইল দিয়েই ঘরে বসে দৈনিক নিশ্চিত ইনকাম করুন! 🇧🇩",
+    "✨ ছাত্র-ছাত্রী ও বেকার ভাইদের জন্য ১০০% ফ্রি পার্ট-টাইম অনলাইন ইনকামের সেরা সুযোগ! 🎓",
+    "☕ দৈনিক হাতখরচ ও হাতখরচের টাকা এখন আসবে আপনার মোবাইলের অব্যবহৃত WhatsApp থেকে! 💰",
+    "🚨 কোনো ইনভেস্টমেন্ট ছাড়াই সম্পূর্ণ ফ্রিতে প্রতিদিন বিকাশ ও নগদে টাকা নিন! ⚡",
+    "🏆 ১০০% রিয়েল বাংলাদেশি প্ল্যাটফর্ম—প্রতিদিন বিকাশ ও নগদে সরাসরি ক্যাশআউট বুঝে নিন! 💵",
+    "📲 অলস বসে না থেকে হাতে থাকা সাধারণ স্মার্টফোন দিয়ে প্রতিদিন নিশ্চিত নগদ আয় শুরু করুন! 🌟",
+    "🤑 সবচেয়ে সহজ ইনকাম—কোনো কঠিন কাজ বা ফ্রিল্যান্সিং স্কিল ছাড়াই সম্পূর্ণ অটো আর্নিং! 🚀",
+    "🎁 নতুন একাউন্ট করলেই ফ্রি ওয়েলকাম বোনাস—প্রতিদিন শত শত মেম্বার পেমেন্ট পাচ্ছে! 🥳",
+    "⚡ ইনস্ট্যান্ট নগদ উইথড্র সুবিধা সহ ২০২৬ সালের সবচেয়ে বিশ্বস্ত আর্নিং প্ল্যাটফর্ম EarnPulse! 🇧🇩",
+    "💎 মাত্র ২ মিনিট সময় দিয়ে ফ্রি একাউন্ট করে আজ থেকেই ইনকাম শুরু করুন! 🎯",
+    "👑 কোনো টাকা ইনভেস্ট ছাড়া নিজের মোবাইল দিয়েই প্রতিদিন আসল টাকা ইনকাম করার সেরা মাধ্যম! 🌟"
+  ];
+
+  const BODIES = [
+    "✅ কোনো টাকা ইনভেস্ট করতে হয় না ($০ খরচ)।\n✅ শুধু অলস সিম দিয়ে WhatsApp কানেক্ট রাখলেই প্রতিদিন অটো টাকা জমা হবে।\n✅ বিকাশ ও নগদে সরাসরি প্রতিদিন ক্যাশআউট সুবিধা।",
+    "✅ কাজ একদম সহজ—ভিডিও দেখা বা ক্যাপচার কোনো ঝামেলা নেই।\n✅ সিম কানেক্ট রাখলেই প্রতি ২৪ ঘণ্টায় একাউন্টে ব্যালেন্স যুক্ত হবে।\n✅ ১০০% পেমেন্ট গ্যারান্টি, প্রতিদিন টাকা তুলে নিতে পারবেন।",
+    "✅ ঘরে বসেই স্মার্টফোন দিয়ে নিশ্চিত পার্ট-টাইম ইনকাম।\n✅ যত বেশি সিম কানেক্ট রাখবেন, প্রতিদিনের ইনকাম তত গুণ বাড়বে।\n✅ বিকাশ, নগদ বা রকেটে যেকোনো সময় পেমেন্ট রিসিভ করতে পারবেন।",
+    "✅ কোনো ডিপোজিট বা ইনভেস্টের প্রয়োজন নেই।\n✅ অবসর সময়ে মোবাইল অন থাকলেই স্বয়ংক্রিয়ভাবে ব্যালেন্স জমা।\n✅ সম্পূর্ণ নির্ভরযোগ্য ও রিয়েল বাংলাদেশি প্ল্যাটফর্ম।",
+    "✅ ১ম বার সিম কানেক্ট করলেই ১০৳ ফ্রি ওয়েলকাম বোনাস!\n✅ মাত্র ২ জন বন্ধুকে জয়েন করালেই সাথে সাথে ৩০০৳ নগদ বোনাস!\n✅ প্রতিদিন বিকাশ বা নগদে সরাসরি ক্যাশআউট বুঝে নিন।"
+  ];
+
+  const CTAS = [
+    "👉 এখনই ফ্রি একাউন্ট করে আপনার বোনাস বুঝে নিন:\n🔗 {{LINK}}",
+    "🚀 আজই শুরু করতে নিচের অফিশিয়াল লিংকে ক্লিক করে রেজিস্ট্রেশন করুন:\n🔗 {{LINK}}",
+    "👇 সম্পূর্ণ ফ্রিতে একাউন্ট খোলার অফিশিয়াল ওয়েবসাইট লিংক:\n🔗 {{LINK}}",
+    "✨ আর দেরি না করে এখনই ফ্রি রেজিস্ট্রেশন করে কাজ শুরু করুন:\n🔗 {{LINK}}",
+    "🎯 একাউন্ট খুলতে ও বোনাস নিতে সরাসরি লিংকে ক্লিক করুন:\n🔗 {{LINK}}"
+  ];
+
+  const HASHTAG_BANK = [
+    "#OnlineIncomeBD", "#GhoreBoseInkam", "#WhatsAppEarning", "#BkashPayment", 
+    "#NagadPayment", "#StudentIncomeBD", "#DailyCash", "#EarnPulseBD"
+  ];
+
+  function generateUnlimitedPost(linkUrl) {
+    const h = HOOKS[Math.floor(Math.random() * HOOKS.length)];
+    const b = BODIES[Math.floor(Math.random() * BODIES.length)];
+    const c = CTAS[Math.floor(Math.random() * CTAS.length)].replace('{{LINK}}', linkUrl);
+    const shuffledTags = [...HASHTAG_BANK].sort(() => 0.5 - Math.random()).slice(0, 3).join(' ');
+
+    return `${h}\n\n${b}\n\n${c}\n\n${shuffledTags}`;
+  }
+
+  function getDynamicLink(idx) {
+    const salt = Math.random().toString(36).substring(2, 6);
+    const base = DYNAMIC_LINKS[idx % DYNAMIC_LINKS.length];
+    const urlWithTracking = base.url.includes('?') ? `${base.url}&s=${salt}` : `${base.url}?s=${salt}`;
+    return { name: base.name, url: urlWithTracking };
+  }
+
+  // Top 22 Bangladeshi Facebook Income Groups with deep links
+  const FB_GROUPS = [
+    { name: "Online Income BD 🇧🇩", members: "৩,৫০,০০০+ মেম্বার", query: "Online Income BD" },
+    { name: "ঘরে বসে ইনকাম বাংলাদেশ", members: "২,৮০,০০০+ মেম্বার", query: "ঘরে বসে ইনকাম" },
+    { name: "ফ্রি ইনকাম সাইট (বিকাশ ও নগদ পেমেন্ট)", members: "২,১০,০০০+ মেম্বার", query: "ফ্রি ইনকাম সাইট বিকাশ পেমেন্ট" },
+    { name: "Online Earning Bangladesh 2026", members: "১,৯০,০০০+ মেম্বার", query: "Online Earning Bangladesh" },
+    { name: "ছাত্র-ছাত্রীদের অনলাইন পার্ট টাইম ইনকাম", members: "১,৬৫,০০০+ মেম্বার", query: "Student Online Income BD" },
+    { name: "Real Online Income Site & App BD", members: "১,৪০,০০০+ মেম্বার", query: "Real Online Income Site BD" },
+    { name: "বিকাশ পেমেন্ট ইনকাম গ্রুপ বাংলাদেশ", members: "১,২৫,০০০+ মেম্বার", query: "বিকাশ পেমেন্ট ইনকাম গ্রুপ" },
+    { name: "দৈনিক ৫০০-১০০০ টাকা ইনকাম করুন", members: "১,১৫,০০০+ মেম্বার", query: "দৈনিক ৫০০ টাকা ইনকাম" },
+    { name: "Micro Task & Freelancing BD", members: "৯৮,০০০+ মেম্বার", query: "Micro Task Bangladesh" },
+    { name: "ফ্রি মোবাইল দিয়ে টাকা আয় করুন", members: "৮৫,০০০+ মেম্বার", query: "মোবাইল দিয়ে টাকা আয়" },
+    { name: "Student Job & Earning BD", members: "৮০,০০০+ মেম্বার", query: "Student Job BD" },
+    { name: "Online Earning Community BD", members: "৭৫,০০০+ মেম্বার", query: "Online Earning Community BD" },
+    { name: "Digital Marketing & Referral BD", members: "৭০,০০০+ মেম্বার", query: "Referral Income BD" },
+    { name: "বিনা পুঁজিতে অনলাইন ব্যবসা ও ইনকাম", members: "৬৫,০০০+ মেম্বার", query: "বিনা পুঁজিতে অনলাইন ইনকাম" },
+    { name: "Active Earning Members BD", members: "৬০,০০০+ মেম্বার", query: "Earning Members Bangladesh" },
+    { name: "Bd Online Earning Tricks & Tips", members: "৫৫,০০০+ মেম্বার", query: "Bd Online Earning Tricks" },
+    { name: "Trust Online Income Group BD", members: "৫০,০০০+ মেম্বার", query: "Trust Online Income Group BD" },
+    { name: "Daily Income Project Bangladesh", members: "৪৫,০০০+ মেম্বার", query: "Daily Income Project BD" },
+    { name: "Earning Hub Bangladesh", members: "৪০,০০০+ মেম্বার", query: "Earning Hub Bangladesh" },
+    { name: "Instant Payment Income Site BD", members: "৩৫,০০০+ মেম্বার", query: "Instant Payment Income BD" }
+  ];
+
+  let currentVariantIndex = 0;
+  let completedGroupIds = JSON.parse(localStorage.getItem('fb_completed_groups') || '[]');
+
+  function init() {
+    renderPost();
+    renderGroups();
+    updateProgress();
+  }
+
+  function renderPost() {
+    const linkObj = getDynamicLink(currentLinkIndex);
+    const fullText = generateUnlimitedPost(linkObj.url);
+
+    document.getElementById('postTag').innerHTML = `⚡ এআই আনলিমিটেড ইউনিক পোস্ট &nbsp;•&nbsp; <span style="color: #60a5fa;">🔗 লিংক: ${linkObj.name}</span>`;
+    document.getElementById('postBox').innerText = fullText;
+  }
+
+  function spinPost() {
+    currentLinkIndex = (currentLinkIndex + 1) % DYNAMIC_LINKS.length;
+    renderPost();
+    showToast(`অনন্য নতুন এআই পোস্ট ও লিংক (${DYNAMIC_LINKS[currentLinkIndex].name}) লোড হয়েছে!`);
+  }
+
+  function copyPostText() {
+    const text = document.getElementById('postBox').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('✓ পোস্ট লেখা ও র্যান্ডম লিংক ক্লিপবোর্ডে কপি হয়েছে!');
+      const btn = document.getElementById('copyBtn');
+      const old = btn.innerText;
+      btn.innerText = '✓ কপি সম্পন্ন!';
+      setTimeout(() => btn.innerText = old, 1500);
+    });
+  }
+
+  function copyText(elemId, msg) {
+    const text = document.getElementById(elemId).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(msg || '✓ ক্লিপবোর্ডে কপি সম্পন্ন!');
+    });
+  }
+
+  function launchGroup(idx, query) {
+    // প্রতি গ্রুপে সম্পূর্ণ নতুন ভিন্ন এআই পোস্ট ও ইউনিক র্যান্ডম শর্ট লিংক অ্যাসাইন করা হবে
+    currentLinkIndex = idx;
+    renderPost();
+
+    // 1. First copy the active post text with randomized link automatically
+    copyPostText();
+
+    // 2. Mark this group as completed
+    if (!completedGroupIds.includes(idx)) {
+      completedGroupIds.push(idx);
+      localStorage.setItem('fb_completed_groups', JSON.stringify(completedGroupIds));
+      renderGroups();
+      updateProgress();
+    }
+
+    // 3. Open Facebook Search for this group in new tab
+    const url = `https://www.facebook.com/search/groups/?q=${encodeURIComponent(query)}`;
+    window.open(url, '_blank');
+  }
+
+  function toggleComplete(idx, e) {
+    e.stopPropagation();
+    if (completedGroupIds.includes(idx)) {
+      completedGroupIds = completedGroupIds.filter(i => i !== idx);
+    } else {
+      completedGroupIds.push(idx);
+    }
+    localStorage.setItem('fb_completed_groups', JSON.stringify(completedGroupIds));
+    renderGroups();
+    updateProgress();
+  }
+
+  function renderGroups() {
+    const container = document.getElementById('groupsList');
+    const search = (document.getElementById('groupSearch').value || '').toLowerCase();
+
+    container.innerHTML = FB_GROUPS.map((g, idx) => {
+      if (search && !g.name.toLowerCase().includes(search) && !g.query.toLowerCase().includes(search)) {
+        return '';
+      }
+      const isDone = completedGroupIds.includes(idx);
+      return `
+        <div class="group-item ${isDone ? 'completed' : ''}">
+          <div class="group-left">
+            <div class="group-num">${isDone ? '✓' : idx + 1}</div>
+            <div class="group-meta">
+              <div class="group-name" title="${g.name}">${g.name}</div>
+              <div class="group-members">👥 ${g.members}</div>
+            </div>
+          </div>
+          <div class="group-actions">
+            <button onclick="launchGroup(${idx}, '${g.query.replace(/'/g, "\\'")}')" class="btn ${isDone ? 'btn-secondary' : 'btn-fb'} btn-sm">
+              ${isDone ? 'পুনরায় ওপেন' : '⚡ কপি ও ওপেন'}
+            </button>
+            <button onclick="toggleComplete(${idx}, event)" class="btn btn-secondary btn-sm" style="padding: 6px 10px;" title="স্ট্যাটাস পরিবর্তন">
+              ${isDone ? '✓' : '○'}
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function filterGroups() {
+    renderGroups();
+  }
+
+  function updateProgress() {
+    const total = FB_GROUPS.length;
+    const done = completedGroupIds.length;
+    const pct = Math.min(100, Math.round((done / total) * 100));
+
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressText').innerText = `${done} / ${total} গ্রুপে পোস্ট সম্পন্ন (${pct}%)`;
+  }
+
+  function resetProgress() {
+    if (confirm('আপনি কি আজকের গ্রুপ পোস্ট প্রোগ্রেস রিসেট করতে চান?')) {
+      completedGroupIds = [];
+      localStorage.removeItem('fb_completed_groups');
+      renderGroups();
+      updateProgress();
+      showToast('প্রোগ্রেস রিসেট করা হয়েছে!');
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastMsg').innerText = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

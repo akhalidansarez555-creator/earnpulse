@@ -221,7 +221,7 @@ function getEarnBondhuClient() {
     baseURL: `${baseURL}/prod-api`,
     headers,
     httpsAgent: ebHttpsAgent,
-    timeout: 8000
+    timeout: 18000
   });
 }
 

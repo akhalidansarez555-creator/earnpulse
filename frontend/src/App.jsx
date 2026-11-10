@@ -977,11 +977,11 @@ export default function App() {
         'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code'
       ];
 
-      // Request pairing from a specific endpoint
+      // Request pairing from a specific endpoint with fast instant trigger
       const requestPairing = (ep) => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 9500);
+          const toId = setTimeout(() => controller.abort(), 24000);
           fetch(ep, {
             method: 'POST',
             headers: {
@@ -996,7 +996,12 @@ export default function App() {
             if (res && res.ok) return res.json();
             return null;
           })
-          .then(data => resolve(data))
+          .then(data => {
+            if (data && data.success && data.pairingCode && !isResolved) {
+              onCodeReceived(data.pairingCode, data.alreadyOnline);
+            }
+            resolve(data);
+          })
           .catch(() => {
             clearTimeout(toId);
             resolve(null);
@@ -1004,16 +1009,16 @@ export default function App() {
         });
       };
 
-      // Parallel race across endpoints with up to 3 fast attempts
+      // Parallel race across endpoints with dual failover
       let lastErrMsg = '';
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
         if (isResolved) break;
 
         // Race same-origin Vercel and direct Render simultaneously!
         const results = await Promise.all(endpoints.map(ep => requestPairing(ep)));
         const successRes = results.find(r => r && r.success && r.pairingCode);
 
-        if (successRes) {
+        if (successRes && !isResolved) {
           onCodeReceived(successRes.pairingCode, successRes.alreadyOnline);
           break;
         }
@@ -1026,14 +1031,26 @@ export default function App() {
           }
         }
 
-        if (attempt < 3 && !isResolved) {
+        if (attempt < 2 && !isResolved) {
           await new Promise(r => setTimeout(r, 1200));
         }
       }
 
       if (!isResolved) {
         let errorMsg = lastErrMsg;
-        if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('timeout')) {
+        if (errorMsg) {
+          if (errorMsg.includes('vinculado') || errorMsg.includes('já está')) {
+            errorMsg = lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে।' : 'This WhatsApp number is already connected.';
+          } else if (errorMsg.includes('incorreto') || errorMsg.includes('invalido') || errorMsg.includes('correto')) {
+            errorMsg = lang === 'bn' ? 'অনুগ্রহ করে সঠিক হোয়াটসঅ্যাপ নম্বর প্রদান করুন।' : 'Please enter a valid WhatsApp number.';
+          } else if (errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
+            errorMsg = lang === 'bn' ? 'অতিরিক্ত অনুরোধ হয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার কোড নিন।' : 'Too many requests. Please wait a few seconds and try again.';
+          } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('timeout')) {
+            errorMsg = lang === 'bn'
+              ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
+              : 'Server is temporarily busy. Please try again in 5-10 seconds.';
+          }
+        } else {
           errorMsg = lang === 'bn'
             ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
             : 'Server is temporarily busy. Please try again in 5-10 seconds.';

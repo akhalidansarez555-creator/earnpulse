@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EarnPulse Master - প্রো অ্যাডমিন ড্যাশবোর্ড</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(17, 24, 39, 0.75);
+      --border: rgba(255, 255, 255, 0.08);
+      --primary: #10b981;
+      --gold: #f59e0b;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Hind Siliguri', sans-serif; }
+    body { 
+      background: var(--bg); 
+      color: var(--text); 
+      min-height: 100vh; 
+      padding: 24px 16px; 
+      background-image: radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.06) 0%, transparent 40%); 
+    }
+    .container { max-width: 1050px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    
+    /* Top Header */
+    .header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      padding: 16px 20px; 
+      background: var(--card-bg); 
+      border: 1px solid var(--border); 
+      border-radius: 18px; 
+      backdrop-filter: blur(12px); 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3); 
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand img { width: 42px; height: 42px; border-radius: 50%; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .brand h1 { font-size: 20px; font-weight: 800; background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .badge-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.25); font-weight: 600; }
+    .btn-logout { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn-logout:hover { background: #ef4444; color: #fff; }
+
+    /* Stats Cards - Compact 2x2 Grid (Takes minimal space, elegant) */
+    .stats-grid { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 10px; 
+    }
+    @media (min-width: 768px) {
+      .stats-grid { 
+        grid-template-columns: repeat(4, 1fr); 
+        gap: 12px; 
+      }
+    }
+    .stat-card { 
+      background: rgba(17, 24, 39, 0.7); 
+      border: 1px solid rgba(255, 255, 255, 0.08); 
+      border-radius: 14px; 
+      padding: 12px 14px; 
+      backdrop-filter: blur(12px); 
+      position: relative; 
+      overflow: hidden; 
+    }
+    .stat-card::after { 
+      content: ''; 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      right: 0; 
+      height: 2px; 
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); 
+    }
+    .stat-title { 
+      font-size: 12px; 
+      color: var(--text-muted); 
+      font-weight: 500; 
+    }
+    .stat-val { 
+      font-size: 20px; 
+      font-weight: 800; 
+      color: #fff; 
+      margin-top: 4px; 
+    }
+    
+    /* Section Card */
+    .section-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 18px; padding: 22px; backdrop-filter: blur(12px); }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .section-title { font-size: 16px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+    
+    /* Table */
+    .table-container { 
+      overflow-x: auto; 
+      -webkit-overflow-scrolling: touch; 
+      border-radius: 12px; 
+      border: 1px solid rgba(255, 255, 255, 0.05); 
+    }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th { padding: 12px 14px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e2e8f0; white-space: nowrap; }
+    tr:hover { background: rgba(255, 255, 255, 0.02); }
+    
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .pill-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .pill-yellow { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .pill-red { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    
+    .action-btn { padding: 6px 12px; border-radius: 8px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+    .btn-approve { background: #10b981; color: #fff; margin-right: 6px; }
+    .btn-approve:hover { background: #059669; }
+    .btn-reject { background: #ef4444; color: #fff; }
+    .btn-reject:hover { background: #dc2626; }
+    
+    .copy-acc-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .btn-copy-mini {
+      background: #38bdf8;
+      color: #090d16;
+      border: none;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-copy-mini:hover {
+      background: #7dd3fc;
+    }
+    .btn-copy-mini:active {
+      transform: scale(0.95);
+    }
+    
+    .withdraw-mobile-cards {
+      display: none;
+    }
+    .withdraw-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .withdraw-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 8px;
+    }
+    .withdraw-card-user {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .withdraw-card-amount {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fbbf24;
+    }
+    .withdraw-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .withdraw-card-label {
+      color: var(--text-muted);
+    }
+    .withdraw-card-value {
+      color: #fff;
+      font-weight: 600;
+    }
+    .withdraw-card-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .btn-card-approve {
+      background: #10b981;
+      color: #fff;
+      border: none;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-card-reject {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 12px 8px;
+      }
+      .container {
+        gap: 14px;
+      }
+      .header {
+        padding: 12px 14px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .header-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .section-card {
+        padding: 14px 12px;
+        border-radius: 14px;
+      }
+      .section-title {
+        font-size: 14px;
+      }
+      th, td {
+        white-space: nowrap;
+        padding: 10px 8px;
+        font-size: 12px;
+      }
+      .withdraw-desktop-table {
+        display: none !important;
+      }
+      .withdraw-mobile-cards {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        gap: 12px !important;
+        padding-bottom: 10px !important;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+      }
+      .withdraw-mobile-cards::-webkit-scrollbar {
+        height: 5px;
+      }
+      .withdraw-mobile-cards::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 10px;
+      }
+      .withdraw-mobile-cards::-webkit-scrollbar-thumb {
+        background: rgba(56, 189, 248, 0.4);
+        border-radius: 10px;
+      }
+      .withdraw-mobile-cards::-webkit-scrollbar-thumb:hover {
+        background: rgba(56, 189, 248, 0.7);
+      }
+      .withdraw-card {
+        flex: 0 0 88%;
+        min-width: 280px;
+        max-width: 330px;
+        scroll-snap-align: start;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+      }
+      .withdraw-mobile-cards .withdraw-card:only-child {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+      }
+      .config-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+    @media (min-width: 641px) {
+      .withdraw-desktop-table {
+        display: block !important;
+      }
+      .withdraw-mobile-cards {
+        display: none !important;
+      }
+    }
+    
+    /* 3D Connected Button & Badges */
+    .btn-3d-connected {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(52, 211, 153, 0.5);
+      box-shadow: 0 4px 0 #047857, 0 6px 14px rgba(16, 185, 129, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      letter-spacing: 0.3px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .btn-3d-connected:hover {
+      background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+      box-shadow: 0 5px 0 #047857, 0 8px 18px rgba(16, 185, 129, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+      transform: translateY(-1px);
+    }
+    .btn-3d-connected:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #047857, 0 2px 5px rgba(16, 185, 129, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    }
+    .btn-3d-zero {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+      color: #9ca3af;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 3px 0 #111827, inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      cursor: default;
+      user-select: none;
+    }
+    .btn-p-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 900;
+      font-family: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: 0 2px 5px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      flex-shrink: 0;
+      padding: 0;
+      line-height: 1;
+    }
+    .btn-p-badge:hover {
+      transform: scale(1.15);
+      filter: brightness(1.2);
+      box-shadow: 0 4px 10px rgba(245, 158, 11, 0.6);
+    }
+    .btn-p-badge:active {
+      transform: scale(0.92);
+    }
+    @keyframes popInModal {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Inputs */
+    .form-group { margin-bottom: 16px; }
+    label { font-size: 13px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: rgba(10, 15, 26, 0.8); color: #fff; font-size: 14px; outline: none; }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2); }
+    .save-btn { width: 100%; padding: 13px; border-radius: 12px; border: none; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; cursor: pointer; }
+    .save-btn:hover { filter: brightness(1.1); }
+
+    /* Admin Login Overlay */
+    #loginModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(9, 13, 22, 0.95);
+      backdrop-filter: blur(16px);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: #111827;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    .login-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      margin-bottom: 14px;
+      background: transparent;
+      padding: 0;
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Admin Login Screen (Only shown when not logged in) -->
+<div id="loginModal" style="display: none;">
+  <div class="login-card">
+    <img src="/brand/earnpulse-logo.webp" alt="EarnPulse" class="login-logo" onerror="this.src='/favicon.svg'">
+    <h2 style="font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 6px;">EarnPulse অ্যাডমিন লগইন</h2>
+    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 22px;">প্রশাসনিক প্যানেলে প্রবেশ করতে আপনার নম্বর ও পাসওয়ার্ড দিন</p>
+
+    <div id="loginError" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; font-size: 12px; padding: 10px; border-radius: 10px; margin-bottom: 16px;"></div>
+
+    <form id="adminLoginForm" autocomplete="off" style="text-align: left; display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <label>অ্যাডমিন ফোন নম্বর</label>
+        <input type="text" id="adminUser" placeholder="01XXXXXXXXX" autocomplete="off" required>
+      </div>
+      <div>
+        <label>পাসওয়ার্ড</label>
+        <input type="password" id="adminPass" placeholder="পাসওয়ার্ড দিন" autocomplete="new-password" required>
+      </div>
+      <button type="submit" id="loginBtn" class="save-btn" style="margin-top: 6px;">🔒 লগইন করুন</button>
+    </form>
+  </div>
+</div>
+
+<div class="container" id="adminDashboard" style="display: none;">
+  <!-- Top Header -->
+  <div class="header">
+    <div class="brand">
+      <img src="/brand/earnpulse-logo.webp" alt="EarnPulse" onerror="this.src='/favicon.svg'">
+      <div>
+        <h1>EarnPulse Master Admin</h1>
+        <div style="font-size: 12px; color: var(--text-muted);">পূর্ণাঙ্গ ম্যানেজমেন্ট ও প্রফিট কন্ট্রোল প্যানেল</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a href="/fb-tools.html" target="_blank" class="action-btn" style="background: linear-gradient(135deg, #1877f2, #0d5bbd); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">🚀 ফেসবুক মার্কেটিং টুল</a>
+      <div class="badge-status">
+        <span style="font-size: 8px;">●</span> EarnBondhu লাইভ কানেক্টেড
+      </div>
+      <button onclick="loadAdminData()" class="action-btn" style="background: rgba(255,255,255,0.08); color: #fff;">🔄 রিফ্রেশ</button>
+      <button onclick="adminLogout()" class="btn-logout">🚪 লগআউট</button>
+    </div>
+  </div>
+
+  <!-- Stats Grid (Compact 2x2 Layout) -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-title">মোট ইউজার</div>
+      <div class="stat-val" id="totalUsers">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">সক্রিয় WA</div>
+      <div class="stat-val" style="color: #34d399;" id="totalLinked">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">পেন্ডিং উইথড্র</div>
+      <div class="stat-val" style="color: #fbbf24;" id="pendingWithdraw">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">মোট পেআউট</div>
+      <div class="stat-val" style="color: #38bdf8;" id="totalPaid">৳0.00</div>
+    </div>
+  </div>
+
+  <!-- Section 1: Withdrawals Approval (উত্তোলন অনুমোদন - আনুভূমিক/হরাইজন্টাল স্লাইডার) -->
+  <div class="section-card">
+    <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div class="section-title">💸 উত্তোলন রিকোয়েস্ট ও অনুমোদন তালিকা</div>
+        <span id="withdrawCountBadge" style="display: none; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700;"></span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span id="withdrawSwipeHint" style="display: none; font-size: 11px; color: #38bdf8; font-weight: 700;">👉 ডানে স্ক্রল করুন</span>
+        <button onclick="loadAdminData()" class="action-btn" style="background: rgba(255,255,255,0.08); color: #fff;">🔄 রিফ্রেশ</button>
+      </div>
+    </div>
+
+    <!-- Desktop Table (>= 641px) -->
+    <div class="table-container withdraw-desktop-table">
+      <table>
+        <thead>
+          <tr>
+            <th>ইউজার নম্বর</th>
+            <th>পরিমাণ</th>
+            <th>মেথড</th>
+            <th>অ্যাকাউন্ট নম্বর</th>
+            <th>তারিখ</th>
+            <th>স্ট্যাটাস</th>
+            <th>অ্যাকশন</th>
+          </tr>
+        </thead>
+        <tbody id="withdrawalsTable">
+          <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">লোড হচ্ছে...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile Responsive Cards (< 641px) -->
+    <div id="withdrawalsMobileCards" class="withdraw-mobile-cards">
+      <div style="text-align: center; color: var(--text-muted); padding: 20px;">লোড হচ্ছে...</div>
+    </div>
+  </div>
+
+  <!-- Section 2: Registered Users (মেম্বার তালিকা) -->
+  <div class="section-card">
+    <div class="section-header" style="flex-wrap: wrap; gap: 10px;">
+      <div>
+        <div class="section-title">👥 মেম্বার তালিকা ও হোয়াটসঅ্যাপ সংযোগ</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">কানেক্টেড মেম্বাররা তালিকার শীর্ষে প্রদর্শিত হচ্ছে</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <button id="filterConnectedBtn" onclick="setMemberFilter('connected')" class="action-btn" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">🟢 শুধু কানেক্টেড মেম্বার</button>
+        <button id="filterAllBtn" onclick="setMemberFilter('all')" class="action-btn" style="background: rgba(255,255,255,0.08); color: #fff;">👥 সকল মেম্বার</button>
+      </div>
+    </div>
+
+    <!-- Search Input for Members -->
+    <div style="margin-bottom: 12px;">
+      <input type="text" id="memberSearchInput" oninput="filterMembersList()" placeholder="🔍 মেম্বারের ফোন নম্বর দিয়ে খুঁজুন (যেমন: 017...)" style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 13px;">
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ফোন নম্বর</th>
+            <th>ব্যালেন্স</th>
+            <th>সংযুক্ত WA</th>
+            <th>জয়েনিং তারিখ</th>
+          </tr>
+        </thead>
+        <tbody id="usersTable">
+          <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">লোড হচ্ছে...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 3: All Active WhatsApp Accounts (লাইভ সকল সক্রিয় হোয়াটসঅ্যাপ মনিটর) -->
+  <div class="section-card">
+    <div class="section-header" style="flex-wrap: wrap; gap: 10px;">
+      <div>
+        <div class="section-title">📱 সকল লাইভ সক্রিয় WhatsApp অ্যাকাউন্ট মনিটর</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">EarnBondhu ও EarnPulse-এ সংযুক্ত সকল নম্বরের লাইভ তালিকা</div>
+      </div>
+      <div id="waBadgeCount" class="badge-status" style="font-size: 12px;">
+        ● লাইভ মনিটর
+      </div>
+    </div>
+
+    <!-- Search Input for WhatsApp Numbers -->
+    <div style="margin-bottom: 12px;">
+      <input type="text" id="waSearchInput" oninput="filterWaList()" placeholder="🔍 হোয়াটসঅ্যাপ নম্বর খুঁজুন..." style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 13px;">
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>WhatsApp নম্বর</th>
+            <th>মালিক (মেম্বার)</th>
+            <th>স্ট্যাটাস</th>
+            <th>লাইভ সময়</th>
+            <th>লগইন সময়</th>
+          </tr>
+        </thead>
+        <tbody id="waTable">
+          <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">লোড হচ্ছে...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 4: System Config (কনফিগারেশন - EarnBondhu Token Box Removed) -->
+  <div class="section-card">
+    <div class="section-title" style="margin-bottom: 16px;">⚙️ প্ল্যাটফর্ম সেটিংস ও রেশিও কন্ট্রোল</div>
+    <form id="configForm">
+      <div class="config-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-group">
+          <label style="display: flex; justify-content: space-between; align-items: center;">
+            <span>মেম্বার পেআউট পার্সেন্টেজ (%)</span>
+            <span style="font-size: 11px; color: #10b981; font-weight: 700;">১% - ১০০%</span>
+          </label>
+          <div style="position: relative;">
+            <input type="number" min="1" max="100" step="1" id="rewardRatio" placeholder="80" style="padding-right: 36px; font-weight: 700; font-size: 15px; color: #34d399;">
+            <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #10b981; font-weight: 800; font-size: 15px;">%</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">
+            💡 যেমন: ৮০ লিখলে মূল আয়ের ৮০% মেম্বার পাবে, বাকি ২০% আপনার নেট লাভ।
+          </div>
+        </div>
+        <div class="form-group">
+          <label>সর্বনিম্ন উত্তোলন পরিমাণ (টাকা)</label>
+          <input type="number" id="minWithdraw" value="100">
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1; margin-top: 2px;">
+          <label style="display: flex; justify-content: space-between; align-items: center;">
+            <span>অ্যান্ড্রয়েড অ্যাপ (.APK) ডাউনলোড লিংক</span>
+            <span style="font-size: 11px; color: #10b981; font-weight: 700;">Direct APK Link</span>
+          </label>
+          <input type="text" id="appDownloadUrl" placeholder="/downloads/EarnPulse.apk বা ড্রাইভ/হোস্টিং লিংক" style="font-family: monospace; font-size: 13px;">
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            💡 মেম্বাররা মূল সাইটের উপরে "APP" বাটনে চাপ দেওয়া মাত্র এই লিংক থেকে সরাসরি অ্যাপ ডাউনলোড শুরু হবে।
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="save-btn">💾 সেটিংস সংরক্ষণ করুন</button>
+    </form>
+  </div>
+
+  <!-- 🤖 FACEBOOK AUTO-BOT LIVE MONITOR (এডমিন প্যানেলের নিচে সার্বক্ষণিক লাইভ স্ট্যাটাস) -->
+  <div class="card" id="fbBotCard" style="margin-top: 24px; border: 1px solid rgba(24, 119, 242, 0.35); background: linear-gradient(135deg, rgba(17, 24, 39, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #1877f2, #0d5bbd); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 14px rgba(24, 119, 242, 0.4);">
+          🚀
+        </div>
+        <div>
+          <h2 style="font-size: 17px; font-weight: 800; color: #fff; margin: 0; display: flex; align-items: center; gap: 8px;">
+            ফেসবুক অটো-বট লাইভ মনিটর
+            <span id="fbBotBadge" style="font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 800; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">
+              ● অফলাইন / বন্ধ
+            </span>
+          </h2>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            স্বয়ংক্রিয় গ্রুপ পোস্ট, কমেন্ট রিপ্লাই ও মেসেঞ্জার কনভার্সন লাইভ ট্র্যাকার
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a href="/fb-tools.html" target="_blank" class="action-btn" style="background: rgba(24, 119, 242, 0.15); color: #60a5fa; border: 1px solid rgba(24, 119, 242, 0.3); text-decoration: none; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 8px;">
+          🛠️ ওয়েব টুল ওপেন
+        </a>
+      </div>
+    </div>
+
+    <!-- Live Status Box -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">লাইভ স্ট্যাটাস</div>
+        <div id="fbBotStatusText" style="font-size: 15px; font-weight: 800; color: #f87171; margin-top: 4px;">
+          অফলাইন (চালু নেই)
+        </div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">মোট সফল পোস্ট</div>
+        <div id="fbBotTotalPosts" style="font-size: 18px; font-weight: 800; color: #34d399; margin-top: 4px;">
+          ০ টি
+        </div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">সর্বশেষ সিঙ্ক / হার্টবিট</div>
+        <div id="fbBotLastSeen" style="font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 6px;">
+          এখনো চালু করা হয়নি
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Log / Diagnostic Alert Box -->
+    <div id="fbBotLogBox" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 14px; font-size: 13px; color: #e2e8f0; line-height: 1.6;">
+      <div style="font-weight: 700; color: #fbbf24; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+        <span>📋</span> রিয়েল-টাইম সমস্যা ও অ্যাক্টিভিটি রিপোর্ট:
+      </div>
+      <div id="fbBotReasonText" style="color: #94a3b8;">
+        বট চালু হলে এখানে সরাসরি গ্রুপের নাম ও সফল পোস্টের বিবরণ আসবে। আর কোনো কারণে অফ হয়ে গেলে (যেমন: ফেসবুক আইডি লগআউট বা লিমিট) তার কারণ এখানে স্পষ্টভাবে দেখা যাবে।
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WhatsApp Detail Modal (মেম্বারের সংযুক্ত হোয়াটসঅ্যাপ পপআপ তালিকা) -->
+<div id="wpListModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(8px); z-index: 100000; align-items: center; justify-content: center; padding: 16px;">
+  <div style="background: #111827; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; width: 100%; max-width: 440px; box-shadow: 0 25px 60px rgba(0,0,0,0.8); overflow: hidden; animation: popInModal 0.22s cubic-bezier(0.16, 1, 0.3, 1);">
+    <div style="padding: 18px 20px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px;">
+          <span>📱</span> সংযুক্ত WhatsApp তালিকা
+        </h3>
+        <div id="modalMemberSub" style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">মেম্বার নম্বর: -</div>
+      </div>
+      <button onclick="closeWpModal()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #9ca3af; width: 32px; height: 32px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s;">✕</button>
+    </div>
+    
+    <div id="modalWpListBody" style="padding: 16px 20px; max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+      <!-- Populated dynamically via JS -->
+    </div>
+    
+    <div style="padding: 14px 20px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center;">
+      <div id="modalSummaryText" style="font-size: 12px; color: var(--text-muted);"></div>
+      <button onclick="closeWpModal()" class="action-btn" style="background: rgba(255,255,255,0.1); color: #fff; padding: 8px 18px; border-radius: 10px; font-weight: 700;">বন্ধ করুন</button>
+    </div>
+  </div>
+</div>
+
+<!-- Member Password Modal (মেম্বারের পাসওয়ার্ড দেখার ও কপি করার পপআপ) -->
+<div id="pwdModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(8px); z-index: 100000; align-items: center; justify-content: center; padding: 16px;">
+  <div style="background: #111827; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; width: 100%; max-width: 400px; box-shadow: 0 25px 60px rgba(0,0,0,0.8); overflow: hidden; animation: popInModal 0.22s cubic-bezier(0.16, 1, 0.3, 1);">
+    <div style="padding: 18px 20px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 900; color: #fff; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);">P</div>
+        <div>
+          <h3 style="font-size: 16px; font-weight: 800; color: #fff; margin: 0;">মেম্বার পাসওয়ার্ড</h3>
+          <div id="pwdModalPhone" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">ফোন নম্বর: -</div>
+        </div>
+      </div>
+      <button onclick="closePasswordModal()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #9ca3af; width: 32px; height: 32px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s;">✕</button>
+    </div>
+    
+    <div style="padding: 22px 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 8px; display: block;">এই অ্যাকাউন্টের রেজিস্ট্রেশন/লগইন পাসওয়ার্ড:</label>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="text" id="pwdModalInput" readonly style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; font-size: 16px; font-weight: 800; font-family: monospace; letter-spacing: 1px; padding: 12px 14px; border-radius: 12px; flex: 1; text-align: center;">
+          <button id="copyPwdBtn" onclick="copyPasswordToClipboard()" class="action-btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; font-weight: 700; padding: 12px 16px; border-radius: 12px; border: none; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);">
+            📋 কপি
+          </button>
+        </div>
+      </div>
+      <div id="copyNotice" style="display: none; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; font-size: 12px; padding: 8px 12px; border-radius: 8px; text-align: center; font-weight: 600;">
+        ✓ পাসওয়ার্ড সফলভাবে ক্লিপবোর্ডে কপি করা হয়েছে!
+      </div>
+    </div>
+    
+    <div style="padding: 12px 20px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: flex-end;">
+      <button onclick="closePasswordModal()" class="action-btn" style="background: rgba(255,255,255,0.1); color: #fff; padding: 8px 20px; border-radius: 10px; font-weight: 700;">বন্ধ করুন</button>
+    </div>
+  </div>
+</div>
+
+<!-- Withdrawal Action Confirmation Modal (উত্তোলন অনুমোদন বা বাতিল আধুনিক ইন-পেজ পপআপ) -->
+<div id="withdrawConfirmModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(8px); z-index: 100000; align-items: center; justify-content: center; padding: 16px;">
+  <div style="background: #111827; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 20px; width: 100%; max-width: 420px; box-shadow: 0 25px 60px rgba(0,0,0,0.85); overflow: hidden; animation: popInModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+    <div style="padding: 16px 20px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div id="confirmModalIcon" style="width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; color: #fff;">✓</div>
+        <div>
+          <h3 id="confirmModalTitle" style="font-size: 16px; font-weight: 800; color: #fff; margin: 0;">উত্তোলন অনুমোদন নিশ্চিতকরণ</h3>
+          <div id="confirmModalSub" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">আইডি: #...</div>
+        </div>
+      </div>
+      <button onclick="closeWithdrawConfirmModal()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #9ca3af; width: 32px; height: 32px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.15s;">✕</button>
+    </div>
+    
+    <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div id="confirmModalDetails" style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px; font-size: 13px; line-height: 1.8; color: #e2e8f0;">
+        <!-- Filled dynamically -->
+      </div>
+      <div id="confirmModalAlert" style="font-size: 12px; font-weight: 600; padding: 10px 14px; border-radius: 10px; line-height: 1.5;">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+    
+    <div style="padding: 14px 20px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; gap: 10px; justify-content: flex-end;">
+      <button onclick="closeWithdrawConfirmModal()" style="background: rgba(255,255,255,0.08); color: #cbd5e1; padding: 10px 18px; border-radius: 10px; font-weight: 700; border: none; cursor: pointer;">ফিরে যান</button>
+      <button id="confirmActionBtn" onclick="executeWithdrawAction()" style="padding: 10px 22px; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; color: #fff; display: flex; align-items: center; gap: 6px;">
+        নিশ্চিত করুন
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api';
+  let adminToken = localStorage.getItem('admin_token') || '';
+  let currentUsersList = [];
+
+  function restoreCachedStats() {
+    // পুরানো স্টেল বা মিসম্যাচ ক্যাশ মুছে ফেলা হলো যাতে ১ সেকেন্ডের জন্যও ভুল সংখ্যা ফ্লিকার না করে
+    try {
+      localStorage.removeItem('cached_admin_stats');
+    } catch (e) {}
+  }
+
+  function checkAuthAndInit() {
+    if (!adminToken) {
+      document.getElementById('loginModal').style.display = 'flex';
+      document.getElementById('adminDashboard').style.display = 'none';
+      if (document.getElementById('adminUser')) document.getElementById('adminUser').value = '';
+      if (document.getElementById('adminPass')) document.getElementById('adminPass').value = '';
+    } else {
+      document.getElementById('loginModal').style.display = 'none';
+      document.getElementById('adminDashboard').style.display = 'flex';
+      restoreCachedStats();
+      loadAdminData();
+    }
+  }
+
+  // Handle Admin Login Submit
+  document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('adminUser').value.trim();
+    const password = document.getElementById('adminPass').value;
+    const errBox = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+
+    errBox.style.display = 'none';
+    btn.disabled = true;
+    btn.innerText = 'যাচাই করা হচ্ছে...';
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (data && data.success && data.token) {
+        if (data.user && data.user.role !== 'admin') {
+          errBox.innerText = 'দুঃখিত, এই অ্যাকাউন্টটির কোনো অ্যাডমিন পারমিশন নেই!';
+          errBox.style.display = 'block';
+          btn.disabled = false;
+          btn.innerText = '🔒 লগইন করুন';
+          return;
+        }
+
+        adminToken = data.token;
+        localStorage.setItem('admin_token', data.token);
+        localStorage.setItem('token', data.token);
+        if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+
+        document.getElementById('loginModal').style.display = 'none';
+        document.getElementById('adminDashboard').style.display = 'flex';
+        loadAdminData();
+      } else {
+        errBox.innerText = data.msg || 'ভুল নম্বর বা পাসওয়ার্ড!';
+        errBox.style.display = 'block';
+      }
+    } catch (err) {
+      errBox.innerText = 'সার্ভার সংযোগে সমস্যা হয়েছে!';
+      errBox.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.innerText = '🔒 লগইন করুন';
+    }
+  });
+
+  function formatBdDateTime(isoStr) {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return String(isoStr).replace('T', ' ').substring(0, 16);
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Dhaka',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).formatToParts(d);
+
+      const map = {};
+      parts.forEach(p => { map[p.type] = p.value; });
+      const dayPeriod = (map.dayPeriod || '').toUpperCase();
+      return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute} ${dayPeriod}`;
+    } catch (e) {
+      return String(isoStr).replace('T', ' ').substring(0, 16);
+    }
+  }
+
+  function adminLogout() {
+    if (!confirm('আপনি কি অ্যাডমিন ড্যাশবোর্ড থেকে লগআউট করতে চান?')) return;
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('token');
+    adminToken = '';
+    if (document.getElementById('adminUser')) document.getElementById('adminUser').value = '';
+    if (document.getElementById('adminPass')) document.getElementById('adminPass').value = '';
+    checkAuthAndInit();
+  }
+
+  async function loadAdminData() {
+    if (!adminToken) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/overview?_t=${Date.now()}`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache'
+        },
+        cache: 'no-store'
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('admin_token');
+        adminToken = '';
+        checkAuthAndInit();
+        return;
+      }
+
+      const d = await res.json();
+      if (!d || !d.success) return;
+
+      // Stats
+      document.getElementById('totalUsers').innerText = d.stats.totalUsers || 0;
+      document.getElementById('totalLinked').innerText = (d.stats.activeWA !== undefined ? d.stats.activeWA : d.stats.totalLinked) || 0;
+      document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
+      document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
+
+      try {
+        localStorage.setItem('cached_admin_stats', JSON.stringify({
+          totalUsers: d.stats.totalUsers,
+          activeWA: (d.stats.activeWA !== undefined ? d.stats.activeWA : d.stats.totalLinked),
+          pendingWithdrawals: d.stats.pendingWithdrawals,
+          totalPaidOut: d.stats.totalPaidOut
+        }));
+      } catch (e) {}
+
+      // Configs
+      if (d.configs) {
+        const rewardEl = document.getElementById('rewardRatio');
+        if (rewardEl && document.activeElement !== rewardEl) {
+          let rVal = d.configs.user_reward_ratio;
+          if (rVal !== undefined && rVal !== null) {
+            let num = parseFloat(rVal);
+            if (num <= 1) num = Math.round(num * 100);
+            rewardEl.value = num;
+          } else {
+            rewardEl.value = 80;
+          }
+        }
+        const minEl = document.getElementById('minWithdraw');
+        if (minEl && document.activeElement !== minEl) {
+          minEl.value = d.configs.min_withdraw_amount !== undefined ? d.configs.min_withdraw_amount : 100;
+        }
+        const appEl = document.getElementById('appDownloadUrl');
+        if (appEl && document.activeElement !== appEl) {
+          appEl.value = d.configs.app_download_url || '/downloads/EarnPulse.apk';
+        }
+      }
+
+      // Withdrawals Table & Mobile Cards (শুধুমাত্র অপেক্ষমান রিকোয়েস্ট প্রদর্শিত হবে)
+      const wTable = document.getElementById('withdrawalsTable');
+      const wCards = document.getElementById('withdrawalsMobileCards');
+      const pendingList = (d.recentWithdrawals || []).filter(w => w && w.status === 'pending');
+
+      if (pendingList.length > 0) {
+        wTable.innerHTML = pendingList.map(w => {
+          return `
+            <tr id="withdraw-row-${w.id}">
+              <td>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <strong style="cursor: pointer; color: #fff;" onclick="copyAccountNumber('${w.username}')" title="নম্বর কপি করুন">${w.username || 'User'}</strong>
+                  <button class="btn-copy-mini" onclick="copyAccountNumber('${w.username}')" title="ইউজার নম্বর কপি করুন">📋</button>
+                </div>
+              </td>
+              <td style="font-weight: 700; color: #fbbf24;">৳ ${parseFloat(w.amount || 0).toFixed(2)}</td>
+              <td style="text-transform: uppercase; font-weight: 600;">${w.method}</td>
+              <td>
+                <div class="copy-acc-box">
+                  <code style="cursor: pointer;" onclick="copyAccountNumber('${w.account_number}')" title="কপি করতে ক্লিক করুন">${w.account_number}</code>
+                  <button class="btn-copy-mini" onclick="copyAccountNumber('${w.account_number}')" title="কপি করুন">📋 কপি</button>
+                </div>
+              </td>
+              <td style="font-size: 11px; color: var(--text-muted);">${formatBdDateTime(w.created_at)}</td>
+              <td>
+                <span class="pill pill-yellow">
+                  অপেক্ষমান
+                </span>
+              </td>
+              <td id="withdraw-actions-td-${w.id}">
+                <button onclick="openWithdrawConfirm(${w.id}, 'approved', '${(w.username || '').replace(/'/g, "\\'")}', ${w.amount || 0}, '${(w.method || '').toUpperCase()}', '${w.account_number || ''}')" class="action-btn btn-approve">✓ অনুমোদন</button>
+                <button onclick="openWithdrawConfirm(${w.id}, 'rejected', '${(w.username || '').replace(/'/g, "\\'")}', ${w.amount || 0}, '${(w.method || '').toUpperCase()}', '${w.account_number || ''}')" class="action-btn btn-reject">✕ বাতিল</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        if (wCards) {
+          wCards.innerHTML = pendingList.map(w => {
+            return `
+              <div class="withdraw-card" id="withdraw-card-${w.id}">
+                <div class="withdraw-card-top">
+                  <div class="withdraw-card-user" style="display: flex; align-items: center; gap: 6px;">
+                    <span>👤</span>
+                    <strong style="cursor: pointer; color: #fff;" onclick="copyAccountNumber('${w.username}')" title="ইউজার নম্বর কপি করুন">${w.username || 'User'}</strong>
+                    <button class="btn-copy-mini" onclick="copyAccountNumber('${w.username}')" title="ইউজার নম্বর কপি করুন">📋 কপি</button>
+                  </div>
+                  <div class="withdraw-card-amount">৳ ${parseFloat(w.amount || 0).toFixed(2)}</div>
+                </div>
+                <div class="withdraw-card-row">
+                  <span class="withdraw-card-label">মেথড:</span>
+                  <span class="withdraw-card-value" style="text-transform: uppercase;">${w.method}</span>
+                </div>
+                <div class="withdraw-card-row">
+                  <span class="withdraw-card-label">অ্যাকাউন্ট:</span>
+                  <div class="copy-acc-box">
+                    <code style="font-size: 13px; font-weight: 700; color: #38bdf8; cursor: pointer;" onclick="copyAccountNumber('${w.account_number}')" title="কপি করতে ক্লিক করুন">${w.account_number}</code>
+                    <button class="btn-copy-mini" onclick="copyAccountNumber('${w.account_number}')">📋 কপি</button>
+                  </div>
+                </div>
+                <div class="withdraw-card-row">
+                  <span class="withdraw-card-label">তারিখ:</span>
+                  <span class="withdraw-card-value" style="font-size: 11px; color: var(--text-muted);">${formatBdDateTime(w.created_at)}</span>
+                </div>
+                <div class="withdraw-card-row">
+                  <span class="withdraw-card-label">স্ট্যাটাস:</span>
+                  <span class="pill pill-yellow" id="withdraw-status-badge-${w.id}">অপেক্ষমান</span>
+                </div>
+                <div class="withdraw-card-actions" id="withdraw-card-actions-${w.id}">
+                  <button onclick="openWithdrawConfirm(${w.id}, 'approved', '${(w.username || '').replace(/'/g, "\\'")}', ${w.amount || 0}, '${(w.method || '').toUpperCase()}', '${w.account_number || ''}')" class="btn-card-approve">✓ অনুমোদন (Approve)</button>
+                  <button onclick="openWithdrawConfirm(${w.id}, 'rejected', '${(w.username || '').replace(/'/g, "\\'")}', ${w.amount || 0}, '${(w.method || '').toUpperCase()}', '${w.account_number || ''}')" class="btn-card-reject">✕ বাতিল (Reject)</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+        const countBadge = document.getElementById('withdrawCountBadge');
+        const swipeHint = document.getElementById('withdrawSwipeHint');
+        if (countBadge) {
+          countBadge.style.display = 'inline-block';
+          countBadge.innerText = `${pendingList.length} টি পেন্ডিং`;
+        }
+        if (swipeHint) {
+          swipeHint.style.display = pendingList.length > 1 ? 'inline-block' : 'none';
+        }
+      } else {
+        const countBadge = document.getElementById('withdrawCountBadge');
+        const swipeHint = document.getElementById('withdrawSwipeHint');
+        if (countBadge) countBadge.style.display = 'none';
+        if (swipeHint) swipeHint.style.display = 'none';
+        wTable.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px; font-size: 14px;">✓ কোনো অপেক্ষমান উত্তোলন রিকোয়েস্ট নেই</td></tr>';
+        if (wCards) wCards.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.02); border-radius: 14px; border: 1px dashed rgba(255,255,255,0.08);">✓ কোনো অপেক্ষমান উত্তোলন রিকোয়েস্ট নেই</div>';
+      }
+
+      // Users Table
+      currentUsersList = d.usersList || [];
+      currentNumbersList = d.numbersList || [];
+      renderUsersTable();
+      renderWaTable();
+
+    } catch (e) {
+      console.error('loadAdminData error:', e);
+    }
+  }
+
+  let memberFilterMode = 'connected';
+
+  function setMemberFilter(mode) {
+    memberFilterMode = mode;
+    const btnConn = document.getElementById('filterConnectedBtn');
+    const btnAll = document.getElementById('filterAllBtn');
+    if (btnConn && btnAll) {
+      if (mode === 'connected') {
+        btnConn.style.background = 'rgba(16, 185, 129, 0.25)';
+        btnConn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+        btnAll.style.background = 'rgba(255,255,255,0.08)';
+        btnAll.style.borderColor = 'transparent';
+      } else {
+        btnAll.style.background = 'rgba(56, 189, 248, 0.25)';
+        btnAll.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+        btnConn.style.background = 'rgba(255,255,255,0.08)';
+        btnConn.style.borderColor = 'transparent';
+      }
+    }
+    renderUsersTable();
+  }
+
+  function filterMembersList() {
+    renderUsersTable();
+  }
+
+  function renderUsersTable() {
+    const uTable = document.getElementById('usersTable');
+    if (!uTable) return;
+    const rawQuery = (document.getElementById('memberSearchInput')?.value || '').trim().toLowerCase();
+    const cleanQuery = rawQuery.replace(/^\+?880/, '').replace(/^0+/, '').trim();
+
+    let filtered = currentUsersList.slice();
+    // If searching, search across all members so the admin always finds the requested member!
+    if (memberFilterMode === 'connected' && !rawQuery) {
+      filtered = filtered.filter(u => (u.online_count > 0 || (u.wp_numbers && u.wp_numbers.length > 0)));
+    }
+    if (rawQuery) {
+      filtered = filtered.filter(u => {
+        const uName = String(u.username || '').toLowerCase();
+        const uClean = uName.replace(/^\+?880/, '').replace(/^0+/, '').trim();
+        const uId = String(u.id || '').toLowerCase();
+        const wpMatch = (u.wp_numbers && Array.isArray(u.wp_numbers)) 
+          ? u.wp_numbers.some(n => {
+              const p = String(n.phone || '').toLowerCase();
+              const pClean = p.replace(/^\+?880/, '').replace(/^0+/, '').trim();
+              return p.includes(rawQuery) || (cleanQuery && pClean.includes(cleanQuery));
+            })
+          : false;
+
+        return uName.includes(rawQuery) || 
+               uId.includes(rawQuery) || 
+               (cleanQuery && uClean.includes(cleanQuery)) ||
+               wpMatch;
+      });
+    }
+
+    if (filtered.length > 0) {
+      const displayList = rawQuery ? filtered : filtered.slice(0, 100);
+      uTable.innerHTML = displayList.map(u => {
+        const originalIdx = currentUsersList.indexOf(u);
+        const wpNums = (u.wp_numbers && Array.isArray(u.wp_numbers)) ? u.wp_numbers : [];
+        const onlineCount = (u.online_count !== undefined) 
+          ? u.online_count 
+          : wpNums.filter(n => String(n.status || '').toLowerCase() === 'online').length;
+        const totalCount = wpNums.length;
+
+        const wpBtn = onlineCount > 0 
+          ? `<button onclick="openWpModal(${originalIdx})" class="btn-3d-connected" title="মেম্বারের হোয়াটসঅ্যাপ তালিকা ও লাইভ টাইমার দেখতে ক্লিক করুন">🟢 Connected ${onlineCount}</button>`
+          : (totalCount > 0 
+              ? `<button onclick="openWpModal(${originalIdx})" class="btn-3d-zero" style="cursor: pointer;" title="মেম্বারের হোয়াটসঅ্যাপ তালিকা দেখতে ক্লিক করুন">⚪ 0 Connected</button>` 
+              : `<span class="btn-3d-zero">⚪ 0 Connected</span>`);
+
+        return `
+          <tr>
+            <td>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button onclick="openPasswordModal(${originalIdx})" class="btn-p-badge" title="মেম্বারের পাসওয়ার্ড দেখতে ক্লিক করুন">P</button>
+                <strong style="cursor: pointer; color: #fff;" onclick="copyAccountNumber('${u.username}')" title="কপি করতে ক্লিক করুন">${u.username}</strong>
+                <button class="btn-copy-mini" onclick="copyAccountNumber('${u.username}')" title="নম্বর কপি করুন">📋</button>
+              </div>
+            </td>
+            <td style="color: #34d399; font-weight: 800; font-size: 14px;">৳ ${(parseFloat(u.balance) || 0).toFixed(2)}</td>
+            <td>${wpBtn}</td>
+            <td style="font-size: 11px; color: var(--text-muted);">${formatBdDateTime(u.created_at)}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      uTable.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">${rawQuery ? 'কোনো মেম্বার খুঁজে পাওয়া যায়নি' : (memberFilterMode === 'connected' ? 'কোনো কানেক্টেড মেম্বার পাওয়া যায়নি (উপরে "সকল মেম্বার" বাটনে চাপুন)' : 'কোনো মেম্বার নেই')}</td></tr>`;
+    }
+  }
+
+  function filterWaList() {
+    renderWaTable();
+  }
+
+  function renderWaTable() {
+    const waT = document.getElementById('waTable');
+    if (!waT) return;
+    const query = (document.getElementById('waSearchInput')?.value || '').trim().toLowerCase();
+
+    let filtered = currentNumbersList.slice();
+    if (query) {
+      filtered = filtered.filter(n => 
+        String(n.phone_number || '').toLowerCase().includes(query) ||
+        String(n.owner_username || '').toLowerCase().includes(query)
+      );
+    }
+
+    const badge = document.getElementById('waBadgeCount');
+    const onlineCount = currentNumbersList.filter(n => n.status === 'online').length;
+    if (badge) {
+      badge.innerHTML = `<span style="font-size: 8px;">●</span> লাইভ: <strong style="color: #34d399; margin: 0 4px;">${onlineCount} টি সক্রিয়</strong> (মোট ${currentNumbersList.length} টি)`;
+    }
+
+    if (filtered.length > 0) {
+      waT.innerHTML = filtered.map(n => {
+        const isOnline = n.status === 'online';
+        const rawPhone = String(n.phone_number || '');
+        const cleanPhone = rawPhone.startsWith('0') ? rawPhone : ('0' + rawPhone);
+        return `
+          <tr>
+            <td>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 14px;">${isOnline ? '🟢' : '🔴'}</span>
+                <strong style="color: #fff; font-family: monospace; font-size: 13px; cursor: pointer;" onclick="copyAccountNumber('${cleanPhone}')" title="নম্বর কপি করতে চাপুন">${cleanPhone}</strong>
+                <button class="btn-copy-mini" onclick="copyAccountNumber('${cleanPhone}')" title="নম্বর কপি করুন">📋</button>
+              </div>
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <strong style="color: #38bdf8; cursor: pointer;" onclick="copyAccountNumber('${n.owner_username}')" title="ইউজার কপি করতে চাপুন">${n.owner_username || 'মাস্টার'}</strong>
+                ${n.owner_username && n.owner_username !== 'মাস্টার অ্যাকাউন্ট' && n.owner_username !== 'মাস্টার' ? `<button class="btn-copy-mini" onclick="copyAccountNumber('${n.owner_username}')" title="ইউজার কপি করুন">📋</button>` : ''}
+              </div>
+            </td>
+            <td>
+              <span class="pill ${isOnline ? 'pill-green' : 'pill-red'}">
+                ${isOnline ? 'অনলাইন' : 'অফলাইন'}
+              </span>
+            </td>
+            <td>
+              <strong style="color: #fbbf24; font-family: monospace;">${n.online_duration_str || '00:00:00'}</strong>
+            </td>
+            <td style="font-size: 11px; color: var(--text-muted);">${formatBdDateTime(n.login_date)}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      waT.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">কোনো হোয়াটসঅ্যাপ নম্বর পাওয়া যায়নি</td></tr>';
+    }
+
+    // 5. Facebook Auto-Bot Live Monitor Fetch
+    try {
+      fetch(`${API_BASE}/admin/fb-bot/status?_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      .then(r => r.json())
+      .then(fbD => {
+        if (fbD && fbD.botState) {
+          updateFbBotUI(fbD.botState);
+        }
+      })
+      .catch(() => {});
+    } catch (e) {}
+  }
+
+  function updateFbBotUI(s) {
+    const badge = document.getElementById('fbBotBadge');
+    const statusText = document.getElementById('fbBotStatusText');
+    const totalPosts = document.getElementById('fbBotTotalPosts');
+    const lastSeen = document.getElementById('fbBotLastSeen');
+    const reasonText = document.getElementById('fbBotReasonText');
+
+    if (!badge || !s) return;
+
+    totalPosts.innerText = `${s.total_posts || 0} টি`;
+    if (s.last_active) {
+      const p = new Date(s.last_active).getTime();
+      const elapsed = Math.floor((Date.now() - p) / 1000);
+      lastSeen.innerText = elapsed < 60 ? 'এইমাত্র' : `${Math.floor(elapsed / 60)} মিনিট আগে`;
+    } else {
+      lastSeen.innerText = 'এখনো চালু করা হয়নি';
+    }
+
+    if (s.status === 'active') {
+      badge.style.background = 'rgba(16, 185, 129, 0.15)';
+      badge.style.color = '#34d399';
+      badge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+      badge.innerHTML = '🟢 ফেসবুক লাইভ (সক্রিয়)';
+
+      statusText.style.color = '#34d399';
+      statusText.innerText = 'সক্রিয় (পোস্টিং ও রিপ্লাই চলছে)';
+
+      reasonText.style.color = '#a7f3d0';
+      reasonText.innerText = s.reason || 'বট পুরোদমে গ্রুপে পোস্ট ও রিপ্লাই দিচ্ছে...';
+    } else if (s.status === 'waiting_login') {
+      badge.style.background = 'rgba(245, 158, 11, 0.15)';
+      badge.style.color = '#fbbf24';
+      badge.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+      badge.innerHTML = '🟡 লগইন অপেক্ষা';
+
+      statusText.style.color = '#fbbf24';
+      statusText.innerText = 'ফেসবুক লগইন প্রয়োজন';
+
+      reasonText.style.color = '#fde68a';
+      reasonText.innerText = s.reason || 'ক্রোম ব্রাউজারে ফেসবুক আইডি ও পাসওয়ার্ড দিয়ে লগইন সম্পন্ন করুন।';
+    } else {
+      badge.style.background = 'rgba(239, 68, 68, 0.15)';
+      badge.style.color = '#f87171';
+      badge.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+      badge.innerHTML = '🔴 ফেসবুক লাইভ বন্ধ';
+
+      statusText.style.color = '#f87171';
+      statusText.innerText = 'অফলাইন / বন্ধ';
+
+      reasonText.style.color = '#fca5a5';
+      reasonText.innerText = s.reason || 'বট বন্ধ রয়েছে (কম্পিউটার অফ করা হয়েছে অথবা অ্যাপ্লিকেশন ক্লোজ করা হয়েছে)।';
+    }
+  }
+
+  function copyAccountNumber(acc) {
+    if (!acc) return;
+    const clean = String(acc).trim();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(clean).then(() => {
+        showToast('✓ নম্বর কপি হয়েছে: ' + clean, 'success');
+      }).catch(() => {
+        fallbackCopyNumber(clean);
+      });
+    } else {
+      fallbackCopyNumber(clean);
+    }
+  }
+
+  function fallbackCopyNumber(text) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (successful) {
+        showToast('✓ নম্বর কপি হয়েছে: ' + text, 'success');
+        return;
+      }
+    } catch (err) {}
+    prompt('নম্বর কপি করুন:', text);
+  }
+
+  // -------------------------------------------------------------
+  // MODERN IN-PAGE TOAST & WITHDRAWAL ACTION CONTROLLER
+  // -------------------------------------------------------------
+  function showToast(message, type = 'success') {
+    let toast = document.getElementById('adminToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'adminToast';
+      toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:999999; padding:12px 24px; border-radius:14px; font-weight:700; font-size:14px; box-shadow:0 12px 30px rgba(0,0,0,0.6); transition:all 0.25s cubic-bezier(0.16,1,0.3,1); opacity:0; pointer-events:none; text-align:center; max-width:90%; border:1px solid rgba(255,255,255,0.15);';
+      document.body.appendChild(toast);
+    }
+    toast.innerText = message;
+    toast.style.background = type === 'success' ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)';
+    toast.style.color = '#ffffff';
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(-20px)';
+    }, 3500);
+  }
+
+  let activeWithdrawAction = null;
+
+  function openWithdrawConfirm(id, status, username, amount, method, accountNumber) {
+    activeWithdrawAction = { id, status, username, amount, method, accountNumber };
+    const modal = document.getElementById('withdrawConfirmModal');
+    if (!modal) return;
+
+    const isApprove = status === 'approved';
+    const iconEl = document.getElementById('confirmModalIcon');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const subEl = document.getElementById('confirmModalSub');
+    const detailsEl = document.getElementById('confirmModalDetails');
+    const alertEl = document.getElementById('confirmModalAlert');
+    const actionBtn = document.getElementById('confirmActionBtn');
+
+    subEl.innerText = `আইডি: #${id}`;
+
+    if (isApprove) {
+      iconEl.innerText = '✓';
+      iconEl.style.background = 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+      iconEl.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.4)';
+      titleEl.innerText = 'উত্তোলন অনুমোদন নিশ্চিতকরণ';
+      
+      detailsEl.innerHTML = `
+        <div>👤 <strong>মেম্বার:</strong> ${username || 'User'}</div>
+        <div style="margin-top: 4px;">💰 <strong>পরিমাণ:</strong> <span style="color:#34d399; font-weight:800; font-size:15px;">৳ ${parseFloat(amount || 0).toFixed(2)}</span></div>
+        <div style="margin-top: 4px;">💳 <strong>পেমেন্ট মেথড:</strong> <span style="color:#38bdf8; font-weight:700;">${method}</span></div>
+        <div style="margin-top: 4px;">📱 <strong>অ্যাকাউন্ট নম্বর:</strong> <span style="font-family:monospace; font-weight:800; color:#fbbf24; font-size:14px;">${accountNumber}</span></div>
+      `;
+
+      alertEl.style.background = 'rgba(16, 185, 129, 0.15)';
+      alertEl.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+      alertEl.style.color = '#a7f3d0';
+      alertEl.innerText = '👉 মেম্বারের বিকাশ/নগদ অ্যাকাউন্টে টাকা পাঠিয়ে থাকলে এখন অনুমোদন সম্পন্ন করুন।';
+
+      actionBtn.innerText = '✓ অনুমোদন করুন (Approve)';
+      actionBtn.style.background = 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+      actionBtn.style.boxShadow = '0 4px 14px rgba(16, 185, 129, 0.4)';
+    } else {
+      iconEl.innerText = '✕';
+      iconEl.style.background = 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)';
+      iconEl.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.4)';
+      titleEl.innerText = 'উত্তোলন বাতিল ও রিফান্ড নিশ্চিতকরণ';
+      
+      detailsEl.innerHTML = `
+        <div>👤 <strong>মেম্বার:</strong> ${username || 'User'}</div>
+        <div style="margin-top: 4px;">💰 <strong>ফেরতের পরিমাণ:</strong> <span style="color:#f87171; font-weight:800; font-size:15px;">৳ ${parseFloat(amount || 0).toFixed(2)}</span></div>
+        <div style="margin-top: 4px;">💳 <strong>মেথড:</strong> <span style="color:#94a3b8;">${method}</span> (${accountNumber})</div>
+      `;
+
+      alertEl.style.background = 'rgba(239, 68, 68, 0.15)';
+      alertEl.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+      alertEl.style.color = '#fca5a5';
+      alertEl.innerText = '⚠️ বাতিল নিশ্চিত করলে সম্পূর্ণ ৳ ' + parseFloat(amount || 0).toFixed(2) + ' টাকা মেম্বারের ব্যালেন্সে ফেরত যোগ হবে।';
+
+      actionBtn.innerText = '✕ বাতিল ও রিফান্ড করুন (Reject)';
+      actionBtn.style.background = 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)';
+      actionBtn.style.boxShadow = '0 4px 14px rgba(239, 68, 68, 0.4)';
+    }
+
+    actionBtn.disabled = false;
+    modal.style.display = 'flex';
+  }
+
+  function closeWithdrawConfirmModal() {
+    const modal = document.getElementById('withdrawConfirmModal');
+    if (modal) modal.style.display = 'none';
+    activeWithdrawAction = null;
+  }
+
+  async function executeWithdrawAction() {
+    if (!activeWithdrawAction) return;
+    const { id, status, amount } = activeWithdrawAction;
+
+    // ⚡ INSTANT 0-SECOND LAG-FREE ACTION:
+    // ১. মোডাল সাথে সাথে বন্ধ
+    closeWithdrawConfirmModal();
+    // ২. তাৎক্ষণিক টোস্ট দেখানো
+    showToast(status === 'approved' ? '✓ উত্তোলন সফলভাবে অনুমোদিত হয়েছে!' : '✓ উত্তোলন বাতিল ও রিফান্ড সম্পন্ন হয়েছে!', 'success');
+
+    // ৩. কার্ড সাথে সাথে মসৃণ অ্যানিমেশনে রিমুভ (তালিকায় আর থাকবে না)
+    const cardEl = document.getElementById(`withdraw-card-${id}`);
+    if (cardEl) {
+      cardEl.style.transition = 'all 0.25s ease';
+      cardEl.style.opacity = '0';
+      cardEl.style.transform = 'scale(0.96)';
+      setTimeout(() => {
+        cardEl.remove();
+        const remainingCards = document.querySelectorAll('.withdraw-card');
+        const countBadge = document.getElementById('withdrawCountBadge');
+        const swipeHint = document.getElementById('withdrawSwipeHint');
+        if (countBadge) {
+          if (remainingCards.length > 0) {
+            countBadge.innerText = `${remainingCards.length} টি পেন্ডিং`;
+          } else {
+            countBadge.style.display = 'none';
+          }
+        }
+        if (swipeHint) {
+          swipeHint.style.display = remainingCards.length > 1 ? 'inline-block' : 'none';
+        }
+        if (remainingCards.length === 0) {
+          const wCards = document.getElementById('withdrawalsMobileCards');
+          if (wCards) wCards.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.02); border-radius: 14px; border: 1px dashed rgba(255,255,255,0.08);">✓ কোনো অপেক্ষমান উত্তোলন রিকোয়েস্ট নেই</div>';
+        }
+      }, 250);
+    }
+
+    // ৪. টেবিল রো সাথে সাথে রিমুভ
+    const tableRow = document.getElementById(`withdraw-row-${id}`);
+    if (tableRow) {
+      tableRow.style.transition = 'all 0.25s ease';
+      tableRow.style.opacity = '0';
+      setTimeout(() => {
+        tableRow.remove();
+        const wTable = document.getElementById('withdrawalsTable');
+        if (wTable && (!wTable.children || wTable.children.length === 0)) {
+          wTable.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px; font-size: 14px;">✓ কোনো অপেক্ষমান উত্তোলন রিকোয়েস্ট নেই</td></tr>';
+        }
+      }, 250);
+    }
+
+    // ৫. কাউন্টার তাৎক্ষণিক আপডেট
+    const pCountEl = document.getElementById('pendingWithdraw');
+    if (pCountEl) {
+      const currentP = parseInt(pCountEl.innerText || '0', 10);
+      pCountEl.innerText = Math.max(0, currentP - 1);
+    }
+    if (status === 'approved') {
+      const paidEl = document.getElementById('totalPaid');
+      if (paidEl) {
+        const currentPaid = parseFloat((paidEl.innerText || '').replace(/[^0-9.]/g, '') || '0');
+        paidEl.innerText = '৳ ' + (currentPaid + Number(amount || 0)).toFixed(2);
+      }
+    }
+
+    // ৬. ব্যাকগ্রাউন্ডে সুপার-ফাস্ট নেটওয়ার্ক রিকোয়েস্ট প্রেরণ
+    try {
+      const res = await fetch(`${API_BASE}/admin/withdraw/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ status })
+      });
+      const d = await res.json();
+      if (!res.ok || !d || !d.success) {
+        showToast(d?.msg || 'উত্তোলন স্ট্যাটাস আপডেটে সমস্যা হয়েছে', 'error');
+        loadAdminData();
+      }
+    } catch (err) {
+      console.error('Withdraw action error:', err);
+    }
+  }
+
+  // Legacy fallback
+  function updateWithdraw(id, status) {
+    openWithdrawConfirm(id, status, 'User', 0, 'BKASH', '');
+  }
+
+  document.getElementById('configForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]') || document.querySelector('.save-btn');
+    const oldText = btn.innerText;
+
+    const rInput = document.getElementById('rewardRatio');
+    let rVal = parseInt(rInput.value, 10);
+    if (isNaN(rVal) || rVal < 1 || rVal > 100) {
+      alert('অনুগ্রহ করে মেম্বার পেআউট পার্সেন্টেজ ১ থেকে ১০০ এর মধ্যে লিখুন (যেমন: ৮০)');
+      return;
+    }
+
+    const minInput = document.getElementById('minWithdraw');
+    let minVal = parseFloat(minInput.value);
+    if (isNaN(minVal) || minVal < 1) {
+      alert('অনুগ্রহ করে সঠিক সর্বনিম্ন উত্তোলনের পরিমাণ লিখুন');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = 'সংরক্ষণ হচ্ছে...';
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          configs: {
+            user_reward_ratio: rVal,
+            min_withdraw_amount: minVal,
+            app_download_url: (document.getElementById('appDownloadUrl')?.value || '').trim() || '/downloads/EarnPulse.apk'
+          }
+        })
+      });
+      const d = await res.json();
+      alert(d.msg || 'সেটিংস সফলভাবে সেভ হয়েছে!');
+      loadAdminData();
+    } catch (e) {
+      alert('সেভ ব্যর্থ হয়েছে! ইন্টারনেট সংযোগ চেক করুন।');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = oldText;
+    }
+  });
+
+  function formatElapsed(seconds) {
+    if (!seconds || seconds <= 0) return '00:00:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
+  function openWpModal(userIndex) {
+    const u = currentUsersList[userIndex];
+    if (!u) return;
+
+    const modal = document.getElementById('wpListModal');
+    const sub = document.getElementById('modalMemberSub');
+    const listBody = document.getElementById('modalWpListBody');
+    const summaryText = document.getElementById('modalSummaryText');
+
+    const wpNums = u.wp_numbers || [];
+    const activeCount = wpNums.filter(n => n.status === 'online').length;
+
+    sub.innerHTML = `মেম্বার নম্বর: <strong style="color: #fff; cursor: pointer;" onclick="copyAccountNumber('${u.username}')" title="কপি করতে ক্লিক করুন">${u.username}</strong> <button class="btn-copy-mini" onclick="copyAccountNumber('${u.username}')" style="margin-left: 3px;">📋 কপি</button> &bull; সক্রিয় অনলাইন: <strong style="color: #34d399;">${activeCount} টি</strong> (মোট কানেক্টেড: ${wpNums.length} টি)`;
+    if (summaryText) {
+      summaryText.innerHTML = `সক্রিয় হোয়াটসঅ্যাপ: <strong style="color: #34d399;">${activeCount}</strong> / ${wpNums.length}`;
+    }
+
+    if (wpNums.length === 0) {
+      listBody.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 24px; font-size: 13px;">কোনো হোয়াটসঅ্যাপ কানেক্ট করা নেই</div>';
+    } else {
+      listBody.innerHTML = wpNums.map((n, i) => {
+        const rawPhone = String(n.phone || '');
+        const cleanPhone = rawPhone.startsWith('0') ? rawPhone : ('0' + rawPhone);
+        const isOnline = n.status === 'online';
+        const elapsed = n.elapsed_seconds ? formatElapsed(n.elapsed_seconds) : null;
+
+        return `
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; transition: 0.15s;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 38px; height: 38px; border-radius: 10px; background: ${isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; border: 1px solid ${isOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                ${isOnline ? '🟢' : '🔴'}
+              </div>
+              <div>
+                <div style="font-family: monospace; font-size: 14px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                  <span style="cursor: pointer;" onclick="copyAccountNumber('${cleanPhone}')" title="কপি করতে ক্লিক করুন">${cleanPhone}</span>
+                  <button class="btn-copy-mini" onclick="copyAccountNumber('${cleanPhone}')" title="নম্বর কপি করুন">📋</button>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+                  হোয়াটসঅ্যাপ #${i + 1} ${elapsed ? `&bull; লাইভ সময়: <span style="font-family: monospace; color: ${isOnline ? '#34d399' : '#9ca3af'}; font-weight: 600;">${elapsed}</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <div>
+              <span class="pill ${isOnline ? 'pill-green' : 'pill-red'}" style="font-size: 11px; padding: 5px 12px; font-weight: 800; border-radius: 20px;">
+                ${isOnline ? '🟢 Online' : '🔴 Offline'}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  function closeWpModal() {
+    const modal = document.getElementById('wpListModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  // Password Modal Functions
+  function openPasswordModal(idx) {
+    const u = currentUsersList[idx];
+    if (!u) return;
+
+    document.getElementById('pwdModalPhone').innerHTML = `মেম্বার নম্বর: <strong style="color: #fff; cursor: pointer;" onclick="copyAccountNumber('${u.username}')" title="কপি করতে ক্লিক করুন">${u.username}</strong> <button class="btn-copy-mini" onclick="copyAccountNumber('${u.username}')" style="margin-left: 4px;">📋 কপি</button>`;
+    document.getElementById('pwdModalInput').value = u.password || '123';
+    document.getElementById('copyNotice').style.display = 'none';
+    document.getElementById('copyPwdBtn').innerText = '📋 কপি';
+    document.getElementById('pwdModal').style.display = 'flex';
+  }
+
+  function closePasswordModal() {
+    const modal = document.getElementById('pwdModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function copyPasswordToClipboard() {
+    const input = document.getElementById('pwdModalInput');
+    const pwd = input.value;
+    const btn = document.getElementById('copyPwdBtn');
+    const notice = document.getElementById('copyNotice');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(pwd).then(() => {
+        btn.innerText = '✓ কপি হয়েছে!';
+        notice.style.display = 'block';
+        setTimeout(() => {
+          btn.innerText = '📋 কপি';
+          notice.style.display = 'none';
+        }, 2500);
+      }).catch(() => fallbackCopy(input, btn, notice));
+    } else {
+      fallbackCopy(input, btn, notice);
+    }
+  }
+
+  function fallbackCopy(input, btn, notice) {
+    input.select();
+    input.setSelectionRange(0, 99999);
+    try {
+      document.execCommand('copy');
+      btn.innerText = '✓ কপি হয়েছে!';
+      notice.style.display = 'block';
+      setTimeout(() => {
+        btn.innerText = '📋 কপি';
+        notice.style.display = 'none';
+      }, 2500);
+    } catch(e) {
+      alert('পাসওয়ার্ড: ' + input.value);
+    }
+  }
+
+  // Close modal on backdrop click
+  window.addEventListener('click', (e) => {
+    const wpModal = document.getElementById('wpListModal');
+    const pwdModal = document.getElementById('pwdModal');
+    if (e.target === wpModal) closeWpModal();
+    if (e.target === pwdModal) closePasswordModal();
+  });
+
+  // Close modal on Escape key
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeWpModal();
+      closePasswordModal();
+    }
+  });
+
+  // Start initialization
+  checkAuthAndInit();
+
+  // Auto Refresh Every 25 Seconds (Paused when tab is hidden to save bandwidth)
+  setInterval(() => {
+    if (adminToken && document.getElementById('adminDashboard').style.display !== 'none' && !document.hidden) {
+      loadAdminData();
+    }
+  }, 25000);
+</script>
+</body>
+</html>
