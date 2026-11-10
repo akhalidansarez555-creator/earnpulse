@@ -53,7 +53,7 @@ function getActiveConversationId() {
     const overrideFile = path.join(__dirname, 'active_conversation_id.txt');
     if (fs.existsSync(overrideFile)) {
       const id = fs.readFileSync(overrideFile, 'utf8').trim();
-      if (id) return id;
+      if (id && id.length === 36) return id;
     }
   } catch (e) {}
 
@@ -62,7 +62,16 @@ function getActiveConversationId() {
     if (fs.existsSync(BRAIN_DIR)) {
       const dirs = fs.readdirSync(BRAIN_DIR).filter(d => {
         const p = path.join(BRAIN_DIR, d, '.system_generated', 'logs', 'transcript.jsonl');
-        return fs.existsSync(p);
+        if (!fs.existsSync(p)) return false;
+        try {
+          const fd = fs.openSync(p, 'r');
+          const buf = Buffer.alloc(2048);
+          fs.readSync(fd, buf, 0, 2048, 0);
+          fs.closeSync(fd);
+          return buf.toString('utf8').toLowerCase().includes('whatshap');
+        } catch (err) {
+          return false;
+        }
       });
       if (dirs.length > 0) {
         dirs.sort((a, b) => {
@@ -617,8 +626,9 @@ async function pollTelegram() {
               childEnv.ANTIGRAVITY_CSRF_TOKEN = currentHub.csrfToken || '';
             }
 
+            let targetConvId = getActiveConversationId();
             const deliverResult = await new Promise((resolve) => {
-              execFile(AGENT_EXE, ['agentapi', 'send-message', '--title=Telegram_Message', getActiveConversationId(), promptMessage], { windowsHide: true, env: childEnv }, (err, stdout, stderr) => {
+              execFile(AGENT_EXE, ['agentapi', 'send-message', '--title=Telegram_Message', targetConvId, promptMessage], { windowsHide: true, env: childEnv }, (err, stdout, stderr) => {
                 if (err) resolve({ ok: false, err, stderr, stdout });
                 else resolve({ ok: true, stdout });
               });
@@ -628,6 +638,24 @@ async function pollTelegram() {
               delivered = true;
               log(`Message delivered to Antigravity turn successfully on attempt ${attempt}!`);
               break;
+            }
+
+            // If permission denied / project mismatch, instantly fall back to root whatshap conversation
+            if (deliverResult.stdout && deliverResult.stdout.includes('permission_denied')) {
+              log(`Target conversation ${targetConvId} mismatched project. Retrying with root whatshap conversation 291ed710-af3c-4dd8-a885-03f6b0ce406e...`);
+              targetConvId = '291ed710-af3c-4dd8-a885-03f6b0ce406e';
+              try { fs.writeFileSync(path.join(__dirname, 'active_conversation_id.txt'), targetConvId, 'utf8'); } catch(e) {}
+              const fallbackResult = await new Promise((resolve) => {
+                execFile(AGENT_EXE, ['agentapi', 'send-message', '--title=Telegram_Message', targetConvId, promptMessage], { windowsHide: true, env: childEnv }, (err, stdout, stderr) => {
+                  if (err) resolve({ ok: false, err, stderr, stdout });
+                  else resolve({ ok: true, stdout });
+                });
+              });
+              if (fallbackResult.ok) {
+                delivered = true;
+                log(`Message delivered via root whatshap conversation successfully on attempt ${attempt}!`);
+                break;
+              }
             }
 
             log(`agentapi attempt ${attempt}/8 failed. err: ${deliverResult.err?.message} | stdout: ${deliverResult.stdout} | stderr: ${deliverResult.stderr}`);
