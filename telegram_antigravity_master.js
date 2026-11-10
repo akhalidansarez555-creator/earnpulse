@@ -11,19 +11,78 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const BOT_TOKEN = '8351110635:AAHfx4wDVEt_UpxFfb5H4FLl0hKjCEmSrmI';
-const CONVERSATION_ID = '291ed710-af3c-4dd8-a885-03f6b0ce406e';
 const AGENT_EXE = 'C:\\Users\\Khalid Mama\\AppData\\Local\\Programs\\antigravity\\resources\\bin\\language_server.exe';
-const TRANSCRIPT_PATH = path.join('C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain', CONVERSATION_ID, '.system_generated', 'logs', 'transcript.jsonl');
 const LOG_FILE = path.join(__dirname, 'master_bridge.log');
+const LOCK_FILE = path.join(__dirname, 'master_bridge.lock');
+
+function checkSingleInstance() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const existingPid = parseInt(fs.readFileSync(LOCK_FILE, 'utf8').trim(), 10);
+      if (existingPid && existingPid !== process.pid) {
+        try {
+          process.kill(existingPid, 0);
+          console.log(`[SingleInstance] Instance already running (PID ${existingPid}). Exiting.`);
+          process.exit(0);
+        } catch (e) {
+          // Stale lock file
+        }
+      }
+    }
+    fs.writeFileSync(LOCK_FILE, String(process.pid), 'utf8');
+    process.on('exit', () => {
+      try { if (fs.existsSync(LOCK_FILE)) fs.unlinkSync(LOCK_FILE); } catch (e) {}
+    });
+  } catch (e) {}
+}
+checkSingleInstance();
 
 function log(msg) {
   try {
     fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
+    console.log(`[${new Date().toISOString()}] ${msg}`);
   } catch (e) {}
 }
 
 const ADMIN_CHAT_ID = 5314046368;
 const PINNED_MSG_ID = 377;
+
+// Dynamic active conversation detection
+function getActiveConversationId() {
+  try {
+    const overrideFile = path.join(__dirname, 'active_conversation_id.txt');
+    if (fs.existsSync(overrideFile)) {
+      const id = fs.readFileSync(overrideFile, 'utf8').trim();
+      if (id) return id;
+    }
+  } catch (e) {}
+
+  try {
+    const BRAIN_DIR = 'C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain';
+    if (fs.existsSync(BRAIN_DIR)) {
+      const dirs = fs.readdirSync(BRAIN_DIR).filter(d => {
+        const p = path.join(BRAIN_DIR, d, '.system_generated', 'logs', 'transcript.jsonl');
+        return fs.existsSync(p);
+      });
+      if (dirs.length > 0) {
+        dirs.sort((a, b) => {
+          const ta = fs.statSync(path.join(BRAIN_DIR, a, '.system_generated', 'logs', 'transcript.jsonl')).mtimeMs;
+          const tb = fs.statSync(path.join(BRAIN_DIR, b, '.system_generated', 'logs', 'transcript.jsonl')).mtimeMs;
+          return tb - ta;
+        });
+        return dirs[0];
+      }
+    }
+  } catch (e) {}
+
+  return '291ed710-af3c-4dd8-a885-03f6b0ce406e';
+}
+
+function getTranscriptPath() {
+  const convId = getActiveConversationId();
+  return path.join('C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain', convId, '.system_generated', 'logs', 'transcript.jsonl');
+}
+
 
 log('🚀 Single Unified Antigravity Master Bridge Started (100% Hidden)');
 
@@ -32,36 +91,29 @@ log('🚀 Single Unified Antigravity Master Bridge Started (100% Hidden)');
 // -------------------------------------------------------------
 const DAEMON_DIR = 'C:\\Users\\Khalid Mama\\.gemini\\antigravity\\daemon';
 
-function cleanupDeadHubFiles() {
+function getActiveHubData() {
   try {
-    if (!fs.existsSync(DAEMON_DIR)) return;
+    if (!fs.existsSync(DAEMON_DIR)) return null;
     const files = fs.readdirSync(DAEMON_DIR).filter(f => f.startsWith('hub_') && f.endsWith('.json'));
+    // Sort newest first
+    files.sort((a, b) => fs.statSync(path.join(DAEMON_DIR, b)).mtimeMs - fs.statSync(path.join(DAEMON_DIR, a)).mtimeMs);
+
     for (const f of files) {
       const fullPath = path.join(DAEMON_DIR, f);
       try {
         const data = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
-        if (data.pid) {
+        if (data && data.pid) {
           try {
-            process.kill(data.pid, 0);
+            process.kill(data.pid, 0); // Verify process is alive
+            return data; // Found live hub!
           } catch (e) {
-            fs.unlinkSync(fullPath);
-            log(`Cleaned up stale daemon file: ${f} (PID ${data.pid})`);
+            try { fs.unlinkSync(fullPath); } catch (err) {}
+            log(`Cleaned up stale dead daemon hub: ${f} (PID ${data.pid})`);
           }
         }
       } catch (e) {}
     }
-  } catch (e) {}
-}
-
-function getActiveHubData() {
-  try {
-    cleanupDeadHubFiles();
-    if (!fs.existsSync(DAEMON_DIR)) return null;
-    const files = fs.readdirSync(DAEMON_DIR).filter(f => f.startsWith('hub_') && f.endsWith('.json'));
-    if (files.length === 0) return null;
-    files.sort((a, b) => fs.statSync(path.join(DAEMON_DIR, b)).mtimeMs - fs.statSync(path.join(DAEMON_DIR, a)).mtimeMs);
-    const latestHub = path.join(DAEMON_DIR, files[0]);
-    return JSON.parse(fs.readFileSync(latestHub, 'utf8'));
+    return null;
   } catch (e) {
     return null;
   }
@@ -72,16 +124,8 @@ async function isAntigravityReady() {
     const hubData = getActiveHubData();
     if (!hubData || !hubData.httpPort) return false;
 
-    if (hubData.pid) {
-      try {
-        process.kill(hubData.pid, 0);
-      } catch (e) {
-        return false;
-      }
-    }
-
     const res = await fetch(`http://127.0.0.1:${hubData.httpPort}/`, {
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(2000)
     });
     return res.status === 200;
   } catch (e) {
@@ -165,7 +209,7 @@ function cleanTempPhotos() {
 
   // Periodic safety sweep: remove any telegram_* image older than 3 minutes
   try {
-    const brainUploadsDir = path.join('C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain', CONVERSATION_ID, '.user_uploaded');
+    const brainUploadsDir = path.join('C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain', getActiveConversationId(), '.user_uploaded');
     if (fs.existsSync(brainUploadsDir)) {
       const files = fs.readdirSync(brainUploadsDir).filter(f => f.startsWith('telegram_'));
       const now = Date.now();
@@ -193,7 +237,7 @@ async function downloadTelegramFile(fileId) {
     const ext = path.extname(remotePath) || '.jpg';
     const fileName = `telegram_${Date.now()}_${Math.random().toString(36).slice(2, 7)}${ext}`;
 
-    const brainUploadsDir = path.join('C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain', CONVERSATION_ID, '.user_uploaded');
+    const brainUploadsDir = path.join('C:\\Users\\Khalid Mama\\.gemini\\antigravity\\brain', getActiveConversationId(), '.user_uploaded');
     if (!fs.existsSync(brainUploadsDir)) {
       fs.mkdirSync(brainUploadsDir, { recursive: true });
     }
@@ -352,11 +396,12 @@ let lastFileOffset = 0;
 let lastStepSent = -1;
 let lineBuffer = '';
 
-if (fs.existsSync(TRANSCRIPT_PATH)) {
+const initialTranscript = getTranscriptPath();
+if (fs.existsSync(initialTranscript)) {
   try {
-    const stat = fs.statSync(TRANSCRIPT_PATH);
+    const stat = fs.statSync(initialTranscript);
     lastFileOffset = stat.size;
-    const fd = fs.openSync(TRANSCRIPT_PATH, 'r');
+    const fd = fs.openSync(initialTranscript, 'r');
     const readLen = Math.min(stat.size, 32768);
     const buf = Buffer.alloc(readLen);
     fs.readSync(fd, buf, 0, readLen, stat.size - readLen);
@@ -375,14 +420,15 @@ if (fs.existsSync(TRANSCRIPT_PATH)) {
 log(`Initial lastStepSent: ${lastStepSent} | Offset: ${lastFileOffset}`);
 
 function pollTranscript() {
-  if (!fs.existsSync(TRANSCRIPT_PATH)) return;
+  const currentTranscript = getTranscriptPath();
+  if (!fs.existsSync(currentTranscript)) return;
   try {
-    const stat = fs.statSync(TRANSCRIPT_PATH);
+    const stat = fs.statSync(currentTranscript);
     if (stat.size <= lastFileOffset) return;
 
     const bytesToRead = stat.size - lastFileOffset;
     const buf = Buffer.alloc(bytesToRead);
-    const fd = fs.openSync(TRANSCRIPT_PATH, 'r');
+    const fd = fs.openSync(currentTranscript, 'r');
     fs.readSync(fd, buf, 0, bytesToRead, lastFileOffset);
     fs.closeSync(fd);
     lastFileOffset = stat.size;
@@ -572,7 +618,7 @@ async function pollTelegram() {
             }
 
             const deliverResult = await new Promise((resolve) => {
-              execFile(AGENT_EXE, ['agentapi', 'send-message', '--title=Telegram_Message', CONVERSATION_ID, promptMessage], { windowsHide: true, env: childEnv }, (err, stdout, stderr) => {
+              execFile(AGENT_EXE, ['agentapi', 'send-message', '--title=Telegram_Message', getActiveConversationId(), promptMessage], { windowsHide: true, env: childEnv }, (err, stdout, stderr) => {
                 if (err) resolve({ ok: false, err, stderr, stdout });
                 else resolve({ ok: true, stdout });
               });
