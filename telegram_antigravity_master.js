@@ -103,8 +103,25 @@ function getActiveHubData() {
   }
 }
 
+function isAntigravityAppRunning() {
+  return new Promise((resolve) => {
+    execFile('tasklist', ['/FI', 'IMAGENAME eq Antigravity.exe', '/NH'], { windowsHide: true }, (err, stdout) => {
+      if (err || !stdout) return resolve(false);
+      const isRunning = stdout.toLowerCase().includes('antigravity.exe');
+      resolve(isRunning);
+    });
+  });
+}
+
 async function isAntigravityReady() {
   try {
+    // ১. পিসিতে Antigravity অ্যাপ্লিকেশন উইন্ডো চালু আছে কিনা চেক করা
+    const isAppRunning = await isAntigravityAppRunning();
+    if (!isAppRunning) {
+      return false; // Antigravity সফটওয়্যার বন্ধ থাকলে ১০০% অফলাইন!
+    }
+
+    // ২. ইঞ্জিন হাব সক্রিয় এবং রেসপন্স করছে কিনা চেক করা
     const hubData = getActiveHubData();
     if (!hubData || !hubData.httpPort) return false;
 
@@ -289,7 +306,8 @@ async function monitorPresence() {
     determinedOnline = true;
   } else {
     consecutiveFailures++;
-    if (consecutiveFailures >= 4) {
+    // ১ বার ফেইল করলেই তৎক্ষণাৎ (২-৩ সেকেন্ডের মধ্যে) অফলাইন চিহ্নিত হবে
+    if (consecutiveFailures >= 1) {
       determinedOnline = false;
     } else {
       determinedOnline = currentPresence !== null ? currentPresence : false;
