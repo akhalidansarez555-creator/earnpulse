@@ -947,91 +947,111 @@ export default function App() {
     setIsWaitingConnection(false);
     setConnectionSuccess(false);
 
+    let isResolved = false;
+
+    // Helper to immediately populate the 8-digit code seamlessly without flashing
+    const onCodeReceived = (rawPairingCode, isOnline = false) => {
+      if (isResolved) return;
+      isResolved = true;
+
+      if (isOnline || rawPairingCode === 'CONNECTED') {
+        setActivePairingCode('');
+        setIsWaitingConnection(false);
+        setConnectionSuccess(true);
+        setInputPhone('');
+        fetchUserData(true);
+        setTimeout(() => setConnectionSuccess(false), 7000);
+      } else {
+        const clean = (rawPairingCode || '').replace(/[^a-zA-Z0-9]/g, '');
+        setActivePairingCode(clean);
+        setIsWaitingConnection(true);
+        setConnectionSuccess(false);
+        fetchUserData(false);
+      }
+      setPairingLoading(false);
+    };
+
     try {
-      // 🚀 Direct Render persistent backend first with 28s timeout (bypasses Vercel edge proxy 12s drop)
+      // 1. Kick off the pairing generator request (dual primary Render + fallback)
       const endpoints = [
         'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code',
         `${API_BASE}/whatsapp/get-pairing-code`
       ];
 
-      const fetchCodeFromEndpoint = async (ep, timeoutMs = 28000) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-          const res = await fetch(ep, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
-            signal: controller.signal
-          });
-          clearTimeout(timeoutId);
-          if (res && res.ok) {
-            return await res.json();
+      endpoints.forEach(ep => {
+        fetch(ep, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' })
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.success && data.pairingCode) {
+            onCodeReceived(data.pairingCode, data.alreadyOnline);
           }
-          return null;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          return null;
-        }
-      };
+        })
+        .catch(() => {});
+      });
 
-      // 1. Initial attempt: call direct Render backend first (holds persistent connection for full handshake)
-      let data = await fetchCodeFromEndpoint(endpoints[0], 28000);
-      if (!data) {
-        data = await fetchCodeFromEndpoint(endpoints[1], 12000);
+      // 2. High-Frequency Fast Polling Engine (Every 1100ms, non-blocking 50ms queries)
+      // Catches code in 3-8 seconds even if edge proxy drops the POST request
+      const statusEndpoints = [
+        `https://earnpulse-mpdd.onrender.com/api/whatsapp/pairing-status?phoneNumber=${cleanPhone}`,
+        `${API_BASE}/whatsapp/pairing-status?phoneNumber=${cleanPhone}`
+      ];
+
+      let lastMsg = '';
+      for (let attempt = 0; attempt < 25; attempt++) {
+        if (isResolved) break;
+        await new Promise(r => setTimeout(r, 1100));
+        if (isResolved) break;
+
+        for (const sep of statusEndpoints) {
+          try {
+            const controller = new AbortController();
+            const toId = setTimeout(() => controller.abort(), 3000);
+            const sRes = await fetch(sep, {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal
+            });
+            clearTimeout(toId);
+            if (sRes && sRes.ok) {
+              const sData = await sRes.json();
+              if (sData && sData.success && sData.pairingCode) {
+                onCodeReceived(sData.pairingCode, sData.alreadyOnline);
+                break;
+              } else if (sData && sData.msg) {
+                lastMsg = sData.msg;
+              }
+            }
+          } catch (e) {}
+        }
       }
 
-      // 2. Continuous smooth polling loop while keeping spinner active (never show busy popup while WhatsApp handshake is completing)
-      let retriesLeft = 6;
-      while ((!data || (!data.success && (
-        data.msg?.includes('প্রস্তুত') || data.msg?.includes('অপেক্ষা') ||
-        data.msg?.includes('ব্যস্ত') || data.msg?.includes('busy') ||
-        data.msg?.includes('frequente') || data.msg?.includes('tarde') || data.msg?.includes('timeout')
-      ))) && retriesLeft > 0) {
-        retriesLeft--;
-        await new Promise(r => setTimeout(r, 1800));
-        data = await fetchCodeFromEndpoint(endpoints[0], 16000);
-        if (data && data.success) break;
-      }
-      if (data && data.success) {
-        if (data.alreadyOnline || data.pairingCode === 'CONNECTED') {
-          setActivePairingCode('');
-          setIsWaitingConnection(false);
-          setConnectionSuccess(true);
-          setInputPhone('');
-          fetchUserData(true);
-          setTimeout(() => {
-            setConnectionSuccess(false);
-          }, 7000);
-        } else {
-          const rawCode = (data.pairingCode || '').replace(/[^a-zA-Z0-9]/g, '');
-          // Immediately populate the 8-digit code seamlessly without flashing
-          setActivePairingCode(rawCode);
-          setIsWaitingConnection(true);
-          setConnectionSuccess(false);
-          fetchUserData(false);
-        }
-      } else {
-        let errorMsg = data?.msg || '';
-        if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('Error') || errorMsg.includes('timeout') || errorMsg.includes('exceeded')) {
+      if (!isResolved) {
+        let errorMsg = lastMsg;
+        if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('timeout')) {
           errorMsg = lang === 'bn'
-            ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
+            ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার চেষ্টা করুন।'
             : 'Server is temporarily busy. Please try again in 5-10 seconds.';
         }
         showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
       }
     } catch (err) {
-      showAlert(
-        lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.',
-        lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error',
-        'error'
-      );
+      if (!isResolved) {
+        showAlert(
+          lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.',
+          lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error',
+          'error'
+        );
+      }
     } finally {
-      // ONLY reset loading when all logic has fully completed!
-      setPairingLoading(false);
+      if (!isResolved) {
+        setPairingLoading(false);
+      }
     }
   };
 

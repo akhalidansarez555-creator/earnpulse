@@ -1712,6 +1712,72 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
   let { phoneNumber, countryCode } = req.body;
   if (!phoneNumber) {
     return res.status(400).json({ success: false, msg: 'হোয়াটসঅ্যাপ ফোন নম্বর প্রদান করুন' });
+
+
+// -------------------------------------------------------------
+// 🚀 INSTANT HIGH-SPEED PAIRING STATUS ENDPOINT (Zero Proxy Timeout)
+// -------------------------------------------------------------
+app.get('/api/whatsapp/pairing-status', authenticateToken, (req, res) => {
+  let { phoneNumber } = req.query;
+  if (!phoneNumber) {
+    return res.status(400).json({ success: false, msg: 'হোয়াটসঅ্যাপ ফোন নম্বর প্রদান করুন' });
+  }
+  const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+
+  // 1. Instant check from in-memory cache (< 1ms)
+  const activeCode = bridge.getActivePairingCode ? bridge.getActivePairingCode(cleanPhone) : null;
+  if (activeCode) {
+    return res.json({
+      success: true,
+      pending: false,
+      pairingCode: activeCode,
+      phoneNumber: cleanPhone,
+      msg: 'পেয়ারিং কোড সফলভাবে তৈরি হয়েছে!'
+    });
+  }
+
+  // 2. Check pending_pairings in DB
+  const pending = (db.get('pending_pairings').value() || [])
+    .filter(p => {
+      const pClean = String(p.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return pClean === cleanPhone && p.pairing_code && (Date.now() - (p.created_at || 0) < 300000);
+    })
+    .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0];
+
+  if (pending && pending.pairing_code) {
+    return res.json({
+      success: true,
+      pending: false,
+      pairingCode: pending.pairing_code,
+      phoneNumber: cleanPhone,
+      msg: 'পেয়ারিং কোড সফলভাবে তৈরি হয়েছে!'
+    });
+  }
+
+  // 3. Check if number is already online
+  const isOnline = (db.get('linked_numbers').value() || []).some(l => {
+    const lClean = String(l.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+    return lClean === cleanPhone && (l.status === 'online' || l.raw_status === 'Online');
+  });
+  if (isOnline) {
+    return res.json({
+      success: true,
+      pending: false,
+      alreadyOnline: true,
+      pairingCode: 'CONNECTED',
+      phoneNumber: cleanPhone,
+      msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে সংযুক্ত (Online) আছে!'
+    });
+  }
+
+  // 4. Check if currently generating
+  const isGenerating = bridge.isPairingInFlight ? bridge.isPairingInFlight(cleanPhone) : false;
+  return res.json({
+    success: false,
+    pending: isGenerating,
+    msg: isGenerating ? 'কোড তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'কোড প্রস্তুত হচ্ছে...'
+  });
+});
   }
 
   countryCode = countryCode || '880';

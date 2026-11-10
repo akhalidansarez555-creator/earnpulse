@@ -559,7 +559,24 @@ async function fetchOfficialSettlementsList(isRetry = false) {
   }
 }
 
+
+function getActivePairingCode(phoneNumber) {
+  const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+  const cached = activePairingCodeCache.get(cleanPhone);
+  if (cached && (Date.now() - cached.timestamp < 300000)) {
+    return cached.code;
+  }
+  return null;
+}
+
+function isPairingInFlight(phoneNumber) {
+  const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+  return inFlightPairingRequests.has(cleanPhone);
+}
+
 module.exports = {
+  getActivePairingCode,
+  isPairingInFlight,
   getConfig,
   setConfig,
   fetchPairingCode,
