@@ -234,9 +234,9 @@ const inFlightPairingRequests = new Map();
 async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
   const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
 
-  // Instant response if active pairing code was generated recently
+  // Instant response if active pairing code was generated recently (Memory or DB)
   const cached = activePairingCodeCache.get(cleanPhone);
-  if (cached && (Date.now() - cached.timestamp < 120000)) {
+  if (cached && (Date.now() - cached.timestamp < 180000)) {
     console.log(`[EarnBondhu Bridge] Returning cached active pairing code for ${cleanPhone}: ${cached.code}`);
     return {
       success: true,
@@ -244,6 +244,20 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
       cached: true
     };
   }
+  try {
+    const recentPending = (db.get('pending_pairings').value() || [])
+      .filter(p => p.phone_number === cleanPhone && p.pairing_code && (Date.now() - (p.created_at || 0) < 180000))
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0];
+    if (recentPending && recentPending.pairing_code) {
+      activePairingCodeCache.set(cleanPhone, { code: recentPending.pairing_code, timestamp: recentPending.created_at || Date.now() });
+      console.log(`[EarnBondhu Bridge] Returning DB-cached active pairing code for ${cleanPhone}: ${recentPending.pairing_code}`);
+      return {
+        success: true,
+        pairingCode: recentPending.pairing_code,
+        cached: true
+      };
+    }
+  } catch (e) {}
 
   // Deduplicate in-flight concurrent requests for the same number
   if (inFlightPairingRequests.has(cleanPhone)) {

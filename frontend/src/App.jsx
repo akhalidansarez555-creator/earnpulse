@@ -986,6 +986,34 @@ export default function App() {
         }
       }
 
+      if (data && !data.success && (data.msg?.includes('প্রস্তুত') || data.msg?.includes('অপেক্ষা'))) {
+        // Upstream preparing handshake: keep spinner active and retry smoothly
+        await new Promise(r => setTimeout(r, 2000));
+        for (const ep of endpoints) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 18000);
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (res && res.ok) {
+              const parsed = await res.json();
+              if (parsed && (parsed.success || parsed.msg)) {
+                data = parsed;
+                if (parsed.success) break;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
       if (data && data.success) {
         if (data.alreadyOnline || data.pairingCode === 'CONNECTED') {
           setActivePairingCode('');
