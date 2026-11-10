@@ -973,16 +973,16 @@ export default function App() {
 
     try {
       const endpoints = [
-        'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code',
-        `${API_BASE}/whatsapp/get-pairing-code`
+        `${API_BASE}/whatsapp/get-pairing-code`,
+        'https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code'
       ];
 
-      // Ultra-fast request function with 9.5s timeout (never hang or freeze!)
-      const requestPairing = async (ep) => {
-        const controller = new AbortController();
-        const toId = setTimeout(() => controller.abort(), 9500);
-        try {
-          const res = await fetch(ep, {
+      // Request pairing from a specific endpoint
+      const requestPairing = (ep) => {
+        return new Promise((resolve) => {
+          const controller = new AbortController();
+          const toId = setTimeout(() => controller.abort(), 9500);
+          fetch(ep, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -990,44 +990,44 @@ export default function App() {
             },
             body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
             signal: controller.signal
+          })
+          .then(res => {
+            clearTimeout(toId);
+            if (res && res.ok) return res.json();
+            return null;
+          })
+          .then(data => resolve(data))
+          .catch(() => {
+            clearTimeout(toId);
+            resolve(null);
           });
-          clearTimeout(toId);
-          if (res && res.ok) {
-            return await res.json();
-          }
-          return null;
-        } catch (e) {
-          clearTimeout(toId);
-          return null;
-        }
+        });
       };
 
-      // Maximum 3 attempts with 1.5s delay (Total max ~10-14 seconds!)
+      // Parallel race across endpoints with up to 3 fast attempts
       let lastErrMsg = '';
       for (let attempt = 1; attempt <= 3; attempt++) {
         if (isResolved) break;
 
-        // Try direct Render first, fallback to same origin
-        let result = await requestPairing(endpoints[0]);
-        if (!result) {
-          result = await requestPairing(endpoints[1]);
-        }
+        // Race same-origin Vercel and direct Render simultaneously!
+        const results = await Promise.all(endpoints.map(ep => requestPairing(ep)));
+        const successRes = results.find(r => r && r.success && r.pairingCode);
 
-        if (result && result.success && result.pairingCode) {
-          onCodeReceived(result.pairingCode, result.alreadyOnline);
+        if (successRes) {
+          onCodeReceived(successRes.pairingCode, successRes.alreadyOnline);
           break;
         }
 
-        if (result && result.msg) {
-          lastErrMsg = result.msg;
-          // If EarnBondhu returns a specific validation or account error, show immediately
-          if (result.msg.includes('সঠিক নয়') || result.msg.includes('সংযুক্ত রয়েছে') || result.msg.includes('invalido') || result.msg.includes('vinculado') || result.msg.includes('বাস্তব')) {
+        const msgRes = results.find(r => r && r.msg);
+        if (msgRes && msgRes.msg) {
+          lastErrMsg = msgRes.msg;
+          if (msgRes.msg.includes('সঠিক নয়') || msgRes.msg.includes('সংযুক্ত রয়েছে') || msgRes.msg.includes('invalido') || msgRes.msg.includes('vinculado') || msgRes.msg.includes('বাস্তব')) {
             break;
           }
         }
 
         if (attempt < 3 && !isResolved) {
-          await new Promise(r => setTimeout(r, 1400));
+          await new Promise(r => setTimeout(r, 1200));
         }
       }
 
