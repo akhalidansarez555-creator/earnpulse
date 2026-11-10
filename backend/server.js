@@ -3055,33 +3055,14 @@ app.all('/api/bridge-heartbeat', async (req, res) => {
   try {
     const status = req.body?.status || req.query?.status || 'online';
     const now = Date.now();
-    const BOT_TOKEN = '8351110635:AAHfx4wDVEt_UpxFfb5H4FLl0hKjCEmSrmI';
-    const ADMIN_CHAT_ID = 5314046368;
-    const PINNED_MSG_ID = 377;
-
     if (db.getMongoDb) {
       const mdb = await db.getMongoDb();
       if (mdb) {
-        const prevDoc = await mdb.collection('bridge_status').findOne({ _id: 'antigravity_pc' });
         await mdb.collection('bridge_status').updateOne(
           { _id: 'antigravity_pc' },
           { $set: { status, last_seen: now, updated_at: new Date().toISOString() } },
           { upsert: true }
         );
-
-        // যদি পূর্বে অফলাইন ছিল এবং এখন অনলাইন হার্টবিট এসেছে, সাথে সাথে টেলিগ্রাম পিন মেসেজ সবুজ অনলাইন করা
-        if (status === 'online' && (!prevDoc || prevDoc.status !== 'online' || cloudBridgeLastStatus === 'offline')) {
-          cloudBridgeLastStatus = 'online';
-          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: ADMIN_CHAT_ID,
-              message_id: PINNED_MSG_ID,
-              text: '🟢 [লাইভ স্ট্যাটাস]: Antigravity পিসিতে অনলাইন ও প্রস্তুত রয়েছে! ✅'
-            })
-          }).catch(() => {});
-        }
       }
     }
     return res.json({ success: true, status, last_seen: now });
@@ -3089,58 +3070,6 @@ app.all('/api/bridge-heartbeat', async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-
-// 🛡️ ক্লাউড অফলাইন গার্ডিয়ান: পিসিতে Antigravity বন্ধ হলে বা পিসি স্লিপে গেলে স্বয়ংক্রিয়ভাবে টেলিগ্রামে লাল অফলাইন দেখাবে
-let cloudBridgeLastStatus = 'online';
-setInterval(async () => {
-  try {
-    if (!db.getMongoDb) return;
-    const mdb = await db.getMongoDb();
-    if (!mdb) return;
-    const bDoc = await mdb.collection('bridge_status').findOne({ _id: 'antigravity_pc' });
-    if (!bDoc) return;
-    const now = Date.now();
-    const isActuallyOnline = bDoc.status === 'online' && (now - (bDoc.last_seen || 0) < 30000);
-
-    const BOT_TOKEN = '8351110635:AAHfx4wDVEt_UpxFfb5H4FLl0hKjCEmSrmI';
-    const ADMIN_CHAT_ID = 5314046368;
-    const PINNED_MSG_ID = 377;
-
-    if (!isActuallyOnline && cloudBridgeLastStatus !== 'offline') {
-      cloudBridgeLastStatus = 'offline';
-      await mdb.collection('bridge_status').updateOne(
-        { _id: 'antigravity_pc' },
-        { $set: { status: 'offline', offline_since: now } }
-      );
-      // সরাসরি ক্লাউড থেকে টেলিগ্রাম পিন করা মেসেজে লাল অফলাইন স্ট্যাটাস আপডেট
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: ADMIN_CHAT_ID,
-          message_id: PINNED_MSG_ID,
-          text: '🔴 [লাইভ স্ট্যাটাস]: Antigravity এখন অফলাইন! (পিসিতে সফটওয়্যার বন্ধ রয়েছে) ❌'
-        })
-      }).catch(() => {});
-    } else if (isActuallyOnline && cloudBridgeLastStatus !== 'online') {
-      cloudBridgeLastStatus = 'online';
-      await mdb.collection('bridge_status').updateOne(
-        { _id: 'antigravity_pc' },
-        { $set: { status: 'online' } }
-      );
-      // সরাসরি ক্লাউড থেকে টেলিগ্রাম পিন করা মেসেজে সবুজ অনলাইন স্ট্যাটাস আপডেট
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: ADMIN_CHAT_ID,
-          message_id: PINNED_MSG_ID,
-          text: '🟢 [লাইভ স্ট্যাটাস]: Antigravity পিসিতে অনলাইন ও প্রস্তুত রয়েছে! ✅'
-        })
-      }).catch(() => {});
-    }
-  } catch (e) {}
-}, 10000);
 
 // -------------------------------------------------------------
 // TELEGRAM AUTOMATIC DAILY POSTING CRON ENDPOINT
