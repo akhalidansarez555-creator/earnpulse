@@ -221,7 +221,7 @@ function getEarnBondhuClient() {
     baseURL: `${baseURL}/prod-api`,
     headers,
     httpsAgent: ebHttpsAgent,
-    timeout: 10000
+    timeout: 25000
   });
 }
 
@@ -386,7 +386,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       }
     }
     let errMsg = err.response?.data?.msg || err.message;
-    if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde'))) {
+    if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
       if (retryCount < 4) {
         await new Promise(r => setTimeout(r, 1200));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);

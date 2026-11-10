@@ -991,7 +991,7 @@ export default function App() {
       while (data && !data.success && retriesLeft > 0 && (
         data.msg?.includes('প্রস্তুত') || data.msg?.includes('অপেক্ষা') ||
         data.msg?.includes('ব্যস্ত') || data.msg?.includes('busy') ||
-        data.msg?.includes('frequente') || data.msg?.includes('tarde')
+        data.msg?.includes('frequente') || data.msg?.includes('tarde') || data.msg?.includes('timeout') || data.msg?.includes('exceeded')
       )) {
         retriesLeft--;
         await new Promise(r => setTimeout(r, 1800));
@@ -1040,7 +1040,7 @@ export default function App() {
         }
       } else {
         let errorMsg = data?.msg || '';
-        if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('Error')) {
+        if (!errorMsg || errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('Error') || errorMsg.includes('timeout') || errorMsg.includes('exceeded')) {
           errorMsg = lang === 'bn'
             ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
             : 'Server is temporarily busy. Please try again in 5-10 seconds.';

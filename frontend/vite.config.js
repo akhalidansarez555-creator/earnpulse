@@ -7,9 +7,9 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        entryFileNames: `assets/[name]-ep32-[hash].js`,
-        chunkFileNames: `assets/[name]-ep32-[hash].js`,
-        assetFileNames: `assets/[name]-ep32-[hash].[ext]`
+        entryFileNames: `assets/[name]-ep33-[hash].js`,
+        chunkFileNames: `assets/[name]-ep33-[hash].js`,
+        assetFileNames: `assets/[name]-ep33-[hash].[ext]`
       }
     }
   },
