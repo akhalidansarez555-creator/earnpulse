@@ -484,6 +484,22 @@
     </div>
   </div>
 
+  <!-- EarnBondhu 6-Worker Accounts Live Balances Card -->
+  <div class="section-card" style="border: 1px solid rgba(245, 158, 11, 0.25); background: linear-gradient(180deg, rgba(26, 34, 52, 0.8) 0%, rgba(17, 24, 39, 0.9) 100%);">
+    <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div class="section-title" style="color: #fbbf24;">⚡ আর্নবন্ধু ৬-অ্যাকাউন্ট লাইভ ব্যালেন্স ও স্ট্যাটাস</div>
+        <span id="ebTotalCombinedBalance" style="font-size: 12px; padding: 4px 10px; border-radius: 20px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">সর্বমোট ব্যালেন্স: ৳ ০.০০</span>
+      </div>
+      <div>
+        <button onclick="loadWorkerBalances(true)" class="action-btn" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700;">🔄 ব্যালেন্স রিফ্রেশ</button>
+      </div>
+    </div>
+    <div id="ebWorkersGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px;">
+      <div style="color: #94a3b8; font-size: 12px; padding: 10px;">ব্যালেন্স লোড হচ্ছে...</div>
+    </div>
+  </div>
+
   <!-- Section 1: Withdrawals Approval (উত্তোলন অনুমোদন - আনুভূমিক/হরাইজন্টাল স্লাইডার) -->
   <div class="section-card">
     <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
@@ -783,6 +799,27 @@
 
 <script>
   const API_BASE = window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api';
+  const DIRECT_CLOUD_API = 'https://earnpulse-mpdd.onrender.com/api';
+
+  async function adminFetch(endpoint, options = {}) {
+    const primaryUrl = `${API_BASE}${endpoint}`;
+    const fallbackUrl = `${DIRECT_CLOUD_API}${endpoint}`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(primaryUrl, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res && (res.ok || res.status === 400 || res.status === 401 || res.status === 403)) {
+        return res;
+      }
+    } catch (e) {
+      console.warn('Primary adminFetch timeout/error, failing over to direct cloud...', e.message);
+    }
+
+    return fetch(fallbackUrl, options);
+  }
+
   let adminToken = localStorage.getItem('admin_token') || '';
   let currentUsersList = [];
 
@@ -891,11 +928,42 @@
     checkAuthAndInit();
   }
 
+  async function loadWorkerBalances(forceFresh = false) {
+    if (!adminToken) return;
+    try {
+      const res = await adminFetch(`/admin/eb-workers?fresh=${forceFresh ? '1' : '0'}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      const d = await res.json();
+      if (!d || !d.success || !d.workers) return;
+
+      const totalEl = document.getElementById('ebTotalCombinedBalance');
+      if (totalEl) totalEl.innerText = `সর্বমোট ব্যালেন্স: ৳ ${(parseFloat(d.totalCombinedBalance) || 0).toFixed(2)}`;
+
+      const container = document.getElementById('ebWorkersGrid');
+      if (container) {
+        container.innerHTML = d.workers.map(w => `
+          <div style="background: rgba(17, 24, 39, 0.75); border: 1px solid ${w.isMaster ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.08)'}; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            ${w.isMaster ? '<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">মাস্টার আইডি</span>' : `<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700;">Worker #${w.id}</span>`}
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">📱 ${w.username}</div>
+            <div style="font-size: 18px; font-weight: 900; color: #fbbf24; margin: 2px 0;">৳ ${(parseFloat(w.balance) || 0).toFixed(2)}</div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px;">
+              <span>উত্তোলন: ৳${(parseFloat(w.totalWithdrawn) || 0).toFixed(0)}</span>
+              <span style="color: ${w.status === 'active' ? '#34d399' : '#f87171'}; font-weight: 700;">${w.status === 'active' ? '🟢 সক্রিয়' : '🔴 অফলাইন'}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      console.warn('loadWorkerBalances error:', e);
+    }
+  }
+
   async function loadAdminData() {
     if (!adminToken) return;
 
     try {
-      const res = await fetch(`${API_BASE}/admin/overview?_t=${Date.now()}`, {
+      const res = await adminFetch(`/admin/overview?_t=${Date.now()}`, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -919,6 +987,9 @@
       document.getElementById('totalLinked').innerText = (d.stats.activeWA !== undefined ? d.stats.activeWA : d.stats.totalLinked) || 0;
       document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
       document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
+
+      // Load 6-worker live balances
+      loadWorkerBalances(false);
 
       try {
         localStorage.setItem('cached_admin_stats', JSON.stringify({
@@ -1211,16 +1282,15 @@
 
     // 5. Facebook Auto-Bot Live Monitor Fetch
     try {
-      fetch(`${API_BASE}/admin/fb-bot/status?_t=${Date.now()}`, {
+      const fbRes = await fetch(`${API_BASE}/admin/fb-bot/status?_t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${adminToken}` }
-      })
-      .then(r => r.json())
-      .then(fbD => {
+      });
+      if (fbRes.ok) {
+        const fbD = await fbRes.json();
         if (fbD && fbD.botState) {
           updateFbBotUI(fbD.botState);
         }
-      })
-      .catch(() => {});
+      }
     } catch (e) {}
   }
 
@@ -1474,7 +1544,7 @@
 
     // ৬. ব্যাকগ্রাউন্ডে সুপার-ফাস্ট নেটওয়ার্ক রিকোয়েস্ট প্রেরণ
     try {
-      const res = await fetch(`${API_BASE}/admin/withdraw/${id}`, {
+      const res = await adminFetch(`/admin/withdraw/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({ status })
@@ -1483,6 +1553,8 @@
       if (!res.ok || !d || !d.success) {
         showToast(d?.msg || 'উত্তোলন স্ট্যাটাস আপডেটে সমস্যা হয়েছে', 'error');
         loadAdminData();
+      } else {
+        showToast(status === 'approved' ? '✓ উত্তোলন সফলভাবে অনুমোদিত হয়েছে!' : '✓ উত্তোলন বাতিল হয়েছে', 'success');
       }
     } catch (err) {
       console.error('Withdraw action error:', err);
@@ -1502,14 +1574,14 @@
     const rInput = document.getElementById('rewardRatio');
     let rVal = parseInt(rInput.value, 10);
     if (isNaN(rVal) || rVal < 1 || rVal > 100) {
-      alert('অনুগ্রহ করে মেম্বার পেআউট পার্সেন্টেজ ১ থেকে ১০০ এর মধ্যে লিখুন (যেমন: ৮০)');
+      showToast('অনুগ্রহ করে মেম্বার পেআউট পার্সেন্টেজ ১ থেকে ১০০ এর মধ্যে লিখুন (যেমন: ৮০)', 'error');
       return;
     }
 
     const minInput = document.getElementById('minWithdraw');
     let minVal = parseFloat(minInput.value);
     if (isNaN(minVal) || minVal < 1) {
-      alert('অনুগ্রহ করে সঠিক সর্বনিম্ন উত্তোলনের পরিমাণ লিখুন');
+      showToast('অনুগ্রহ করে সঠিক সর্বনিম্ন উত্তোলনের পরিমাণ লিখুন', 'error');
       return;
     }
 
@@ -1517,7 +1589,7 @@
     btn.innerText = 'সংরক্ষণ হচ্ছে...';
 
     try {
-      const res = await fetch(`${API_BASE}/admin/config`, {
+      const res = await adminFetch(`/admin/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({
@@ -1529,10 +1601,10 @@
         })
       });
       const d = await res.json();
-      alert(d.msg || 'সেটিংস সফলভাবে সেভ হয়েছে!');
+      showToast(d?.msg || 'সেটিংস সফলভাবে সেভ হয়েছে!', 'success');
       loadAdminData();
     } catch (e) {
-      alert('সেভ ব্যর্থ হয়েছে! ইন্টারনেট সংযোগ চেক করুন।');
+      showToast('সেভ ব্যর্থ হয়েছে! ইন্টারনেট সংযোগ চেক করুন।', 'error');
     } finally {
       btn.disabled = false;
       btn.innerText = oldText;
@@ -1656,7 +1728,7 @@
         notice.style.display = 'none';
       }, 2500);
     } catch(e) {
-      alert('পাসওয়ার্ড: ' + input.value);
+      showToast('পাসওয়ার্ড: ' + input.value, 'success');
     }
   }
 

@@ -484,6 +484,22 @@
     </div>
   </div>
 
+  <!-- EarnBondhu 6-Worker Accounts Live Balances Card -->
+  <div class="section-card" style="border: 1px solid rgba(245, 158, 11, 0.25); background: linear-gradient(180deg, rgba(26, 34, 52, 0.8) 0%, rgba(17, 24, 39, 0.9) 100%);">
+    <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div class="section-title" style="color: #fbbf24;">⚡ আর্নবন্ধু ৬-অ্যাকাউন্ট লাইভ ব্যালেন্স ও স্ট্যাটাস</div>
+        <span id="ebTotalCombinedBalance" style="font-size: 12px; padding: 4px 10px; border-radius: 20px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">সর্বমোট ব্যালেন্স: ৳ ০.০০</span>
+      </div>
+      <div>
+        <button onclick="loadWorkerBalances(true)" class="action-btn" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700;">🔄 ব্যালেন্স রিফ্রেশ</button>
+      </div>
+    </div>
+    <div id="ebWorkersGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px;">
+      <div style="color: #94a3b8; font-size: 12px; padding: 10px;">ব্যালেন্স লোড হচ্ছে...</div>
+    </div>
+  </div>
+
   <!-- Section 1: Withdrawals Approval (উত্তোলন অনুমোদন - আনুভূমিক/হরাইজন্টাল স্লাইডার) -->
   <div class="section-card">
     <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
@@ -912,6 +928,37 @@
     checkAuthAndInit();
   }
 
+  async function loadWorkerBalances(forceFresh = false) {
+    if (!adminToken) return;
+    try {
+      const res = await adminFetch(`/admin/eb-workers?fresh=${forceFresh ? '1' : '0'}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      const d = await res.json();
+      if (!d || !d.success || !d.workers) return;
+
+      const totalEl = document.getElementById('ebTotalCombinedBalance');
+      if (totalEl) totalEl.innerText = `সর্বমোট ব্যালেন্স: ৳ ${(parseFloat(d.totalCombinedBalance) || 0).toFixed(2)}`;
+
+      const container = document.getElementById('ebWorkersGrid');
+      if (container) {
+        container.innerHTML = d.workers.map(w => `
+          <div style="background: rgba(17, 24, 39, 0.75); border: 1px solid ${w.isMaster ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.08)'}; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            ${w.isMaster ? '<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">মাস্টার আইডি</span>' : `<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700;">Worker #${w.id}</span>`}
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">📱 ${w.username}</div>
+            <div style="font-size: 18px; font-weight: 900; color: #fbbf24; margin: 2px 0;">৳ ${(parseFloat(w.balance) || 0).toFixed(2)}</div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px;">
+              <span>উত্তোলন: ৳${(parseFloat(w.totalWithdrawn) || 0).toFixed(0)}</span>
+              <span style="color: ${w.status === 'active' ? '#34d399' : '#f87171'}; font-weight: 700;">${w.status === 'active' ? '🟢 সক্রিয়' : '🔴 অফলাইন'}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      console.warn('loadWorkerBalances error:', e);
+    }
+  }
+
   async function loadAdminData() {
     if (!adminToken) return;
 
@@ -940,6 +987,9 @@
       document.getElementById('totalLinked').innerText = (d.stats.activeWA !== undefined ? d.stats.activeWA : d.stats.totalLinked) || 0;
       document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
       document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
+
+      // Load 6-worker live balances
+      loadWorkerBalances(false);
 
       try {
         localStorage.setItem('cached_admin_stats', JSON.stringify({
