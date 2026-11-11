@@ -442,7 +442,6 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     };
   }
 }
-}
 
 let cachedAccountList = null;
 let lastAccountFetchTime = 0;
