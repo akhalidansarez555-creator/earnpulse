@@ -229,28 +229,48 @@ function getEarnBondhuClient() {
 const inFlightPairingRequests = new Map();
 
 // 🚀 High-Reliability Upstream Dual-Worker Batch Queue for WhatsApp Pairing Codes
-// Processes up to 2 simultaneous pairing requests in parallel at the exact same millisecond!
-// Doubling throughput while keeping upstream master account 100% safe from rate-limits.
+// Serializes calls cleanly to protect EarnBondhu sliding window rate limits.
 const pairingQueue = [];
 let isPairingQueueWorkerRunning = false;
 let lastEarnBondhuCallTime = 0;
-const MIN_EARNBONDHU_GAP_MS = 3200;
+let queueCooldownUntil = 0;
+const MIN_EARNBONDHU_GAP_MS = 2500;
 
 async function processPairingQueueWorker() {
   if (isPairingQueueWorkerRunning) return;
   isPairingQueueWorkerRunning = true;
   while (pairingQueue.length > 0) {
     const job = pairingQueue.shift();
+    
+    // Check if upstream is in rate-limit cooldown
+    const now = Date.now();
+    if (queueCooldownUntil > now) {
+      const waitCooldown = queueCooldownUntil - now;
+      console.log(`[EarnBondhu Queue] Upstream rate-limit cooldown active. Waiting ${waitCooldown}ms before next call...`);
+      await new Promise(r => setTimeout(r, waitCooldown));
+    }
+
     const elapsed = Date.now() - lastEarnBondhuCallTime;
     if (elapsed < MIN_EARNBONDHU_GAP_MS && lastEarnBondhuCallTime > 0) {
       const waitTime = MIN_EARNBONDHU_GAP_MS - elapsed;
       console.log(`[EarnBondhu Queue] Spacing out upstream call: waiting ${waitTime}ms...`);
       await new Promise(r => setTimeout(r, waitTime));
     }
+
     try {
       const res = await job.fn();
       job.resolve(res);
     } catch (err) {
+      // If rate limited, trigger global queue cooldown of 12 seconds so window resets cleanly
+      const isRateLimit = err.response?.status === 500 && (
+        err.response?.data?.msg?.includes('frequente') ||
+        err.response?.data?.msg?.includes('tarde') ||
+        err.message?.includes('frequente')
+      );
+      if (isRateLimit) {
+        console.warn('[EarnBondhu Queue] Detected upstream frequency limit. Enforcing 16s queue cooldown for clean window reset.');
+        queueCooldownUntil = Date.now() + 16000;
+      }
       job.reject(err);
     } finally {
       lastEarnBondhuCallTime = Date.now();
@@ -362,7 +382,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
 
     const isUnauth = res.data?.code === 401 || (res.data?.msg && (res.data.msg.includes('falhou') || res.data.msg.includes('negado') || res.data.msg.includes('Autentica') || res.data.msg.includes('outro local') || res.data.msg.includes('sessão')));
-    if (isUnauth && retryCount < 2) {
+    if (isUnauth && retryCount < 4) {
       console.warn(`[EarnBondhu Bridge] Auth error in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
       const newToken = await autoLoginEarnBondhu(true);
       if (newToken) {
@@ -372,9 +392,12 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      if (retryCount < 8) {
-        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}/8). Retrying via queue in 4s...`);
-        await new Promise(r => setTimeout(r, 4000));
+      if (retryCount < 10) {
+        const isFreq = errorMsg.includes('frequente') || errorMsg.includes('tarde');
+        if (isFreq) {
+          queueCooldownUntil = Date.now() + 16000;
+        }
+        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}/10). Retrying via queue...`);
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
@@ -402,7 +425,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       }
       errorMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।';
     } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || res.data?.code === 401) {
-      if (retryCount < 2) {
+      if (retryCount < 4) {
         const newToken = await autoLoginEarnBondhu(true);
         if (newToken) {
           return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
@@ -416,8 +439,8 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     };
   } catch (err) {
     console.error('[Proxy Bridge Error] fetchPairingCode:', err.response?.data || err.message);
-    const isUnauth = err.response?.status === 401 || err.response?.data?.code === 401 || (err.message && (err.message.includes('falhou') || err.message.includes('negado')));
-    if (isUnauth && retryCount < 2) {
+    const isUnauth = err.response?.status === 401 || err.response?.data?.code === 401 || (err.message && (err.message.includes('falhou') || err.message.includes('negado') || err.message.includes('outro local') || err.message.includes('sessão')));
+    if (isUnauth && retryCount < 4) {
       console.warn(`[EarnBondhu Bridge] Auth exception in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
       const newToken = await autoLoginEarnBondhu(true);
       if (newToken) {
@@ -426,9 +449,12 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
-      if (retryCount < 8) {
-        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}/8). Retrying via queue in 4s...`);
-        await new Promise(r => setTimeout(r, 4000));
+      if (retryCount < 10) {
+        const isFreq = errMsg.includes('frequente') || errMsg.includes('tarde');
+        if (isFreq) {
+          queueCooldownUntil = Date.now() + 16000;
+        }
+        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}/10). Retrying via queue...`);
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {
@@ -440,7 +466,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       }
       errMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।';
     } else if (errMsg && (errMsg.includes('falhou') || errMsg.includes('negado') || errMsg.includes('Autentica'))) {
-      if (retryCount < 2) {
+      if (retryCount < 4) {
         const newToken = await autoLoginEarnBondhu(true);
         if (newToken) {
           return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);

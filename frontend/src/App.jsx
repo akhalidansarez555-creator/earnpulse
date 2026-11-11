@@ -1040,9 +1040,9 @@ export default function App() {
         onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
-      // If not resolved yet, keep polling up to 35 more seconds before showing any notice!
+      // If not resolved yet, keep polling up to 60 more seconds seamlessly!
       if (!isResolved) {
-        for (let waitCount = 0; waitCount < 35; waitCount++) {
+        for (let waitCount = 0; waitCount < 60; waitCount++) {
           if (isResolved) break;
           await new Promise(r => setTimeout(r, 1000));
         }
@@ -1053,34 +1053,17 @@ export default function App() {
         if (pollInterval) clearInterval(pollInterval);
         setPairingLoading(false);
         let errorMsg = result?.msg || '';
-        if (errorMsg) {
-          if (errorMsg.includes('vinculado') || errorMsg.includes('já está')) {
-            errorMsg = lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে।' : 'This WhatsApp number is already connected.';
-          } else if (errorMsg.includes('incorreto') || errorMsg.includes('invalido') || errorMsg.includes('correto')) {
-            errorMsg = lang === 'bn' ? 'অনুগ্রহ করে সঠিক হোয়াটসঅ্যাপ নম্বর প্রদান করুন।' : 'Please enter a valid WhatsApp number.';
-          } else if (errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-            errorMsg = lang === 'bn' ? 'অতিরিক্ত অনুরোধ হয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার কোড নিন।' : 'Too many requests. Please wait a few seconds and try again.';
-          } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || errorMsg.includes('500') || errorMsg.includes('timeout')) {
-            errorMsg = lang === 'bn'
-              ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
-              : 'Server is temporarily busy. Please try again in 5-10 seconds.';
-          }
-        } else {
-          errorMsg = lang === 'bn'
-            ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে ৫-১০ সেকেন্ড পর আবার কোড নিন।'
-            : 'Server is temporarily busy. Please try again in 5-10 seconds.';
+        // Only show alert for permanent issues like already linked or invalid phone number
+        if (errorMsg && (errorMsg.includes('vinculado') || errorMsg.includes('já está'))) {
+          showAlert(lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে।' : 'This WhatsApp number is already connected.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
+        } else if (errorMsg && (errorMsg.includes('incorreto') || errorMsg.includes('invalido') || errorMsg.includes('correto'))) {
+          showAlert(lang === 'bn' ? 'অনুগ্রহ করে সঠিক হোয়াটসঅ্যাপ নম্বর প্রদান করুন।' : 'Please enter a valid WhatsApp number.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
         }
-        showAlert(errorMsg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
+        // ZERO popup alert for temporary server queue delay, keeping experience 100% clean!
       }
     } catch (err) {
       if (pollInterval) clearInterval(pollInterval);
-      if (!isResolved) {
-        showAlert(
-          lang === 'bn' ? 'নেটওয়ার্ক সংযোগে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Network connection error. Please try again.',
-          lang === 'bn' ? 'নেটওয়ার্ক সমস্যা' : 'Network Error',
-          'error'
-        );
-      }
+      // Suppress network error popup during pairing to prevent confusing user
     } finally {
       clearInterval(pairingTimerId);
       if (pollInterval) clearInterval(pollInterval);
