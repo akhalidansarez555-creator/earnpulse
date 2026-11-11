@@ -412,7 +412,7 @@ if (fs.existsSync(initialTranscript)) {
     const stat = fs.statSync(initialTranscript);
     lastFileOffset = stat.size;
     const fd = fs.openSync(initialTranscript, 'r');
-    const readLen = Math.min(stat.size, 32768);
+    const readLen = Math.min(stat.size, 65536);
     const buf = Buffer.alloc(readLen);
     fs.readSync(fd, buf, 0, readLen, stat.size - readLen);
     fs.closeSync(fd);
@@ -420,8 +420,9 @@ if (fs.existsSync(initialTranscript)) {
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const entry = JSON.parse(lines[i]);
-        if (entry.step_index && entry.step_index > lastStepSent) {
+        if (entry.type === 'PLANNER_RESPONSE' && entry.status === 'DONE' && entry.content && entry.content.trim()) {
           lastStepSent = entry.step_index;
+          break;
         }
       } catch (e) {}
     }
@@ -586,7 +587,7 @@ async function pollTelegram() {
 
           // Status command
           if (lowerText === '/status' || lowerText === 'status' || lowerText === 'online' || lowerText === 'offline') {
-            await sendTelegram(senderId, `🟢 Antigravity স্ট্যাটাস: অনলাইন (Online)\n\n💻 পিসি ও এআই ইঞ্জিন: সম্পূর্ণ সচল ও প্রস্তুত\n⚡ রেসপন্স সিস্টেম: লাইভ প্রগ্রেস সক্রিয়\n📡 চ্যানেল অটো-পোস্ট: ২৪/৭ চালু\n⏰ ব্রিজ আপটাইম: ${getUptimeString()}\n\nপিসিতে Antigravity সক্রিয় রয়েছে। মোবাইল থেকেই যেকোনো কাজ পাঠাতে পারেন!`);
+            await sendTelegram(senderId, `🟢 Antigravity স্ট্যাটাস: অনলাইন (Online)\n\n💻 পিসি ও এআই ইঞ্জিন: সম্পূর্ণ সচল ও প্রস্তুত\n⚡ রেসপন্স সিস্টেম: লাইভ প্রগ্রেস সক্রিয়\n⏰ ব্রিজ আপটাইম: ${getUptimeString()}\n\nপিসিতে Antigravity সম্পূর্ণ সক্রিয় রয়েছে। মোবাইল থেকেই যেকোনো কাজ পাঠাতে পারেন!`);
             continue;
           }
 
