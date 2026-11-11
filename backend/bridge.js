@@ -372,8 +372,8 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
       if (retryCount < 3) {
-        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}). Retrying via queue in 6.5s...`);
-        await new Promise(r => setTimeout(r, 6500));
+        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}). Retrying via queue in 3.6s...`);
+        await new Promise(r => setTimeout(r, 3600));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
@@ -426,8 +426,8 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
       if (retryCount < 3) {
-        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}). Retrying via queue in 6.5s...`);
-        await new Promise(r => setTimeout(r, 6500));
+        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}). Retrying via queue in 3.6s...`);
+        await new Promise(r => setTimeout(r, 3600));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {
@@ -463,7 +463,12 @@ const CACHE_TTL_MS = 15000; // 15 seconds cache for blazing-fast dashboard load
  */
 async function fetchAccountList(forceRefresh = false, isRetry = false) {
   const now = Date.now();
-  if (!forceRefresh && cachedAccountList && (now - lastAccountFetchTime < CACHE_TTL_MS)) {
+  // 🛡️ Give 100% priority to Pairing Code generation: never hit EarnBondhu if pairing is in flight
+  if (inFlightPairingRequests.size > 0 || pairingQueue.length > 0) {
+    if (cachedAccountList) return cachedAccountList;
+  }
+  // Throttle forceRefresh to at least 8000ms
+  if (cachedAccountList && (now - lastAccountFetchTime < (forceRefresh ? 8000 : CACHE_TTL_MS))) {
     return cachedAccountList;
   }
 
@@ -507,14 +512,19 @@ async function fetchAccountList(forceRefresh = false, isRetry = false) {
 
 let cachedWsStatusList = null;
 let lastWsStatusFetchTime = 0;
-const WS_CACHE_TTL_MS = 2500;
+const WS_CACHE_TTL_MS = 12000; // 12 seconds cache to prevent rate-limit contention
 
 /**
  * Fetch Real-time WS Online Status & Settlement Countdown data directly from EarnBondhu
  */
 async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
   const now = Date.now();
-  if (!forceRefresh && cachedWsStatusList && (now - lastWsStatusFetchTime < WS_CACHE_TTL_MS)) {
+  // 🛡️ Give 100% priority to Pairing Code generation: never hit EarnBondhu if pairing is in flight
+  if (inFlightPairingRequests.size > 0 || pairingQueue.length > 0) {
+    if (cachedWsStatusList) return cachedWsStatusList;
+  }
+  // Throttle forceRefresh to at least 8000ms
+  if (cachedWsStatusList && (now - lastWsStatusFetchTime < (forceRefresh ? 8000 : WS_CACHE_TTL_MS))) {
     return cachedWsStatusList;
   }
 
