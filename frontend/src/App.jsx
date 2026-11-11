@@ -610,7 +610,11 @@ export default function App() {
           localStorage.setItem('cached_linked_numbers', JSON.stringify(data.linkedNumbers));
         }
         if (data.user && data.user.justAwardedFirstBonus) {
-          showAlert('🎉 অভিনন্দন! ১ম WhatsApp যুক্ত করায় আপনার ব্যালেন্সে সরাসরি ১০ টাকা নগদ বোনাস যোগ হয়েছে!', 'উপহার বোনাস সফল! 🎁', 'success');
+          const bonusShownKey = `first_bonus_shown_${data.user.id || data.user.username}`;
+          if (!sessionStorage.getItem(bonusShownKey)) {
+            sessionStorage.setItem(bonusShownKey, 'true');
+            showAlert('🎉 অভিনন্দন! ১ম WhatsApp যুক্ত করায় আপনার ব্যালেন্সে সরাসরি ১০ টাকা নগদ বোনাস যোগ হয়েছে!', 'উপহার বোনাস সফল! 🎁', 'success');
+          }
         }
       }
     } catch (err) {
