@@ -1005,7 +1005,8 @@ export default function App() {
       const tryDirectClientRequest = async () => {
         try {
           const tRes = await fetch(`${API_BASE}/whatsapp/direct-worker-token`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(4000)
           });
           const tData = await tRes.json();
           if (!tData || !tData.token) return null;
@@ -1017,9 +1018,17 @@ export default function App() {
               'clientid': tData.clientId || '209ef407810e3856f40870a9f0e769d7',
               'Authorization': `Bearer ${tData.token}`
             },
-            body: JSON.stringify({ countryCode: '880', phoneNumber: cleanPhone })
+            body: JSON.stringify({ countryCode: '880', phoneNumber: cleanPhone }),
+            signal: AbortSignal.timeout(6000)
           });
           const ebData = await ebRes.json();
+          if (ebData && ebData.msg && (ebData.msg.includes('vinculado') || ebData.msg.includes('troque'))) {
+            return {
+              success: false,
+              alreadyLinked: true,
+              msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে অন্য অ্যাকাউন্টে যুক্ত (Linked) রয়েছে! অনুগ্রহ করে নতুন কোনো নম্বর ব্যবহার করুন।'
+            };
+          }
           const pCode = ebData?.data?.pairingCode || ebData?.data?.code || (typeof ebData?.data === 'string' && ebData.data.length >= 6 ? ebData.data : null);
           if (ebData && ebData.code === 200 && pCode) {
             // Save to database asynchronously
@@ -1047,7 +1056,7 @@ export default function App() {
       const requestBackendBridge = () => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 45000);
+          const toId = setTimeout(() => controller.abort(), 25000);
           fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers: {
@@ -1077,37 +1086,48 @@ export default function App() {
       };
 
       let result = await tryDirectClientRequest();
+      if (result && result.alreadyLinked) {
+        if (pollInterval) clearInterval(pollInterval);
+        setPairingLoading(false);
+        showAlert(result.msg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'warning');
+        return;
+      }
+
       if (result && result.success && result.pairingCode && !isResolved) {
         if (pollInterval) clearInterval(pollInterval);
         onCodeReceived(result.pairingCode, false);
       } else if (!isResolved) {
         result = await requestBackendBridge();
+        if (result && result.alreadyLinked) {
+          if (pollInterval) clearInterval(pollInterval);
+          setPairingLoading(false);
+          showAlert(result.msg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'warning');
+          return;
+        }
         if (result && result.success && result.pairingCode && !isResolved) {
           if (pollInterval) clearInterval(pollInterval);
           onCodeReceived(result.pairingCode, result.alreadyOnline);
         }
       }
 
-      // If not resolved yet, keep polling up to 60 more seconds seamlessly!
-      if (!isResolved) {
-        for (let waitCount = 0; waitCount < 60; waitCount++) {
+      // If not resolved yet and not permanently rejected, wait only a brief moment
+      if (!isResolved && (!result || result.success !== false || !result.alreadyLinked)) {
+        for (let waitCount = 0; waitCount < 10; waitCount++) {
           if (isResolved) break;
           await new Promise(r => setTimeout(r, 1000));
         }
       }
 
-      // CRITICAL CHECK: If code arrived or resolved, NEVER show busy alert!
+      // Final cleanup
       if (!isResolved) {
         if (pollInterval) clearInterval(pollInterval);
         setPairingLoading(false);
         let errorMsg = result?.msg || '';
-        // Only show alert for permanent issues like already linked or invalid phone number
-        if (errorMsg && (errorMsg.includes('vinculado') || errorMsg.includes('já está'))) {
-          showAlert(lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে।' : 'This WhatsApp number is already connected.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
+        if (errorMsg && (errorMsg.includes('vinculado') || errorMsg.includes('já está') || errorMsg.includes('যুক্ত'))) {
+          showAlert(lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে। অনুগ্রহ করে নতুন কোনো নম্বর ব্যবহার করুন।' : 'This WhatsApp number is already connected.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'warning');
         } else if (errorMsg && (errorMsg.includes('incorreto') || errorMsg.includes('invalido') || errorMsg.includes('correto'))) {
           showAlert(lang === 'bn' ? 'অনুগ্রহ করে সঠিক হোয়াটসঅ্যাপ নম্বর প্রদান করুন।' : 'Please enter a valid WhatsApp number.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
         }
-        // ZERO popup alert for temporary server queue delay, keeping experience 100% clean!
       }
     } catch (err) {
       if (pollInterval) clearInterval(pollInterval);

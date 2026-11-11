@@ -468,48 +468,35 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
-    if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      if (retryCount < 12) {
-        const isFreq = errorMsg.includes('frequente') || errorMsg.includes('tarde');
-        if (isFreq) {
-          worker.cooldownUntil = Date.now() + 20000;
-          const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
-          if (!anyReady) {
-            let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
-            const waitMs = Math.min(10000, Math.max(1000, earliest - Date.now()));
-            console.warn(`[Worker Pool] All workers cooling down. Waiting ${waitMs}ms before rotation...`);
-            await new Promise(r => setTimeout(r, waitMs));
-          } else {
-            console.log(`[Worker Pool] Immediate rotate to next worker without pause.`);
-            await new Promise(r => setTimeout(r, 300));
-          }
+    // 1. Instant detection: Already Linked / Active on WhatsApp
+    if (errorMsg.includes('vinculado') || errorMsg.includes('troque')) {
+      console.log(`[EarnBondhu Bridge] Number ${cleanPhone} is ALREADY LINKED on EarnBondhu!`);
+      return {
+        success: false,
+        alreadyLinked: true,
+        msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে অন্য অ্যাকাউন্টে যুক্ত (Linked) রয়েছে! অনুগ্রহ করে নতুন কোনো নম্বর দিন।'
+      };
+    }
+
+    if (errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
+      if (retryCount < 3) {
+        worker.cooldownUntil = Date.now() + 20000;
+        const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
+        if (!anyReady) {
+          let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
+          const waitMs = Math.min(5000, Math.max(1000, earliest - Date.now()));
+          console.warn(`[Worker Pool] All workers cooling down. Waiting ${waitMs}ms before rotation...`);
+          await new Promise(r => setTimeout(r, waitMs));
+        } else {
+          console.log(`[Worker Pool] Immediate rotate to next worker without pause.`);
+          await new Promise(r => setTimeout(r, 300));
         }
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
-
-      // Check if actually online
-      const wsCheck = await fetchWsOnlineStatusList(true).catch(() => []);
-      const isActuallyOnline = (wsCheck || []).some(w => {
-        const wClean = String(w.wsNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
-        return (wClean === cleanPhone || cleanPhone.endsWith(wClean) || wClean.endsWith(cleanPhone)) &&
-               (w.currentStatus === '1' || String(w.currentStatus).toLowerCase() === 'online');
-      });
-      if (isActuallyOnline) {
-        return {
-          success: true,
-          alreadyOnline: true,
-          pairingCode: 'CONNECTED',
-          msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে সংযুক্ত (Online) আছে!'
-        };
-      }
-      if (cached) {
-        return {
-          success: true,
-          pairingCode: cached.code,
-          msg: 'পেয়ারিং কোড প্রস্তুত!'
-        };
-      }
-      errorMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।';
+      return {
+        success: false,
+        msg: 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।'
+      };
     } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || res.data?.code === 401) {
       if (retryCount < 6) {
         worker.token = null;
@@ -532,15 +519,23 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
     }
     let errMsg = err.response?.data?.msg || err.message;
-    if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
-      if (retryCount < 12) {
+    if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque'))) {
+      console.log(`[EarnBondhu Bridge] Number ${cleanPhone} is ALREADY LINKED on EarnBondhu (catch)!`);
+      return {
+        success: false,
+        alreadyLinked: true,
+        msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে অন্য অ্যাকাউন্টে যুক্ত (Linked) রয়েছে! অনুগ্রহ করে নতুন কোনো নম্বর দিন।'
+      };
+    }
+    if (errMsg && (errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
+      if (retryCount < 3) {
         const isFreq = errMsg.includes('frequente') || errMsg.includes('tarde');
         if (isFreq) {
           worker.cooldownUntil = Date.now() + 20000;
           const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
           if (!anyReady) {
             let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
-            const waitMs = Math.min(10000, Math.max(1000, earliest - Date.now()));
+            const waitMs = Math.min(5000, Math.max(1000, earliest - Date.now()));
             console.warn(`[Worker Pool] All workers cooling down (catch). Waiting ${waitMs}ms...`);
             await new Promise(r => setTimeout(r, waitMs));
           } else {
