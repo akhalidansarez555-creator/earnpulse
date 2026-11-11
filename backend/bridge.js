@@ -229,29 +229,40 @@ function getEarnBondhuClient() {
 const inFlightPairingRequests = new Map();
 
 // 🚀 High-Reliability Upstream FIFO Queue for WhatsApp Pairing Codes
-// EarnBondhu imposes a strict rate-limit per master account. This queue serializes
-// concurrent requests and automatically spaces them out by 6.0 seconds so no user fails!
-let pairingQueuePromise = Promise.resolve();
+// Clean array-based worker: executes one upstream call at a time with 3.5s spacing.
+// Completely immune to promise-chain deadlocks or recursive stalls!
+const pairingQueue = [];
+let isPairingQueueWorkerRunning = false;
 let lastEarnBondhuCallTime = 0;
-const MIN_EARNBONDHU_GAP_MS = 6000;
+const MIN_EARNBONDHU_GAP_MS = 3500;
 
-function enqueueEarnBondhuPairingCall(fn) {
-  const current = pairingQueuePromise.then(async () => {
-    const now = Date.now();
-    const elapsed = now - lastEarnBondhuCallTime;
+async function processPairingQueueWorker() {
+  if (isPairingQueueWorkerRunning) return;
+  isPairingQueueWorkerRunning = true;
+  while (pairingQueue.length > 0) {
+    const job = pairingQueue.shift();
+    const elapsed = Date.now() - lastEarnBondhuCallTime;
     if (elapsed < MIN_EARNBONDHU_GAP_MS && lastEarnBondhuCallTime > 0) {
       const waitTime = MIN_EARNBONDHU_GAP_MS - elapsed;
-      console.log(`[EarnBondhu Queue] Spacing out upstream pairing requests: waiting ${waitTime}ms...`);
+      console.log(`[EarnBondhu Queue] Spacing out upstream calls: waiting ${waitTime}ms...`);
       await new Promise(r => setTimeout(r, waitTime));
     }
+    lastEarnBondhuCallTime = Date.now();
     try {
-      return await fn();
-    } finally {
-      lastEarnBondhuCallTime = Date.now();
+      const res = await job.fn();
+      job.resolve(res);
+    } catch (err) {
+      job.reject(err);
     }
+  }
+  isPairingQueueWorkerRunning = false;
+}
+
+function enqueueEarnBondhuPairingCall(fn) {
+  return new Promise((resolve, reject) => {
+    pairingQueue.push({ fn, resolve, reject });
+    processPairingQueueWorker();
   });
-  pairingQueuePromise = current.catch(() => {});
-  return current;
 }
 
 /**
