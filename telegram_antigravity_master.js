@@ -123,25 +123,26 @@ function isAntigravityAppRunning() {
 
 async function isAntigravityReady() {
   try {
-    // ১. পিসিতে Antigravity অ্যাপ্লিকেশন উইন্ডো চালু আছে কিনা চেক করা
+    // ১. পিসিতে Antigravity অ্যাপ্লিকেশন চালু আছে কিনা চেক করা
     const isAppRunning = await isAntigravityAppRunning();
     if (!isAppRunning) {
-      return false; // Antigravity সফটওয়্যার বন্ধ থাকলে ১০০% অফলাইন!
+      return false; // সফটওয়্যার বন্ধ থাকলে ১০০% অফলাইন
     }
 
-    // ২. ইঞ্জিন হাব সক্রিয় এবং রেসপন্স করছে কিনা চেক করা
+    // ২. ইঞ্জিন হাব সক্রিয় এবং পোর্ট ২০০ রেসপন্স দিচ্ছে কিনা নিশ্চিত করা
     const hubData = getActiveHubData();
-    if (hubData && hubData.httpPort) {
-      try {
-        const res = await fetch(`http://127.0.0.1:${hubData.httpPort}/`, {
-          signal: AbortSignal.timeout(2000)
-        });
-        if (res.status === 200) return true;
-      } catch (e) {}
+    if (!hubData || !hubData.httpPort) {
+      return false; // হাব না থাকলে ইঞ্জিন অফলাইন
     }
 
-    // Antigravity অ্যাপ্লিকেশন উইন্ডো সচল রয়েছে
-    return true;
+    try {
+      const res = await fetch(`http://127.0.0.1:${hubData.httpPort}/`, {
+        signal: AbortSignal.timeout(1500)
+      });
+      return res.status === 200;
+    } catch (e) {
+      return false; // পোর্ট রেসপন্স না দিলে অফলাইন
+    }
   } catch (e) {
     return false;
   }

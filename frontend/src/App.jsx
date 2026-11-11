@@ -1001,11 +1001,53 @@ export default function App() {
         } catch (e) {}
       }, 1200);
 
-      // Direct same-origin request with 38s timeout and instant reactive pop-in
-      const requestPairing = () => {
+      // Phase 1: High-Speed Direct Client Request (Uses user device IP - 0 rate limits)
+      const tryDirectClientRequest = async () => {
+        try {
+          const tRes = await fetch(`${API_BASE}/whatsapp/direct-worker-token`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const tData = await tRes.json();
+          if (!tData || !tData.token) return null;
+
+          const ebRes = await fetch(tData.targetUrl || 'https://earnbondhu.com/prod-api/bulk/account/getPairingCode', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json;charset=utf-8',
+              'clientid': tData.clientId || '209ef407810e3856f40870a9f0e769d7',
+              'Authorization': `Bearer ${tData.token}`
+            },
+            body: JSON.stringify({ countryCode: '880', phoneNumber: cleanPhone })
+          });
+          const ebData = await ebRes.json();
+          const pCode = ebData?.data?.pairingCode || ebData?.data?.code || (typeof ebData?.data === 'string' && ebData.data.length >= 6 ? ebData.data : null);
+          if (ebData && ebData.code === 200 && pCode) {
+            // Save to database asynchronously
+            fetch(`${API_BASE}/whatsapp/save-pairing`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880', pairingCode: pCode })
+            }).catch(() => {});
+
+            return {
+              success: true,
+              pairingCode: pCode
+            };
+          }
+          return null;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // Phase 2: Fallback to Backend Proxy Bridge
+      const requestBackendBridge = () => {
         return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 55000);
+          const toId = setTimeout(() => controller.abort(), 45000);
           fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers: {
@@ -1034,10 +1076,16 @@ export default function App() {
         });
       };
 
-      const result = await requestPairing();
+      let result = await tryDirectClientRequest();
       if (result && result.success && result.pairingCode && !isResolved) {
         if (pollInterval) clearInterval(pollInterval);
-        onCodeReceived(result.pairingCode, result.alreadyOnline);
+        onCodeReceived(result.pairingCode, false);
+      } else if (!isResolved) {
+        result = await requestBackendBridge();
+        if (result && result.success && result.pairingCode && !isResolved) {
+          if (pollInterval) clearInterval(pollInterval);
+          onCodeReceived(result.pairingCode, result.alreadyOnline);
+        }
       }
 
       // If not resolved yet, keep polling up to 60 more seconds seamlessly!

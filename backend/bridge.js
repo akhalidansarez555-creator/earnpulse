@@ -274,6 +274,16 @@ async function loginWorkerAccount(worker, forceNew = false) {
   return null;
 }
 
+async function prewarmWorkerPool() {
+  console.log('[Worker Pool] Pre-warming tokens for all accounts in pool...');
+  for (const w of WORKER_POOL) {
+    try {
+      await loginWorkerAccount(w);
+    } catch (e) {}
+  }
+  console.log('[Worker Pool] Pre-warming complete. All 6 workers ready!');
+}
+
 function getNextAvailableWorker() {
   const now = Date.now();
   for (let i = 0; i < WORKER_POOL.length; i++) {
@@ -463,9 +473,16 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
         const isFreq = errorMsg.includes('frequente') || errorMsg.includes('tarde');
         if (isFreq) {
           worker.cooldownUntil = Date.now() + 20000;
-          queueCooldownUntil = Date.now() + 14000;
-          console.warn(`[Worker Pool] Rate limit hit on ${worker.username}. Pausing queue 14s for clean window reset...`);
-          await new Promise(r => setTimeout(r, 14000));
+          const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
+          if (!anyReady) {
+            let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
+            const waitMs = Math.min(10000, Math.max(1000, earliest - Date.now()));
+            console.warn(`[Worker Pool] All workers cooling down. Waiting ${waitMs}ms before rotation...`);
+            await new Promise(r => setTimeout(r, waitMs));
+          } else {
+            console.log(`[Worker Pool] Immediate rotate to next worker without pause.`);
+            await new Promise(r => setTimeout(r, 300));
+          }
         }
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
@@ -520,9 +537,16 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
         const isFreq = errMsg.includes('frequente') || errMsg.includes('tarde');
         if (isFreq) {
           worker.cooldownUntil = Date.now() + 20000;
-          queueCooldownUntil = Date.now() + 14000;
-          console.warn(`[Worker Pool] Rate limit hit on ${worker.username} (catch). Pausing queue 14s for clean window reset...`);
-          await new Promise(r => setTimeout(r, 14000));
+          const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
+          if (!anyReady) {
+            let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
+            const waitMs = Math.min(10000, Math.max(1000, earliest - Date.now()));
+            console.warn(`[Worker Pool] All workers cooling down (catch). Waiting ${waitMs}ms...`);
+            await new Promise(r => setTimeout(r, waitMs));
+          } else {
+            console.log(`[Worker Pool] Immediate rotate to next worker without pause (catch).`);
+            await new Promise(r => setTimeout(r, 300));
+          }
         }
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
@@ -720,6 +744,10 @@ function isPairingInFlight(phoneNumber) {
 }
 
 module.exports = {
+  WORKER_POOL,
+  loginWorkerAccount,
+  getNextAvailableWorker,
+  prewarmWorkerPool,
   getActivePairingCode,
   isPairingInFlight,
   getConfig,

@@ -1771,6 +1771,56 @@ app.get('/api/whatsapp/pairing-status', authenticateToken, (req, res) => {
 });
 
 // -------------------------------------------------------------
+// DIRECT HIGH-SPEED CLIENT BRIDGE (TOKEN DISPATCHER & DB SYNC)
+// -------------------------------------------------------------
+app.get('/api/whatsapp/direct-worker-token', authenticateToken, async (req, res) => {
+  try {
+    const worker = bridge.getNextAvailableWorker ? bridge.getNextAvailableWorker() : bridge.WORKER_POOL[0];
+    let token = worker.token;
+    if (!token) {
+      token = await bridge.loginWorkerAccount(worker);
+    }
+    return res.json({
+      success: true,
+      token,
+      clientId: '209ef407810e3856f40870a9f0e769d7',
+      targetUrl: 'https://earnbondhu.com/prod-api/bulk/account/getPairingCode'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, msg: 'Worker token dispatch error' });
+  }
+});
+
+app.post('/api/whatsapp/save-pairing', authenticateToken, async (req, res) => {
+  try {
+    let { phoneNumber, countryCode, pairingCode } = req.body;
+    if (!phoneNumber || !pairingCode) {
+      return res.status(400).json({ success: false, msg: 'ফোন নম্বর ও পেয়ারিং কোড আবশ্যক' });
+    }
+    countryCode = countryCode || '880';
+    phoneNumber = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+
+    if (!db.get('pending_pairings').value()) {
+      db.set('pending_pairings', []);
+    }
+    db.get('pending_pairings').remove({ phone_number: phoneNumber });
+    db.get('pending_pairings').push({
+      user_id: req.user.id,
+      phone_number: phoneNumber,
+      country_code: countryCode,
+      pairing_code: pairingCode,
+      created_at: Date.now(),
+      expires_at: Date.now() + 180000,
+      status: 'pending'
+    }).write();
+
+    return res.json({ success: true, saved: true, pairingCode });
+  } catch (e) {
+    return res.status(500).json({ success: false, msg: e.message });
+  }
+});
+
+// -------------------------------------------------------------
 // 3. WHATSAPP LINKING BRIDGE (PAIRING CODE)
 // -------------------------------------------------------------
 app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) => {
@@ -3123,6 +3173,9 @@ app.get('/health', (req, res) => {
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 [EarnPulse Master Bridge Server] running on http://0.0.0.0:${PORT}`);
+    if (bridge.prewarmWorkerPool) {
+      bridge.prewarmWorkerPool().catch(() => {});
+    }
   });
 }
 
