@@ -373,9 +373,10 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
       const u = res.data?.data?.user;
 
       if (u) {
-        const bal = (parseFloat(u.points) || 0) / 10;
-        const total = (parseFloat(u.totalPoints) || 0) / 10;
-        const wth = (parseFloat(u.totalWithdrawal) || 0) / 10;
+        // EarnBondhu official conversion: 100 Points = ৳ 1.00 (e.g. 3000 points = ৳ 30.00, 1300000 = ৳ 13,000.00)
+        const bal = parseFloat(((parseFloat(u.points) || 0) / 100).toFixed(2));
+        const total = parseFloat(((parseFloat(u.totalPoints) || 0) / 100).toFixed(2));
+        const wth = parseFloat(((parseFloat(u.totalWithdrawal) || 0) / 100).toFixed(2));
 
         totalCombinedBalance += bal;
         totalCombinedEarnings += total;
