@@ -200,10 +200,10 @@ async function autoLoginEarnBondhu(forceNew = false) {
   return activeLoginPromise;
 }
 
-function getEarnBondhuClient() {
+function getEarnBondhuClient(customToken = null) {
   const baseURL = getConfig('target_base_url') || 'https://earnbondhu.com';
   const clientId = getConfig('target_client_id') || CLIENT_ID;
-  const masterToken = getConfig('master_target_token') || '';
+  const token = customToken || getConfig('master_target_token') || '';
 
   const headers = {
     'Content-Type': 'application/json;charset=utf-8',
@@ -213,8 +213,8 @@ function getEarnBondhuClient() {
     'Origin': 'https://earnbondhu.com'
   };
 
-  if (masterToken) {
-    headers['Authorization'] = 'Bearer ' + masterToken;
+  if (token) {
+    headers['Authorization'] = 'Bearer ' + token;
   }
 
   return axios.create({
@@ -223,6 +223,72 @@ function getEarnBondhuClient() {
     httpsAgent: ebHttpsAgent,
     timeout: 18000
   });
+}
+
+// ⚡ High-Capacity Multi-Worker Upstream Account Pool
+// Distributes incoming WhatsApp pairing calls across 6 accounts round-robin
+// Completely prevents 500 "Acesso muito frequente" and delivers instant pairing codes
+const WORKER_POOL = [
+  { username: '8801729261421', password: 'Khalid@86', token: null, cooldownUntil: 0 },
+  { username: '8801602188682', password: 'Khalid@86', token: null, cooldownUntil: 0 },
+  { username: '8801892736004', password: 'Khalid@86', token: null, cooldownUntil: 0 },
+  { username: '8801773350030', password: 'Khalid@86', token: null, cooldownUntil: 0 },
+  { username: '8801717424791', password: 'Khalid@86', token: null, cooldownUntil: 0 },
+  { username: '8801713725515', password: 'Khalid@86', token: null, cooldownUntil: 0 }
+];
+let workerPoolIndex = 0;
+
+async function loginWorkerAccount(worker, forceNew = false) {
+  if (worker.token && !forceNew) return worker.token;
+  try {
+    const aesKeyStr = generateAesKey();
+    const encryptedKeyHeader = encryptAesKeyWithRsa(aesKeyStr);
+    const payloadObj = {
+      tenantId: "000000",
+      username: worker.username,
+      password: worker.password,
+      grantType: "password",
+      clientId: CLIENT_ID,
+      userType: "web_user"
+    };
+    const encryptedData = encryptPayloadAes(JSON.stringify(payloadObj), aesKeyStr);
+    const headers = {
+      'Content-Type': 'application/json;charset=utf-8',
+      'clientid': CLIENT_ID,
+      'encrypt-key': encryptedKeyHeader,
+      'isToken': 'false',
+      'repeatSubmit': 'false',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://earnbondhu.com/login',
+      'Origin': 'https://earnbondhu.com'
+    };
+    const res = await axios.post('https://earnbondhu.com/prod-api/auth/login', encryptedData, { headers, timeout: 15000 });
+    if (res.data && res.data.code === 200 && res.data.data?.access_token) {
+      worker.token = res.data.data.access_token;
+      console.log(`[Worker Pool] Refreshed token for ${worker.username}`);
+      return worker.token;
+    }
+  } catch (err) {
+    console.error(`[Worker Pool] Login failed for ${worker.username}:`, err.response?.data || err.message);
+  }
+  return null;
+}
+
+function getNextAvailableWorker() {
+  const now = Date.now();
+  for (let i = 0; i < WORKER_POOL.length; i++) {
+    const idx = (workerPoolIndex + i) % WORKER_POOL.length;
+    const worker = WORKER_POOL[idx];
+    if (worker.cooldownUntil <= now) {
+      workerPoolIndex = (idx + 1) % WORKER_POOL.length;
+      return worker;
+    }
+  }
+  let earliest = WORKER_POOL[0];
+  for (const w of WORKER_POOL) {
+    if (w.cooldownUntil < earliest.cooldownUntil) earliest = w;
+  }
+  return earliest;
 }
 
 // 🛡️ Simultaneous request deduplication Map for concurrent pairing requests
@@ -234,7 +300,7 @@ const pairingQueue = [];
 let isPairingQueueWorkerRunning = false;
 let lastEarnBondhuCallTime = 0;
 let queueCooldownUntil = 0;
-const MIN_EARNBONDHU_GAP_MS = 2500;
+const MIN_EARNBONDHU_GAP_MS = 1200;
 
 async function processPairingQueueWorker() {
   if (isPairingQueueWorkerRunning) return;
@@ -356,14 +422,15 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
   } catch (e) {}
 
-  let token = getConfig('master_target_token');
+  const worker = getNextAvailableWorker();
+  let token = worker.token;
   if (!token) {
-    token = await autoLoginEarnBondhu();
+    token = await loginWorkerAccount(worker);
   }
 
   try {
     const res = await enqueueEarnBondhuPairingCall(async () => {
-      const client = getEarnBondhuClient();
+      const client = getEarnBondhuClient(token);
       return await client.post('/bulk/account/getPairingCode', {
         countryCode: countryCode || '880',
         phoneNumber: cleanPhone
@@ -374,6 +441,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     if (isSuccess) {
       const code = res.data.data?.pairingCode || res.data.data?.code || res.data.data;
       activePairingCodeCache.set(cleanPhone, { code, timestamp: Date.now() });
+      console.log(`[Worker Pool] Successfully retrieved pairing code for ${cleanPhone} via ${worker.username}: ${code}`);
       return {
         success: true,
         pairingCode: code,
@@ -382,22 +450,21 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
 
     const isUnauth = res.data?.code === 401 || (res.data?.msg && (res.data.msg.includes('falhou') || res.data.msg.includes('negado') || res.data.msg.includes('Autentica') || res.data.msg.includes('outro local') || res.data.msg.includes('sessão')));
-    if (isUnauth && retryCount < 4) {
-      console.warn(`[EarnBondhu Bridge] Auth error in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
-      const newToken = await autoLoginEarnBondhu(true);
-      if (newToken) {
-        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
-      }
+    if (isUnauth && retryCount < 6) {
+      console.warn(`[Worker Pool] Auth error on worker ${worker.username} (attempt ${retryCount + 1}). Refreshing worker token...`);
+      worker.token = null;
+      await loginWorkerAccount(worker, true);
+      return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
     }
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      if (retryCount < 10) {
+      if (retryCount < 12) {
         const isFreq = errorMsg.includes('frequente') || errorMsg.includes('tarde');
         if (isFreq) {
-          queueCooldownUntil = Date.now() + 16000;
+          worker.cooldownUntil = Date.now() + 15000;
+          console.warn(`[Worker Pool] Worker ${worker.username} reached rate limit. Rotating ${cleanPhone} to next worker...`);
         }
-        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}/10). Retrying via queue...`);
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
@@ -425,11 +492,10 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       }
       errorMsg = 'কোড প্রস্তুত হচ্ছে, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।';
     } else if (errorMsg.includes('falhou') || errorMsg.includes('negado') || errorMsg.includes('Autentica') || res.data?.code === 401) {
-      if (retryCount < 4) {
-        const newToken = await autoLoginEarnBondhu(true);
-        if (newToken) {
-          return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
-        }
+      if (retryCount < 6) {
+        worker.token = null;
+        await loginWorkerAccount(worker, true);
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       errorMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
     }
@@ -438,23 +504,22 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       msg: errorMsg
     };
   } catch (err) {
-    console.error('[Proxy Bridge Error] fetchPairingCode:', err.response?.data || err.message);
+    console.error(`[Proxy Bridge Error] fetchPairingCode via ${worker.username}:`, err.response?.data || err.message);
     const isUnauth = err.response?.status === 401 || err.response?.data?.code === 401 || (err.message && (err.message.includes('falhou') || err.message.includes('negado') || err.message.includes('outro local') || err.message.includes('sessão')));
-    if (isUnauth && retryCount < 4) {
-      console.warn(`[EarnBondhu Bridge] Auth exception in getPairingCode (attempt ${retryCount + 1}). Re-authenticating master account...`);
-      const newToken = await autoLoginEarnBondhu(true);
-      if (newToken) {
-        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
-      }
+    if (isUnauth && retryCount < 6) {
+      console.warn(`[Worker Pool] Auth exception on worker ${worker.username} (attempt ${retryCount + 1}). Refreshing worker token...`);
+      worker.token = null;
+      await loginWorkerAccount(worker, true);
+      return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
-      if (retryCount < 10) {
+      if (retryCount < 12) {
         const isFreq = errMsg.includes('frequente') || errMsg.includes('tarde');
         if (isFreq) {
-          queueCooldownUntil = Date.now() + 16000;
+          worker.cooldownUntil = Date.now() + 15000;
+          console.warn(`[Worker Pool] Worker ${worker.username} rate-limited (catch). Rotating ${cleanPhone} to next worker...`);
         }
-        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}/10). Retrying via queue...`);
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {
