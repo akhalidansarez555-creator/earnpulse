@@ -234,7 +234,7 @@ const inFlightPairingRequests = new Map();
 const pairingQueue = [];
 let isPairingQueueWorkerRunning = false;
 let lastEarnBondhuCallTime = 0;
-const MIN_EARNBONDHU_GAP_MS = 3500;
+const MIN_EARNBONDHU_GAP_MS = 2500;
 
 async function processPairingQueueWorker() {
   if (isPairingQueueWorkerRunning) return;
