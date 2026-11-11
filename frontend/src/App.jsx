@@ -230,6 +230,7 @@ export default function App() {
   // Pairing State
   const [inputPhone, setInputPhone] = useState('');
   const [pairingLoading, setPairingLoading] = useState(false);
+  const [pairingElapsedSec, setPairingElapsedSec] = useState(0);
   const [activePairingCode, setActivePairingCode] = useState('');
   const [isWaitingConnection, setIsWaitingConnection] = useState(false);
   const [connectionSuccess, setConnectionSuccess] = useState(false);
@@ -943,6 +944,10 @@ export default function App() {
     }
 
     setPairingLoading(true);
+    setPairingElapsedSec(0);
+    const pairingTimerId = setInterval(() => {
+      setPairingElapsedSec(prev => prev + 1);
+    }, 1000);
     setActivePairingCode('');
     setIsWaitingConnection(false);
     setConnectionSuccess(false);
@@ -953,6 +958,7 @@ export default function App() {
     const onCodeReceived = (rawPairingCode, isOnline = false) => {
       if (isResolved) return;
       isResolved = true;
+      clearInterval(pairingTimerId);
       if (pollInterval) clearInterval(pollInterval);
       setCustomAlert(null); // 🛡️ Instant dismiss any pending or false busy popup!
 
@@ -1076,6 +1082,7 @@ export default function App() {
         );
       }
     } finally {
+      clearInterval(pairingTimerId);
       if (pollInterval) clearInterval(pollInterval);
       setPairingLoading(false);
     }
@@ -2586,7 +2593,7 @@ export default function App() {
                   {pairingLoading ? (
                     <>
                       <RefreshCw size={18} style={{ animation: 'spin 1.2s linear infinite' }} />
-                      <span>{lang === 'bn' ? 'কোড তৈরি হচ্ছে...' : 'Generating Code...'}</span>
+                      <span>{lang === 'bn' ? `কোড তৈরি হচ্ছে (${pairingElapsedSec} সে.)` : `Generating Code (${pairingElapsedSec}s)`}</span>
                     </>
                   ) : activePairingCode ? (
                     <span>{lang === 'bn' ? 'নতুন কোড নিন' : 'Get New Code'}</span>
@@ -2609,7 +2616,7 @@ export default function App() {
                     fontSize: '12px', fontWeight: 'bold', color: '#b45309'
                   }}>
                     <RefreshCw size={14} style={{ animation: 'spin 1.2s linear infinite' }} />
-                    <span>{lang === 'bn' ? 'কোড তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Generating code, please wait...'}</span>
+                    <span>{lang === 'bn' ? `কোড তৈরি হচ্ছে, অপেক্ষা করুন (${pairingElapsedSec} সেকেন্ড)...` : `Generating code, please wait (${pairingElapsedSec}s)...`}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
