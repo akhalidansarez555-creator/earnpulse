@@ -621,7 +621,9 @@ export default function App() {
 
   // Fetch Tournament Leaderboard
   const fetchLeaderboard = async () => {
-    setLeaderboardLoading(true);
+    if (!leaderboardData || !leaderboardData.leaders || leaderboardData.leaders.length === 0) {
+      setLeaderboardLoading(true);
+    }
     try {
       const res = await fetch(`${API_BASE}/tournament/leaderboard`);
       const data = await res.json();
@@ -1004,7 +1006,7 @@ export default function App() {
       // Phase 1: High-Speed Direct Client Request (Uses user device IP - 0 rate limits)
       const tryDirectClientRequest = async () => {
         try {
-          const tRes = await fetch(`${API_BASE}/whatsapp/direct-worker-token`, {
+          const tRes = await fetch(`${API_BASE}/whatsapp/direct-worker-token?phoneNumber=${encodeURIComponent(cleanPhone)}`, {
             headers: { Authorization: `Bearer ${token}` },
             signal: AbortSignal.timeout(4000)
           });
@@ -1031,14 +1033,19 @@ export default function App() {
           }
           const pCode = ebData?.data?.pairingCode || ebData?.data?.code || (typeof ebData?.data === 'string' && ebData.data.length >= 6 ? ebData.data : null);
           if (ebData && ebData.code === 200 && pCode) {
-            // Save to database asynchronously
+            // Save to database asynchronously with worker mapping
             fetch(`${API_BASE}/whatsapp/save-pairing`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`
               },
-              body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880', pairingCode: pCode })
+              body: JSON.stringify({
+                phoneNumber: cleanPhone,
+                countryCode: '880',
+                pairingCode: pCode,
+                workerUsername: tData.workerUsername || null
+              })
             }).catch(() => {});
 
             return {

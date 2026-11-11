@@ -284,6 +284,155 @@ async function prewarmWorkerPool() {
   console.log('[Worker Pool] Pre-warming complete. All 6 workers ready!');
 }
 
+// -------------------------------------------------------------
+// PERMANENT PHONE-TO-WORKER MAPPING SYSTEM
+// -------------------------------------------------------------
+function getAssignedWorkerForPhone(phoneNumber) {
+  const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+  try {
+    const mappings = db.get('phone_worker_mappings').value() || [];
+    const found = mappings.find(m => m.phone_number === cleanPhone);
+    if (found && found.worker_username) {
+      const assigned = WORKER_POOL.find(w => w.username === found.worker_username);
+      if (assigned) {
+        console.log(`[Worker Pool] Recognized returning phone ${cleanPhone} -> assigned to ${assigned.username}`);
+        return { worker: assigned, isMapped: true };
+      }
+    }
+  } catch (e) {}
+  return { worker: getNextAvailableWorker(), isMapped: false };
+}
+
+function recordPhoneWorkerMapping(phoneNumber, workerUsername) {
+  const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+  if (!cleanPhone || !workerUsername) return;
+  try {
+    if (!db.get('phone_worker_mappings').value()) {
+      db.set('phone_worker_mappings', []).write();
+    }
+    const mappings = db.get('phone_worker_mappings').value() || [];
+    const existingIdx = mappings.findIndex(m => m.phone_number === cleanPhone);
+    if (existingIdx >= 0) {
+      mappings[existingIdx].worker_username = workerUsername;
+      mappings[existingIdx].updated_at = Date.now();
+    } else {
+      mappings.push({
+        phone_number: cleanPhone,
+        worker_username: workerUsername,
+        created_at: Date.now(),
+        updated_at: Date.now()
+      });
+    }
+    db.set('phone_worker_mappings', mappings).write();
+    console.log(`[Worker Pool] Successfully mapped phone ${cleanPhone} to worker ${workerUsername}`);
+  } catch (e) {
+    console.error('[Worker Pool] Error saving phone worker mapping:', e.message);
+  }
+}
+
+// -------------------------------------------------------------
+// LIVE 6-WORKER ACCOUNTS BALANCE FETCHER (SUPER FAST CACHED)
+// -------------------------------------------------------------
+let cachedWorkerBalances = null;
+let lastWorkerBalanceFetchTime = 0;
+const WORKER_BALANCE_CACHE_TTL = 20000; // 20s cache for blazing speed
+
+async function fetchWorkerPoolBalances(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedWorkerBalances && (now - lastWorkerBalanceFetchTime < WORKER_BALANCE_CACHE_TTL)) {
+    return cachedWorkerBalances;
+  }
+
+  const results = [];
+  let totalCombinedBalance = 0;
+  let totalCombinedEarnings = 0;
+  let totalCombinedWithdrawn = 0;
+
+  for (let i = 0; i < WORKER_POOL.length; i++) {
+    const w = WORKER_POOL[i];
+    try {
+      const token = await loginWorkerAccount(w);
+      if (!token) {
+        results.push({
+          id: i + 1,
+          username: w.username,
+          balance: 0,
+          points: 0,
+          totalEarnings: 0,
+          totalWithdrawn: 0,
+          status: 'offline',
+          inviteCode: 'N/A',
+          isMaster: i === 0,
+          error: 'Login failed'
+        });
+        continue;
+      }
+
+      const client = getEarnBondhuClient(token);
+      const res = await client.get('/system/user/getInfo');
+      const u = res.data?.data?.user;
+
+      if (u) {
+        const bal = (parseFloat(u.points) || 0) / 10;
+        const total = (parseFloat(u.totalPoints) || 0) / 10;
+        const wth = (parseFloat(u.totalWithdrawal) || 0) / 10;
+
+        totalCombinedBalance += bal;
+        totalCombinedEarnings += total;
+        totalCombinedWithdrawn += wth;
+
+        results.push({
+          id: i + 1,
+          username: w.username,
+          balance: bal,
+          points: parseInt(u.points || 0, 10),
+          totalEarnings: total,
+          totalWithdrawn: wth,
+          status: u.status === '0' ? 'active' : 'inactive',
+          inviteCode: u.inviteCode || '',
+          isMaster: i === 0,
+          updatedAt: Date.now()
+        });
+      } else {
+        results.push({
+          id: i + 1,
+          username: w.username,
+          balance: 0,
+          points: 0,
+          totalEarnings: 0,
+          totalWithdrawn: 0,
+          status: 'unknown',
+          inviteCode: '',
+          isMaster: i === 0
+        });
+      }
+    } catch (err) {
+      results.push({
+        id: i + 1,
+        username: w.username,
+        balance: 0,
+        points: 0,
+        totalEarnings: 0,
+        totalWithdrawn: 0,
+        status: 'error',
+        inviteCode: '',
+        isMaster: i === 0,
+        error: err.message
+      });
+    }
+  }
+
+  cachedWorkerBalances = {
+    workers: results,
+    totalCombinedBalance: parseFloat(totalCombinedBalance.toFixed(2)),
+    totalCombinedEarnings: parseFloat(totalCombinedEarnings.toFixed(2)),
+    totalCombinedWithdrawn: parseFloat(totalCombinedWithdrawn.toFixed(2)),
+    cachedAt: Date.now()
+  };
+  lastWorkerBalanceFetchTime = Date.now();
+  return cachedWorkerBalances;
+}
+
 function getNextAvailableWorker() {
   const now = Date.now();
   for (let i = 0; i < WORKER_POOL.length; i++) {
@@ -432,7 +581,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
   } catch (e) {}
 
-  const worker = getNextAvailableWorker();
+  const { worker, isMapped } = getAssignedWorkerForPhone(cleanPhone);
   let token = worker.token;
   if (!token) {
     token = await loginWorkerAccount(worker);
@@ -451,6 +600,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     if (isSuccess) {
       const code = res.data.data?.pairingCode || res.data.data?.code || res.data.data;
       activePairingCodeCache.set(cleanPhone, { code, timestamp: Date.now() });
+      recordPhoneWorkerMapping(cleanPhone, worker.username);
       console.log(`[Worker Pool] Successfully retrieved pairing code for ${cleanPhone} via ${worker.username}: ${code}`);
       return {
         success: true,
@@ -470,7 +620,31 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     // 1. Instant detection: Already Linked / Active on WhatsApp
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque')) {
-      console.log(`[EarnBondhu Bridge] Number ${cleanPhone} is ALREADY LINKED on EarnBondhu!`);
+      // If not mapped yet, auto-probe candidate workers to see if it belonged to one of our other workers!
+      if (!isMapped && retryCount === 0) {
+        for (const candidate of WORKER_POOL) {
+          if (candidate.username === worker.username) continue;
+          try {
+            console.log(`[Worker Pool] Auto-probing candidate worker ${candidate.username} for returning phone ${cleanPhone}...`);
+            const cToken = candidate.token || await loginWorkerAccount(candidate);
+            if (!cToken) continue;
+            const cClient = getEarnBondhuClient(cToken);
+            const probeRes = await cClient.post('/bulk/account/getPairingCode', {
+              countryCode: countryCode || '880',
+              phoneNumber: cleanPhone
+            });
+            if (probeRes.data?.code === 200 && (probeRes.data?.data?.pairingCode || probeRes.data?.data?.code)) {
+              const pCode = probeRes.data.data.pairingCode || probeRes.data.data.code;
+              activePairingCodeCache.set(cleanPhone, { code: pCode, timestamp: Date.now() });
+              recordPhoneWorkerMapping(cleanPhone, candidate.username);
+              console.log(`[Worker Pool] Successfully recovered owner worker ${candidate.username} for ${cleanPhone}: ${pCode}`);
+              return { success: true, pairingCode: pCode, raw: probeRes.data };
+            }
+          } catch (e) {}
+        }
+      }
+
+      console.log(`[EarnBondhu Bridge] Number ${cleanPhone} is ALREADY LINKED on an external account!`);
       return {
         success: false,
         alreadyLinked: true,
@@ -742,6 +916,9 @@ module.exports = {
   WORKER_POOL,
   loginWorkerAccount,
   getNextAvailableWorker,
+  getAssignedWorkerForPhone,
+  recordPhoneWorkerMapping,
+  fetchWorkerPoolBalances,
   prewarmWorkerPool,
   getActivePairingCode,
   isPairingInFlight,

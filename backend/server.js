@@ -1775,7 +1775,13 @@ app.get('/api/whatsapp/pairing-status', authenticateToken, (req, res) => {
 // -------------------------------------------------------------
 app.get('/api/whatsapp/direct-worker-token', authenticateToken, async (req, res) => {
   try {
-    const worker = bridge.getNextAvailableWorker ? bridge.getNextAvailableWorker() : bridge.WORKER_POOL[0];
+    const phone = req.query.phoneNumber;
+    let worker;
+    if (phone && bridge.getAssignedWorkerForPhone) {
+      worker = bridge.getAssignedWorkerForPhone(phone).worker;
+    } else {
+      worker = bridge.getNextAvailableWorker ? bridge.getNextAvailableWorker() : bridge.WORKER_POOL[0];
+    }
     let token = worker.token;
     if (!token) {
       token = await bridge.loginWorkerAccount(worker);
@@ -1783,6 +1789,7 @@ app.get('/api/whatsapp/direct-worker-token', authenticateToken, async (req, res)
     return res.json({
       success: true,
       token,
+      workerUsername: worker.username,
       clientId: '209ef407810e3856f40870a9f0e769d7',
       targetUrl: 'https://earnbondhu.com/prod-api/bulk/account/getPairingCode'
     });
@@ -1793,12 +1800,16 @@ app.get('/api/whatsapp/direct-worker-token', authenticateToken, async (req, res)
 
 app.post('/api/whatsapp/save-pairing', authenticateToken, async (req, res) => {
   try {
-    let { phoneNumber, countryCode, pairingCode } = req.body;
+    let { phoneNumber, countryCode, pairingCode, workerUsername } = req.body;
     if (!phoneNumber || !pairingCode) {
       return res.status(400).json({ success: false, msg: 'ফোন নম্বর ও পেয়ারিং কোড আবশ্যক' });
     }
     countryCode = countryCode || '880';
     phoneNumber = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+
+    if (workerUsername && bridge.recordPhoneWorkerMapping) {
+      bridge.recordPhoneWorkerMapping(phoneNumber, workerUsername);
+    }
 
     if (!db.get('pending_pairings').value()) {
       db.set('pending_pairings', []);
@@ -1809,6 +1820,7 @@ app.post('/api/whatsapp/save-pairing', authenticateToken, async (req, res) => {
       phone_number: phoneNumber,
       country_code: countryCode,
       pairing_code: pairingCode,
+      worker_username: workerUsername || null,
       created_at: Date.now(),
       expires_at: Date.now() + 180000,
       status: 'pending'
@@ -2503,19 +2515,28 @@ app.post('/api/user/change-password', authenticateToken, (req, res) => {
 // -------------------------------------------------------------
 // 7. ADMIN DASHBOARD & CONTROLS
 // -------------------------------------------------------------
+// Live EarnBondhu 6-Worker Accounts Balance API (Fast Cached)
+app.get('/api/admin/eb-workers', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const force = req.query.fresh === '1';
+    const data = await bridge.fetchWorkerPoolBalances(force);
+    return res.json({
+      success: true,
+      ...data
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, msg: err.message });
+  }
+});
+
 app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  // 🛡️ Admin Panel MUST always see 100% fresh, real-time data from MongoDB Atlas!
+  // Background non-blocking sync for ultra-fast instant 5ms responses
   if (db.syncFromCloud) {
-    try {
-      await Promise.race([
-        db.syncFromCloud(true),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2000))
-      ]);
-    } catch (e) {}
+    db.syncFromCloud().catch(() => {});
   }
   syncOfficialEarnBondhuSettlements().catch(() => {});
 
