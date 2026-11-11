@@ -2160,26 +2160,6 @@ app.get('/api/tournament/leaderboard', async (req, res) => {
 // -------------------------------------------------------------
 // 5.5. PUBLIC SYSTEM CONFIG
 // -------------------------------------------------------------
-app.get('/api/debug-pairing', async (req, res) => {
-  const phone = req.query.phone || '1339866555';
-  const start = Date.now();
-  const logs = [];
-  const origLog = console.log;
-  const origWarn = console.warn;
-  console.log = (...args) => { logs.push(args.join(' ')); origLog(...args); };
-  console.warn = (...args) => { logs.push(args.join(' ')); origWarn(...args); };
-  try {
-    const r = await bridge.fetchPairingCode('880', phone);
-    console.log = origLog;
-    console.warn = origWarn;
-    res.json({ success: r.success, result: r, logs, elapsed: Date.now() - start });
-  } catch(e) {
-    console.log = origLog;
-    console.warn = origWarn;
-    res.json({ error: e.message, logs, elapsed: Date.now() - start });
-  }
-});
-
 app.get('/api/config', async (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=600, stale-while-revalidate=1200');
   db.read();
