@@ -462,8 +462,10 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       if (retryCount < 12) {
         const isFreq = errorMsg.includes('frequente') || errorMsg.includes('tarde');
         if (isFreq) {
-          worker.cooldownUntil = Date.now() + 15000;
-          console.warn(`[Worker Pool] Worker ${worker.username} reached rate limit. Rotating ${cleanPhone} to next worker...`);
+          worker.cooldownUntil = Date.now() + 20000;
+          queueCooldownUntil = Date.now() + 14000;
+          console.warn(`[Worker Pool] Rate limit hit on ${worker.username}. Pausing queue 14s for clean window reset...`);
+          await new Promise(r => setTimeout(r, 14000));
         }
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
@@ -517,8 +519,10 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       if (retryCount < 12) {
         const isFreq = errMsg.includes('frequente') || errMsg.includes('tarde');
         if (isFreq) {
-          worker.cooldownUntil = Date.now() + 15000;
-          console.warn(`[Worker Pool] Worker ${worker.username} rate-limited (catch). Rotating ${cleanPhone} to next worker...`);
+          worker.cooldownUntil = Date.now() + 20000;
+          queueCooldownUntil = Date.now() + 14000;
+          console.warn(`[Worker Pool] Rate limit hit on ${worker.username} (catch). Pausing queue 14s for clean window reset...`);
+          await new Promise(r => setTimeout(r, 14000));
         }
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
