@@ -937,9 +937,8 @@
       const d = await res.json();
       if (!d || !d.success || !d.workers) return;
 
-      const totalPoints = d.workers.reduce((acc, w) => acc + (parseInt(w.points, 10) || 0), 0);
       const totalEl = document.getElementById('ebTotalCombinedBalance');
-      if (totalEl) totalEl.innerText = `সর্বমোট আর্নবন্ধু ব্যালেন্স: ${totalPoints.toLocaleString()} Pts (৳ ${(parseFloat(d.totalCombinedBalance) || 0).toFixed(2)})`;
+      if (totalEl) totalEl.innerText = `সর্বমোট আর্নবন্ধু ব্যালেন্স: ৳ ${(parseFloat(d.totalCombinedBalance) || 0).toFixed(2)}`;
 
       const container = document.getElementById('ebWorkersGrid');
       if (container) {
@@ -947,12 +946,9 @@
           <div style="background: rgba(17, 24, 39, 0.75); border: 1px solid ${w.isMaster ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.08)'}; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
             ${w.isMaster ? '<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">মাস্টার আইডি</span>' : `<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700;">Worker #${w.id}</span>`}
             <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">📱 ${w.username}</div>
-            <div style="font-size: 17px; font-weight: 900; color: #fbbf24; margin: 2px 0;">
-              ${(w.points || 0).toLocaleString()} <span style="font-size: 11px; font-weight: 600; color: #94a3b8;">Pts</span>
-              <span style="font-size: 13px; color: #34d399; font-weight: 800; margin-left: 4px;">(৳ ${(parseFloat(w.balance) || 0).toFixed(2)})</span>
-            </div>
+            <div style="font-size: 20px; font-weight: 900; color: #fbbf24; margin: 2px 0;">৳ ${(parseFloat(w.balance) || 0).toFixed(2)}</div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px;">
-              <span>উত্তোলন: ৳${(parseFloat(w.totalWithdrawn) || 0).toFixed(0)}</span>
+              <span>উত্তোলন: ৳${(parseFloat(w.totalWithdrawn) || 0).toLocaleString()}</span>
               <span style="color: ${w.status === 'active' ? '#34d399' : '#f87171'}; font-weight: 700;">${w.status === 'active' ? '🟢 সক্রিয়' : '🔴 অফলাইন'}</span>
             </div>
           </div>
