@@ -1225,7 +1225,7 @@
     renderWaTable();
   }
 
-  function renderWaTable() {
+  async function renderWaTable() {
     const waT = document.getElementById('waTable');
     if (!waT) return;
     const query = (document.getElementById('waSearchInput')?.value || '').trim().toLowerCase();
