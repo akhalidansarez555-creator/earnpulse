@@ -10,7 +10,15 @@ process.on('unhandledRejection', (reason) => {
   log('[UnhandledRejection] ' + String(reason));
 });
 
-const BOT_TOKEN = '8351110635:AAHfx4wDVEt_UpxFfb5H4FLl0hKjCEmSrmI';
+function getBotToken() {
+  if (process.env.TELEGRAM_BOT_TOKEN) return process.env.TELEGRAM_BOT_TOKEN.trim();
+  const tokenFile = path.join(__dirname, 'local_bot_token.txt');
+  if (fs.existsSync(tokenFile)) {
+    return fs.readFileSync(tokenFile, 'utf8').trim();
+  }
+  return '';
+}
+const BOT_TOKEN = getBotToken();
 const AGENT_EXE = 'C:\\Users\\Khalid Mama\\AppData\\Local\\Programs\\antigravity\\resources\\bin\\language_server.exe';
 const LOG_FILE = path.join(__dirname, 'master_bridge.log');
 const LOCK_FILE = path.join(__dirname, 'master_bridge.lock');
@@ -510,7 +518,7 @@ async function pingRenderKeepAlive() {
     await fetch('https://earnpulse-mpdd.onrender.com/api/config', { signal: AbortSignal.timeout(10000) });
   } catch (e) {}
 }
-setInterval(pingRenderKeepAlive, 150000);
+setInterval(pingRenderKeepAlive, 45000);
 pingRenderKeepAlive(); // Initial ping
 
 // Channel Auto-Post Pinger

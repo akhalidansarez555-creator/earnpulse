@@ -8,3 +8,6 @@ yarn-debug.log*
 yarn-error.log*
 *.apk
 *.mp4
+
+local_bot_token.txt
+*.token
