@@ -234,7 +234,7 @@ const inFlightPairingRequests = new Map();
 const pairingQueue = [];
 let isPairingQueueWorkerRunning = false;
 let lastEarnBondhuCallTime = 0;
-const MIN_EARNBONDHU_GAP_MS = 2500;
+const MIN_EARNBONDHU_GAP_MS = 3200;
 
 async function processPairingQueueWorker() {
   if (isPairingQueueWorkerRunning) return;
@@ -247,12 +247,13 @@ async function processPairingQueueWorker() {
       console.log(`[EarnBondhu Queue] Spacing out upstream call: waiting ${waitTime}ms...`);
       await new Promise(r => setTimeout(r, waitTime));
     }
-    lastEarnBondhuCallTime = Date.now();
     try {
       const res = await job.fn();
       job.resolve(res);
     } catch (err) {
       job.reject(err);
+    } finally {
+      lastEarnBondhuCallTime = Date.now();
     }
   }
   isPairingQueueWorkerRunning = false;
@@ -371,9 +372,9 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque') || errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      if (retryCount < 3) {
-        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}). Retrying via queue in 3.6s...`);
-        await new Promise(r => setTimeout(r, 3600));
+      if (retryCount < 8) {
+        console.warn(`[EarnBondhu Bridge] Rate limit or frequency delay for ${cleanPhone} (attempt ${retryCount + 1}/8). Retrying via queue in 4s...`);
+        await new Promise(r => setTimeout(r, 4000));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
 
@@ -425,9 +426,9 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque') || errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
-      if (retryCount < 3) {
-        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}). Retrying via queue in 3.6s...`);
-        await new Promise(r => setTimeout(r, 3600));
+      if (retryCount < 8) {
+        console.warn(`[EarnBondhu Bridge] Catch error retry for ${cleanPhone} (attempt ${retryCount + 1}/8). Retrying via queue in 4s...`);
+        await new Promise(r => setTimeout(r, 4000));
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {
