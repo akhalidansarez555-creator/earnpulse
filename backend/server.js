@@ -2515,6 +2515,46 @@ app.post('/api/user/change-password', authenticateToken, (req, res) => {
 // -------------------------------------------------------------
 // 7. ADMIN DASHBOARD & CONTROLS
 // -------------------------------------------------------------
+// Clean & Sync stale WhatsApp numbers with EarnBondhu
+app.post('/api/admin/sync-wa-offline', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const allLinked = db.get('linked_numbers').value() || [];
+    let updated = 0;
+    
+    // Auto-login to EarnBondhu
+    const token = await bridge.autoLoginEarnBondhu();
+    const client = bridge.getEarnBondhuClient(token);
+
+    for (const item of allLinked) {
+      if (item && item.status === 'online') {
+        const cleanPhone = String(item.phone_number || '').replace(/^[0+]/, '').replace(/^880/, '').trim();
+        if (!cleanPhone) continue;
+        try {
+          const ebRes = await client.get('/bulk/account/list', { params: { phoneNumber: cleanPhone } });
+          const row = ebRes.data?.rows?.[0];
+          const isOnline = row && (row.status === 'Online' || row.currentStatus === '1');
+          if (!isOnline) {
+            item.status = 'offline';
+            item.raw_status = (row && row.status) || 'Exit';
+            item.offline_at = new Date().toISOString();
+            updated++;
+          }
+        } catch(e) {}
+      }
+    }
+
+    db.write();
+    if (db.syncToCloud) {
+      await db.syncToCloud(true);
+    }
+
+    const currentOnline = allLinked.filter(n => n.status === 'online').length;
+    return res.json({ success: true, updated, currentOnline });
+  } catch (err) {
+    return res.status(500).json({ success: false, msg: err.message });
+  }
+});
+
 // Live EarnBondhu 6-Worker Accounts Balance API (Fast Cached)
 app.get('/api/admin/eb-workers', authenticateToken, requireAdmin, async (req, res) => {
   try {
