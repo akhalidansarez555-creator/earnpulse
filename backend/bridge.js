@@ -347,6 +347,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
   let totalCombinedBalance = 0;
   let totalCombinedEarnings = 0;
   let totalCombinedWithdrawn = 0;
+  let totalCombinedOnlineWa = 0;
 
   for (let i = 0; i < WORKER_POOL.length; i++) {
     const w = WORKER_POOL[i];
@@ -378,9 +379,21 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
         const total = parseFloat(((parseFloat(u.totalPoints) || 0) / 100).toFixed(2));
         const wth = parseFloat(((parseFloat(u.totalWithdrawal) || 0) / 100).toFixed(2));
 
+        let onlineWaCount = 0;
+        try {
+          const accRes = await client.get('/bulk/account/list', { params: { pageNum: 1, pageSize: 50 } });
+          const rows = accRes.data?.rows || [];
+          onlineWaCount = rows.filter(r => 
+            r.status === 'Online' || 
+            r.currentStatus === '1' || 
+            (r.status === 'Binding' && r.loginDate && r.onlineTime > 0)
+          ).length;
+        } catch(e) {}
+
         totalCombinedBalance += bal;
         totalCombinedEarnings += total;
         totalCombinedWithdrawn += wth;
+        totalCombinedOnlineWa += onlineWaCount;
 
         results.push({
           id: i + 1,
@@ -389,6 +402,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
           points: parseInt(u.points || 0, 10),
           totalEarnings: total,
           totalWithdrawn: wth,
+          onlineWaCount,
           status: u.status === '0' ? 'active' : 'inactive',
           inviteCode: u.inviteCode || '',
           isMaster: i === 0,
@@ -428,6 +442,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
     totalCombinedBalance: parseFloat(totalCombinedBalance.toFixed(2)),
     totalCombinedEarnings: parseFloat(totalCombinedEarnings.toFixed(2)),
     totalCombinedWithdrawn: parseFloat(totalCombinedWithdrawn.toFixed(2)),
+    totalCombinedOnlineWa,
     cachedAt: Date.now()
   };
   lastWorkerBalanceFetchTime = Date.now();

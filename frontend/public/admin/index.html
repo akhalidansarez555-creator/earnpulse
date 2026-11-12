@@ -840,6 +840,7 @@
       document.getElementById('loginModal').style.display = 'none';
       document.getElementById('adminDashboard').style.display = 'flex';
       restoreCachedStats();
+      loadWorkerBalances(true);
       loadAdminData();
     }
   }
@@ -937,8 +938,12 @@
       const d = await res.json();
       if (!d || !d.success || !d.workers) return;
 
+      const totalOnline = d.totalCombinedOnlineWa !== undefined ? d.totalCombinedOnlineWa : d.workers.reduce((acc, w) => acc + (w.onlineWaCount || 0), 0);
       const totalEl = document.getElementById('ebTotalCombinedBalance');
-      if (totalEl) totalEl.innerText = `সর্বমোট আর্নবন্ধু ব্যালেন্স: ৳ ${(parseFloat(d.totalCombinedBalance) || 0).toFixed(2)}`;
+      if (totalEl) totalEl.innerText = `সর্বমোট আর্নবন্ধু ব্যালেন্স: ৳ ${(parseFloat(d.totalCombinedBalance) || 0).toFixed(2)} (মোট অনলাইন: ${totalOnline} টি)`;
+      
+      const topWaEl = document.getElementById('totalLinked');
+      if (topWaEl) topWaEl.innerText = totalOnline;
 
       const container = document.getElementById('ebWorkersGrid');
       if (container) {
@@ -947,8 +952,8 @@
             ${w.isMaster ? '<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">মাস্টার আইডি</span>' : `<span style="position: absolute; top: 8px; right: 8px; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700;">Worker #${w.id}</span>`}
             <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">📱 ${w.username}</div>
             <div style="font-size: 20px; font-weight: 900; color: #fbbf24; margin: 2px 0;">৳ ${(parseFloat(w.balance) || 0).toFixed(2)}</div>
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px;">
-              <span>উত্তোলন: ৳${(parseFloat(w.totalWithdrawn) || 0).toLocaleString()}</span>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; align-items: center;">
+              <span style="color: #34d399; font-weight: 800; font-size: 12px;">🟢 অনলাইন: ${w.onlineWaCount || 0} টি</span>
               <span style="color: ${w.status === 'active' ? '#34d399' : '#f87171'}; font-weight: 700;">${w.status === 'active' ? '🟢 সক্রিয়' : '🔴 অফলাইন'}</span>
             </div>
           </div>
@@ -988,8 +993,8 @@
       document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
       document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
 
-      // Load 6-worker live balances
-      loadWorkerBalances(false);
+      // Load 6-worker live balances directly from EarnBondhu
+      loadWorkerBalances(true);
 
       try {
         localStorage.setItem('cached_admin_stats', JSON.stringify({
