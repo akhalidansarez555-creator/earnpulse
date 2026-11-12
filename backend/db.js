@@ -278,11 +278,7 @@ async function _performSyncFromCloud() {
             if (!cloudNumMap.has(key)) {
               cloudNumMap.set(key, n);
             } else {
-              const cn = cloudNumMap.get(key);
-              if (n.status === 'online' && cn.status !== 'online') {
-                cn.status = 'online';
-                cn.raw_status = 'Online';
-              }
+              // Cloud status is authoritative; do not overwrite cloud status with stale memory
             }
           }
         });
