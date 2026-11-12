@@ -352,7 +352,10 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
   for (let i = 0; i < WORKER_POOL.length; i++) {
     const w = WORKER_POOL[i];
     try {
-      const token = await loginWorkerAccount(w);
+      let token = await loginWorkerAccount(w);
+      if (!token) {
+        token = await loginWorkerAccount(w, true);
+      }
       if (!token) {
         results.push({
           id: i + 1,
@@ -361,6 +364,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
           points: 0,
           totalEarnings: 0,
           totalWithdrawn: 0,
+          onlineWaCount: 0,
           status: 'offline',
           inviteCode: 'N/A',
           isMaster: i === 0,
@@ -369,9 +373,22 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
         continue;
       }
 
-      const client = getEarnBondhuClient(token);
-      const res = await client.get('/system/user/getInfo');
-      const u = res.data?.data?.user;
+      let client = getEarnBondhuClient(token);
+      let res;
+      try {
+        res = await client.get('/system/user/getInfo');
+      } catch (authErr) {
+        // 🛡️ Phone login / session 401 conflict: immediately refresh token and retry!
+        w.token = null;
+        token = await loginWorkerAccount(w, true);
+        if (token) {
+          client = getEarnBondhuClient(token);
+          res = await client.get('/system/user/getInfo');
+        } else {
+          throw authErr;
+        }
+      }
+      const u = res?.data?.data?.user;
 
       if (u) {
         // EarnBondhu official conversion: 100 Points = ৳ 1.00 (e.g. 3000 points = ৳ 30.00, 1300000 = ৳ 13,000.00)
@@ -422,6 +439,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
         });
       }
     } catch (err) {
+      w.token = null; // Stale token cleared, auto-login fresh on next request
       results.push({
         id: i + 1,
         username: w.username,
