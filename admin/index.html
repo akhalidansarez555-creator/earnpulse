@@ -954,7 +954,9 @@
             <div style="font-size: 20px; font-weight: 900; color: #fbbf24; margin: 2px 0;">৳ ${(parseFloat(w.balance) || 0).toFixed(2)}</div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 6px; align-items: center;">
               <span style="color: #34d399; font-weight: 800; font-size: 12px;">🟢 অনলাইন: ${w.onlineWaCount || 0} টি</span>
-              <span style="color: ${w.status === 'active' ? '#34d399' : '#f87171'}; font-weight: 700;">${w.status === 'active' ? '🟢 সক্রিয়' : '🔴 অফলাইন'}</span>
+              ${w.status === 'cooldown' 
+                ? `<span style="color: #fbbf24; font-weight: 700; background: rgba(245, 158, 11, 0.15); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);" title="এডমিন ফোনে আর্নবন্ধুতে লগইন করায় ৫০ সেকেন্ডের বিরতি চলছে">⏳ এডমিন সেশন (${w.cooldownRemainingSec || 50}s)</span>`
+                : `<span style="color: ${w.status === 'active' ? '#34d399' : '#f87171'}; font-weight: 700;">${w.status === 'active' ? '🟢 সক্রিয়' : '🔴 অফলাইন'}</span>`}
             </div>
           </div>
         `).join('');

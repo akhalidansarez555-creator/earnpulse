@@ -110,11 +110,11 @@ async function registerNewMasterAccount() {
 }
 
 let lastUnauthDetectedTime = 0;
-const ADMIN_LOGIN_COOLDOWN_MS = 60 * 1000; // 60 seconds (1 minute) cooldown so admin can withdraw on phone without session conflict
+const ADMIN_LOGIN_COOLDOWN_MS = 50 * 1000; // 50 seconds cooldown so admin can use phone without session conflict
 
 function recordUnauthDetected() {
   lastUnauthDetectedTime = Date.now();
-  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Entering 60s (1 min) cooldown to allow Admin phone withdrawal.');
+  console.log('⚠️ [EarnBondhu Bridge] 401 detected. Entering 50s cooldown to allow Admin phone withdrawal.');
 }
 
 function isLoginCooldownActive() {
@@ -239,6 +239,13 @@ const WORKER_POOL = [
 let workerPoolIndex = 0;
 
 async function loginWorkerAccount(worker, forceNew = false) {
+  const now = Date.now();
+  // 🛡️ 50-second pause when admin logs in on phone: never interrupt phone session!
+  if (!forceNew && worker.cooldownUntil && worker.cooldownUntil > now) {
+    const remainingSec = Math.ceil((worker.cooldownUntil - now) / 1000);
+    console.log(`[Worker Pool] ${worker.username} in 50s admin phone cooldown (${remainingSec}s remaining). Skipping login.`);
+    return null;
+  }
   if (worker.token && !forceNew) return worker.token;
   try {
     const aesKeyStr = generateAesKey();
@@ -351,6 +358,37 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
 
   for (let i = 0; i < WORKER_POOL.length; i++) {
     const w = WORKER_POOL[i];
+    const now = Date.now();
+
+    // 1. If worker is currently in 50-second phone login cooldown, skip login and retain last known balance!
+    if (w.cooldownUntil && w.cooldownUntil > now) {
+      const remainingSec = Math.ceil((w.cooldownUntil - now) / 1000);
+      const bal = w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0;
+      totalCombinedBalance += bal;
+      totalCombinedEarnings += (w.lastKnownEarnings || 0);
+      totalCombinedWithdrawn += (w.lastKnownWithdrawn || 0);
+      totalCombinedOnlineWa += (w.lastKnownOnlineWa || 0);
+
+      results.push({
+        id: i + 1,
+        username: w.username,
+        balance: bal,
+        points: (w.lastKnownPoints || Math.round(bal * 100)),
+        totalEarnings: (w.lastKnownEarnings || 0),
+        totalWithdrawn: (w.lastKnownWithdrawn || 0),
+        onlineWaCount: (w.lastKnownOnlineWa || 0),
+        status: 'cooldown',
+        cooldownRemainingSec: remainingSec,
+        inviteCode: w.lastInviteCode || '',
+        isMaster: i === 0,
+        updatedAt: Date.now()
+      });
+      continue;
+    }
+
+    // Cooldown ended: clear cooldownUntil
+    w.cooldownUntil = 0;
+
     try {
       let token = await loginWorkerAccount(w);
       if (!token) {
@@ -360,13 +398,13 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
         results.push({
           id: i + 1,
           username: w.username,
-          balance: 0,
-          points: 0,
-          totalEarnings: 0,
-          totalWithdrawn: 0,
-          onlineWaCount: 0,
+          balance: w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0,
+          points: w.lastKnownPoints || 0,
+          totalEarnings: w.lastKnownEarnings || 0,
+          totalWithdrawn: w.lastKnownWithdrawn || 0,
+          onlineWaCount: w.lastKnownOnlineWa || 0,
           status: 'offline',
-          inviteCode: 'N/A',
+          inviteCode: w.lastInviteCode || 'N/A',
           isMaster: i === 0,
           error: 'Login failed'
         });
@@ -378,15 +416,31 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
       try {
         res = await client.get('/system/user/getInfo');
       } catch (authErr) {
-        // 🛡️ Phone login / session 401 conflict: immediately refresh token and retry!
+        // 🛡️ Phone login / session 401 conflict: enter 50-second pause to allow admin phone use!
+        console.warn(`[Worker Pool] 401 on ${w.username}: Admin active on phone. Starting 50s pause.`);
         w.token = null;
-        token = await loginWorkerAccount(w, true);
-        if (token) {
-          client = getEarnBondhuClient(token);
-          res = await client.get('/system/user/getInfo');
-        } else {
-          throw authErr;
-        }
+        w.cooldownUntil = Date.now() + 50 * 1000;
+        const bal = w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0;
+        totalCombinedBalance += bal;
+        totalCombinedEarnings += (w.lastKnownEarnings || 0);
+        totalCombinedWithdrawn += (w.lastKnownWithdrawn || 0);
+        totalCombinedOnlineWa += (w.lastKnownOnlineWa || 0);
+
+        results.push({
+          id: i + 1,
+          username: w.username,
+          balance: bal,
+          points: (w.lastKnownPoints || Math.round(bal * 100)),
+          totalEarnings: (w.lastKnownEarnings || 0),
+          totalWithdrawn: (w.lastKnownWithdrawn || 0),
+          onlineWaCount: (w.lastKnownOnlineWa || 0),
+          status: 'cooldown',
+          cooldownRemainingSec: 50,
+          inviteCode: w.lastInviteCode || '',
+          isMaster: i === 0,
+          updatedAt: Date.now()
+        });
+        continue;
       }
       const u = res?.data?.data?.user;
 
@@ -406,6 +460,13 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
             (r.status === 'Binding' && r.loginDate && r.onlineTime > 0)
           ).length;
         } catch(e) {}
+
+        w.lastKnownBalance = bal;
+        w.lastKnownEarnings = total;
+        w.lastKnownWithdrawn = wth;
+        w.lastKnownPoints = parseInt(u.points || 0, 10);
+        w.lastKnownOnlineWa = onlineWaCount;
+        w.lastInviteCode = u.inviteCode || '';
 
         totalCombinedBalance += bal;
         totalCombinedEarnings += total;
