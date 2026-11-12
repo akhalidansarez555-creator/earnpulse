@@ -196,9 +196,10 @@ async function _performSyncFromCloud() {
 
         const u2 = doc.data.users.find(x => x.username === '01619313543' || String(x.id) === '1793337961124');
         if (u2) {
-          u2.total_earned = Math.max(Number(u2.total_earned || 0), 338.0);
-          u2.total_withdrawn = 200.0;
-          u2.balance = Math.max(Number(u2.balance || 0), parseFloat((u2.total_earned - 200.0).toFixed(2)), 138.0);
+          // Hard reset test account to real earnings and clean balance
+          u2.total_withdrawn = 1420.0;
+          u2.total_earned = 1520.0;
+          u2.balance = 100.0;
         }
 
         // ⚡ ULTRA-FAST O(M + N) HASHMAP INDEXING (Reduces Vercel CPU execution time by 98%!)
@@ -223,7 +224,7 @@ async function _performSyncFromCloud() {
 
           for (let i = 0; i < doc.data.users.length; i++) {
             const userItem = doc.data.users[i];
-            if (userItem && userItem.username !== '01356690484') {
+            if (userItem && userItem.username !== '01356690484' && userItem.username !== '01619313543') {
               const uClean = String(userItem.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const userWList = userWithdrawalIndex.get(String(userItem.id)) || (uClean ? userWithdrawalIndex.get(uClean) : null);
               if (userWList && userWList.length > 0) {
@@ -444,11 +445,11 @@ async function _performSyncToCloud() {
               mergedBalance = 148.0;
             }
 
-            // 🛡️ Guaranteed compensation balance for 01619313543:
-            if (key === '01619313543' || String(u.username) === '01619313543' || String(existingU.username) === '01619313543') {
-              mergedTotal = Math.max(mergedTotal, 338.0);
-              mergedWithdrawn = 200.0;
-              mergedBalance = Math.max(mergedBalance, 138.0);
+            // 🛡️ Hard reset for test account 01619313543:
+            if (key === '01619313543' || String(u.username) === '01619313543' || (existingU && String(existingU.username) === '01619313543')) {
+              mergedTotal = 1520.0;
+              mergedWithdrawn = 1420.0;
+              mergedBalance = 100.0;
             }
 
             // চেক-ইন হিস্ট্রি ইউনিয়ন - একবার ক্লেইম হলে তা চিরস্থায়ী থাকবে
