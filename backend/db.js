@@ -539,7 +539,8 @@ async function _performSyncToCloud() {
           // NEVER let null from stale cloud data overwrite a valid user_id!
           const trueUid = n.user_id || (existingN && existingN.user_id) || getTrueOwnerId(n.phone_number, null);
           if (existingN) {
-            numMap.set(key, { ...existingN, ...n, user_id: trueUid });
+            // Cloud data is the persistent source of truth for status and timestamps
+            numMap.set(key, { ...n, ...existingN, user_id: trueUid });
           } else {
             numMap.set(key, { ...n, user_id: trueUid });
           }
