@@ -2179,26 +2179,32 @@ app.get('/api/tournament/leaderboard', async (req, res) => {
   const phonePool = [
     '019****3313', '013****1623', '018****0423', '018****3018',
     '017****4821', '016****8491', '019****8834', '017****7030',
-    '015****2904', '013****9555', '018****6342', '019****5762'
+    '015****2904', '013****9555', '018****6342', '019****5762',
+    '016****9124', '017****5582', '018****7231', '013****4410'
   ];
   
-  const p1 = phonePool[(daySeed + 0) % phonePool.length];
-  const p2 = phonePool[(daySeed + 3) % phonePool.length];
-  const p3 = phonePool[(daySeed + 6) % phonePool.length];
-  const p4 = phonePool[(daySeed + 9) % phonePool.length];
+  // Strictly in 50 - 500 range, smoothly descending
+  const c1 = 460 + (daySeed * 7 % 35); // 460 - 495
+  const c2 = 380 + (daySeed * 5 % 30); // 380 - 410
+  const c3 = 310 + (daySeed * 3 % 25); // 310 - 335
+  const c4 = 250 + (daySeed * 2 % 25); // 250 - 275
+  const c5 = 200 + (daySeed * 4 % 20); // 200 - 220
+  const c6 = 160 + (daySeed * 3 % 20); // 160 - 180
+  const c7 = 125 + (daySeed * 5 % 15); // 125 - 140
+  const c8 = 95  + (daySeed * 2 % 15); // 95 - 110
+  const c9 = 75  + (daySeed * 3 % 12); // 75 - 87
+  const c10 = 52 + (daySeed * 7 % 10); // 52 - 62
 
-  // 500 - 1000 range strictly descending
-  const c1 = 940 + (daySeed * 7 % 46); // 940 - 985
-  const c2 = 830 + (daySeed * 5 % 46); // 830 - 875
-  const c3 = 710 + (daySeed * 3 % 46); // 710 - 755
-  const c4 = 580 + (daySeed * 2 % 46); // 580 - 625
-
-  const leaders = [
-    { id: 't1', username: p1, waCount: c1 },
-    { id: 't2', username: p2, waCount: c2 },
-    { id: 't3', username: p3, waCount: c3 },
-    { id: 't4', username: p4, waCount: c4 }
-  ];
+  const counts = [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10];
+  const leaders = counts.map((cnt, i) => {
+    const phoneIdx = (daySeed + i * 3) % phonePool.length;
+    return {
+      id: 't' + (i + 1),
+      rank: i + 1,
+      username: phonePool[phoneIdx],
+      waCount: cnt
+    };
+  });
 
   const prizes = [
     { rank: 1, prize: '৳ ২,৫০০', badge: '🥇 ১ম স্থান', color: '#f59e0b' },
@@ -2212,7 +2218,7 @@ app.get('/api/tournament/leaderboard', async (req, res) => {
     tournament: {
       title: '১০,০০০ WhatsApp মেগা টুর্নামেন্ট',
       totalPrize: '৳ ৬,৪০০',
-      endDate: '১০ নভেম্বর ২০২৬',
+      endDate: '৩০ নভেম্বর ২০২৬',
       leaders,
       prizes
     }

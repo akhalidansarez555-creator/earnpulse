@@ -5194,7 +5194,7 @@ export default function App() {
                 ১০,০০০ WhatsApp মেগা টুর্নামেন্ট
               </h3>
               <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                মোট নগদ পুরস্কার: <strong style={{ color: '#fbbf24' }}>৳ ৬,৪০০</strong> • মেয়াদ: ১০ নভেম্বর
+                মোট নগদ পুরস্কার: <strong style={{ color: '#fbbf24' }}>৳ ৬,৪০০</strong> • মেয়াদ: {leaderboardData?.endDate || '৩০ নভেম্বর ২০২৬'}
               </div>
             </div>
 
@@ -5244,7 +5244,7 @@ export default function App() {
                   লিডারবোর্ড লোড হচ্ছে...
                 </div>
               ) : (leaderboardData?.leaders && leaderboardData.leaders.length > 0) ? (
-                leaderboardData.leaders.slice(0, 4).map((leader, idx) => (
+                leaderboardData.leaders.slice(0, 10).map((leader, idx) => (
                   <div key={idx} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 10px', borderRadius: '10px',
