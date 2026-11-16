@@ -770,8 +770,8 @@ let lastOfficialSettlementSyncTime = 0;
 
 async function syncOfficialEarnBondhuSettlements() {
   const now = Date.now();
-  // 🛡️ 10-minute throttle to completely eliminate Vercel serverless CPU waste
-  if (now - lastOfficialSettlementSyncTime < 600000) return;
+  // 🛡️ 3-minute throttle for fast settlement reward crediting
+  if (now - lastOfficialSettlementSyncTime < 180000) return;
   lastOfficialSettlementSyncTime = now;
 
   try {
@@ -1165,14 +1165,18 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 
     // Fast Real-Time Live Sync with EarnBondhu for both pairing and live tab view
     if (isWaitingPhone || forceRefresh) {
-      const [ebAccounts, wsStatusList] = await Promise.race([
+      const [ebAccounts, wsStatusList, directAcc] = await Promise.race([
         Promise.all([
           bridge.fetchAccountList(isWaitingPhone),
-          bridge.fetchWsOnlineStatusList(true)
+          bridge.fetchWsOnlineStatusList(true),
+          isWaitingPhone ? bridge.fetchAccountStatus(waitingPhone) : Promise.resolve(null)
         ]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('EB_TIMEOUT')), 2500))
-      ]).catch(() => [{ rows: [] }, []]);
+        new Promise((_, reject) => setTimeout(() => reject(new Error('EB_TIMEOUT')), 3500))
+      ]).catch(() => [{ rows: [] }, [], null]);
       rows = ebAccounts?.rows || [];
+      if (directAcc && !rows.some(r => String(r.phoneNumber || r.pn).includes(waitingPhone))) {
+        rows.unshift(directAcc);
+      }
       wsArray = Array.isArray(wsStatusList) ? wsStatusList : [];
     }
 

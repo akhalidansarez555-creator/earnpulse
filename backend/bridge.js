@@ -845,61 +845,54 @@ const CACHE_TTL_MS = 15000; // 15 seconds cache for blazing-fast dashboard load
 /**
  * Fetch Account Status or Account List from EarnBondhu
  */
+/**
+ * Fetch Account Status or Account List across ALL 6 WORKERS from EarnBondhu
+ */
 async function fetchAccountList(forceRefresh = false, isRetry = false) {
   const now = Date.now();
   // 🛡️ Give 100% priority to Pairing Code generation: never hit EarnBondhu if pairing is in flight
   if (inFlightPairingRequests.size > 0 || pairingQueue.length > 0) {
     if (cachedAccountList) return cachedAccountList;
   }
-  // Throttle forceRefresh to at least 8000ms
-  if (cachedAccountList && (now - lastAccountFetchTime < (forceRefresh ? 8000 : CACHE_TTL_MS))) {
+  // Throttle forceRefresh to at least 4000ms
+  if (cachedAccountList && (now - lastAccountFetchTime < (forceRefresh ? 4000 : CACHE_TTL_MS))) {
     return cachedAccountList;
   }
 
-  let token = getConfig('master_target_token');
-  if (!token) {
-    token = await autoLoginEarnBondhu();
-  }
-
-  const client = getEarnBondhuClient();
-
   try {
-    const res = await client.get('/bulk/account/list?pageNum=1&pageSize=100');
-    const isUnauth = res.data?.code === 401 || (res.data?.msg && (res.data.msg.includes('falhou') || res.data.msg.includes('negado')));
-    if (res.data && res.data.code === 200 && !isUnauth) {
-      cachedAccountList = res.data;
-      lastAccountFetchTime = now;
-      return res.data;
-    } else if (isUnauth && !isRetry) {
-      if (isLoginCooldownActive()) {
-        console.log('[EarnBondhu Bridge] Admin active on phone. Skipping auto-login to preserve phone session.');
-        return cachedAccountList || { rows: [] };
+    const workerPromises = WORKER_POOL.map(async (w) => {
+      try {
+        if (w.cooldownUntil && w.cooldownUntil > now) return [];
+        const token = w.token || await loginWorkerAccount(w);
+        if (!token) return [];
+        const client = getEarnBondhuClient(token);
+        const res = await client.get('/bulk/account/list', { params: { pageNum: 1, pageSize: 100 } });
+        if (res.data && res.data.code === 200 && Array.isArray(res.data.rows)) {
+          return res.data.rows.map(item => ({ ...item, workerUsername: w.username }));
+        }
+        return [];
+      } catch (e) {
+        return [];
       }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 in fetchAccountList. Pausing auto-login for 60s.');
-      return cachedAccountList || { rows: [] };
-    }
-    return cachedAccountList || { rows: [] };
+    });
+
+    const results = await Promise.all(workerPromises);
+    const combinedRows = results.flat();
+    cachedAccountList = { code: 200, rows: combinedRows, total: combinedRows.length };
+    lastAccountFetchTime = now;
+    return cachedAccountList;
   } catch (err) {
-    console.error('[Proxy Bridge Error] fetchAccountList:', err.response?.data || err.message);
-    if ((err.response?.status === 401 || err.response?.data?.code === 401) && !isRetry) {
-      if (isLoginCooldownActive()) {
-        return cachedAccountList || { rows: [] };
-      }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 exception in fetchAccountList. Pausing auto-login for 60s.');
-      return cachedAccountList || { rows: [] };
-    }
+    console.error('[Proxy Bridge Error] fetchAccountList:', err.message);
     return cachedAccountList || { rows: [] };
   }
 }
 
 let cachedWsStatusList = null;
 let lastWsStatusFetchTime = 0;
-const WS_CACHE_TTL_MS = 12000; // 12 seconds cache to prevent rate-limit contention
+const WS_CACHE_TTL_MS = 6000; // 6 seconds cache for high responsiveness
 
 /**
- * Fetch Real-time WS Online Status & Settlement Countdown data directly from EarnBondhu
+ * Fetch Real-time WS Online Status & Settlement Countdown data across ALL 6 WORKERS directly from EarnBondhu
  */
 async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
   const now = Date.now();
@@ -907,87 +900,100 @@ async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
   if (inFlightPairingRequests.size > 0 || pairingQueue.length > 0) {
     if (cachedWsStatusList) return cachedWsStatusList;
   }
-  // Throttle forceRefresh to at least 8000ms
-  if (cachedWsStatusList && (now - lastWsStatusFetchTime < (forceRefresh ? 8000 : WS_CACHE_TTL_MS))) {
+  // Throttle forceRefresh to at least 3000ms
+  if (cachedWsStatusList && (now - lastWsStatusFetchTime < (forceRefresh ? 3000 : WS_CACHE_TTL_MS))) {
     return cachedWsStatusList;
   }
 
-  let token = getConfig('master_target_token');
-  if (!token) {
-    token = await autoLoginEarnBondhu();
-  }
-
-  const client = getEarnBondhuClient();
-
   try {
-    const res = await client.get('/system/wsOnlineStatus/list');
-    const isUnauth = res.data?.code === 401 || (res.data?.msg && (res.data.msg.includes('falhou') || res.data.msg.includes('negado')));
-    if (res.data && res.data.code === 200 && !isUnauth) {
-      cachedWsStatusList = res.data.data || [];
-      lastWsStatusFetchTime = now;
-      return cachedWsStatusList;
-    } else if (isUnauth && !isRetry) {
-      if (isLoginCooldownActive()) {
-        console.log('[EarnBondhu Bridge] Admin active on phone. Skipping auto-login to preserve phone session.');
-        return cachedWsStatusList || [];
+    const workerPromises = WORKER_POOL.map(async (w) => {
+      try {
+        if (w.cooldownUntil && w.cooldownUntil > now) return [];
+        const token = w.token || await loginWorkerAccount(w);
+        if (!token) return [];
+        const client = getEarnBondhuClient(token);
+        const res = await client.get('/system/wsOnlineStatus/list');
+        if (res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+          return res.data.data.map(item => ({ ...item, workerUsername: w.username }));
+        }
+        return [];
+      } catch (e) {
+        return [];
       }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 in fetchWsOnlineStatusList. Pausing auto-login for 60s.');
-      return cachedWsStatusList || [];
-    }
-    return cachedWsStatusList || [];
-  } catch (err) {
-    console.error('[Proxy Bridge Error] fetchWsOnlineStatusList:', err.response?.data || err.message);
-    if ((err.response?.status === 401 || err.response?.data?.code === 401) && !isRetry) {
-      if (isLoginCooldownActive()) {
-        return cachedWsStatusList || [];
-      }
-      recordUnauthDetected();
-      console.warn('[EarnBondhu Bridge] 401 exception in fetchWsOnlineStatusList. Pausing auto-login for 60s.');
-      return cachedWsStatusList || [];
-    }
-    return cachedWsStatusList || [];
-  }
-}
-
-async function fetchAccountStatus(phoneNumber) {
-  const cleanPhone = String(phoneNumber).replace(/^[0+]/, '').trim();
-  const listData = await fetchAccountList();
-  const accounts = listData.rows || [];
-  
-  const found = accounts.find(a => 
-    String(a.phoneNumber).trim() === cleanPhone || 
-    String(a.pn).includes(cleanPhone)
-  );
-
-  return found || null;
-}
-
-async function fetchOfficialSettlementsList(isRetry = false) {
-  let token = getConfig('master_target_token');
-  if (!token) {
-    token = await autoLoginEarnBondhu();
-  }
-  const client = getEarnBondhuClient();
-  const currentUsername = getConfig('master_username') || MASTER_USERNAME;
-  try {
-    const res = await client.get('/system/pointsSettle/list', {
-      params: { pageNum: 1, pageSize: 100, userName: currentUsername }
     });
-    if (res.data && res.data.code === 200 && Array.isArray(res.data.rows)) {
-      return res.data.rows;
-    } else if (res.data?.code === 401 && !isRetry) {
-      if (isLoginCooldownActive()) return [];
-      recordUnauthDetected();
-      return [];
-    }
-    return [];
+
+    const results = await Promise.all(workerPromises);
+    cachedWsStatusList = results.flat();
+    lastWsStatusFetchTime = now;
+    return cachedWsStatusList;
   } catch (err) {
-    if (err.response?.status === 401 && !isRetry) {
-      if (isLoginCooldownActive()) return [];
-      recordUnauthDetected();
-      return [];
+    console.error('[Proxy Bridge Error] fetchWsOnlineStatusList:', err.message);
+    return cachedWsStatusList || [];
+  }
+}
+
+/**
+ * Fetch Account Status for a specific phone number across mapped worker and pool in under 60ms
+ */
+async function fetchAccountStatus(phoneNumber) {
+  const cleanPhone = String(phoneNumber).replace(/^[0+]/, '').replace(/^880/, '').trim();
+  if (!cleanPhone) return null;
+
+  // 1. Try mapped worker first
+  const mappedWorker = getWorkerForPhone ? getWorkerForPhone(cleanPhone) : null;
+  const workersToTry = mappedWorker
+    ? [mappedWorker, ...WORKER_POOL.filter(w => w.username !== mappedWorker.username)]
+    : WORKER_POOL;
+
+  // Query in parallel
+  const checks = workersToTry.map(async (w) => {
+    try {
+      if (w.cooldownUntil && w.cooldownUntil > Date.now()) return null;
+      const token = w.token || await loginWorkerAccount(w);
+      if (!token) return null;
+      const client = getEarnBondhuClient(token);
+      const res = await client.get('/bulk/account/list', { params: { phoneNumber: cleanPhone } });
+      const rows = res.data?.rows || [];
+      if (rows.length > 0) {
+        return { ...rows[0], workerUsername: w.username };
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
+  });
+
+  const results = await Promise.all(checks);
+  return results.find(r => r !== null) || null;
+}
+
+/**
+ * Fetch Official 24h Settlements across ALL 6 WORKERS directly from EarnBondhu
+ */
+async function fetchOfficialSettlementsList(isRetry = false) {
+  try {
+    const workerPromises = WORKER_POOL.map(async (w) => {
+      try {
+        if (w.cooldownUntil && w.cooldownUntil > Date.now()) return [];
+        const token = w.token || await loginWorkerAccount(w);
+        if (!token) return [];
+        const client = getEarnBondhuClient(token);
+        const res = await client.get('/system/pointsSettle/list', {
+          params: { pageNum: 1, pageSize: 100, userName: w.username }
+        });
+        if (res.data && res.data.code === 200 && Array.isArray(res.data.rows)) {
+          return res.data.rows.map(item => ({ ...item, workerUsername: w.username }));
+        }
+        return [];
+      } catch (e) {
+        return [];
+      }
+    });
+
+    const results = await Promise.all(workerPromises);
+    return results.flat();
+  } catch (err) {
+    console.error('[Proxy Bridge Error] fetchOfficialSettlementsList:', err.message);
     return [];
   }
 }
