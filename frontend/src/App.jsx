@@ -1221,6 +1221,7 @@ export default function App() {
         setWithdrawMsg('');
         setShowWithdrawModal(false);
         fetchWithdrawHistory();
+        fetchUserData(true);
         showAlert(
           lang === 'bn'
             ? 'আপনার উত্তোলন আবেদনটি সফলভাবে জমা নেওয়া হয়েছে! অ্যাডমিন কিছুক্ষণের মধ্যে পর্যালোচনা করে পেমেন্ট করবে।'

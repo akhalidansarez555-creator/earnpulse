@@ -174,13 +174,26 @@ async function _performSyncFromCloud() {
         doc.data.earnings_log = deduplicateEarningsLogs(doc.data.earnings_log);
       }
       if (Array.isArray(doc.data.withdrawals)) {
-        // টার্মিনাল স্ট্যাটাস সুরক্ষা
+        // টার্মিনাল স্ট্যাটাস ও মেমোরির পেন্ডিং উত্তোলন শতভাগ সুরক্ষা
         const currentW = db.getState().withdrawals || [];
         const wMap = new Map();
         doc.data.withdrawals.forEach(w => { if (w && w.id) wMap.set(String(w.id), w); });
         currentW.forEach(w => {
-          if (w && w.id && (w.status === 'approved' || w.status === 'rejected')) {
-            wMap.set(String(w.id), w);
+          if (w && w.id) {
+            const key = String(w.id);
+            const existingW = wMap.get(key);
+            if (existingW) {
+              const isCloudTerminal = existingW.status === 'approved' || existingW.status === 'rejected';
+              const isCurrentTerminal = w.status === 'approved' || w.status === 'rejected';
+              if (isCloudTerminal && !isCurrentTerminal) {
+                wMap.set(key, existingW);
+              } else {
+                wMap.set(key, { ...existingW, ...w });
+              }
+            } else {
+              // 🛡️ CRITICAL FIX: মেমোরিতে থাকা যেকোনো নতুন উত্তোলন (এমনকি pending হলেও) কখনোই ড্রপ হবে না!
+              wMap.set(key, w);
+            }
           }
         });
         doc.data.withdrawals = Array.from(wMap.values())
@@ -239,7 +252,7 @@ async function _performSyncFromCloud() {
                 const trueEarned = Math.max(Number(userItem.total_earned || 0), Number(userItem.balance || 0) + lockedTotal);
                 userItem.total_earned = trueEarned;
                 userItem.balance = parseFloat(Math.max(0, trueEarned - lockedTotal).toFixed(2));
-                userItem.total_withdrawn = parseFloat(appAmt.toFixed(2));
+                userItem.total_withdrawn = parseFloat((appAmt + pendAmt).toFixed(2));
               }
             }
           }

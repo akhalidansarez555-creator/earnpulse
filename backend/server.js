@@ -2333,7 +2333,7 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     created_at: nowIso
   };
 
-  // ⚡ ইনস্ট্যান্ট মেমোরি ও লোডিবি রাইট (< ২ মিলি-সেকেন্ড)
+  // ⚡ ১. ইনস্ট্যান্ট মেমোরি ও লোডিবি রাইট (< ২ মিলি-সেকেন্ড)
   db.get('withdrawals').unshift(newWithdraw);
   db.get('earnings_log').unshift(newLog);
   db.get('users')
@@ -2341,11 +2341,41 @@ app.post('/api/withdraw', authenticateToken, async (req, res) => {
     .assign({ balance: updatedBalance, total_withdrawn: updatedTotalWithdrawn });
   db.write();
 
-  // 🛡️ ব্যাকগ্রাউন্ডে ক্লাউড মোঙ্গোডিবি অ্যাটলাসে ইনস্ট্যান্ট ও পার্মানেন্ট সিঙ্ক (নন-ব্লকিং)
+  // 🛡️ ২. মোঙ্গোডিবি অ্যাটলাসে সরাসরি ইনস্ট্যান্ট অ্যাটমিক রাইট (১০০% পার্মানেন্ট ও নিশ্চিত সেভ)
+  try {
+    const mdb = await db.getMongoDb();
+    if (mdb) {
+      await mdb.collection('app_state').updateOne(
+        { _id: 'earnpulse_store' },
+        {
+          $push: {
+            'data.withdrawals': { $each: [newWithdraw], $position: 0 },
+            'data.earnings_log': { $each: [newLog], $position: 0 }
+          },
+          $set: {
+            'data.users.$[elem].balance': updatedBalance,
+            'data.users.$[elem].total_withdrawn': updatedTotalWithdrawn,
+            updated_at: new Date()
+          }
+        },
+        {
+          arrayFilters: [
+            { $or: [{ 'elem.id': user.id }, { 'elem.id': numUserId }, { 'elem.username': user.username }] }
+          ]
+        }
+      );
+    }
+  } catch (directAtlasErr) {
+    console.error('Direct Atlas withdraw persistence error:', directAtlasErr.message);
+  }
+
+  // 🛡️ ৩. নিশ্চিত ক্লাউড ডাটাবেজ ফুল সিঙ্ক (ক্লাউড সেভ সম্পন্ন হওয়া নিশ্চিতকরণ)
   if (db.syncToCloud) {
-    setImmediate(() => {
-      db.syncToCloud(true).catch(e => console.error('Cloud sync error on withdraw create:', e.message));
-    });
+    try {
+      await db.syncToCloud(true);
+    } catch (e) {
+      console.error('Cloud sync error on withdraw create:', e.message);
+    }
   }
 
   return res.json({
@@ -2367,22 +2397,29 @@ app.get('/api/withdraw/history', authenticateToken, async (req, res) => {
   const username = req.user.username;
 
   let allWithdrawals = [];
+  const memWithdrawals = db.get('withdrawals').value() || [];
+  const wMap = new Map();
   if (db.getMongoDb) {
     try {
       const mdb = await db.getMongoDb();
       if (mdb) {
         const doc = await mdb.collection('app_state').findOne({ _id: 'earnpulse_store' });
         if (doc && doc.data && Array.isArray(doc.data.withdrawals)) {
-          allWithdrawals = doc.data.withdrawals;
+          doc.data.withdrawals.forEach(w => { if (w && w.id) wMap.set(String(w.id), w); });
         }
       }
     } catch (e) {}
   }
-
-  if (!allWithdrawals || allWithdrawals.length === 0) {
-    db.read();
-    allWithdrawals = db.get('withdrawals').value() || [];
-  }
+  // Union with memory withdrawals so freshly created pending withdrawals NEVER miss!
+  memWithdrawals.forEach(w => {
+    if (w && w.id) {
+      const key = String(w.id);
+      if (!wMap.has(key)) {
+        wMap.set(key, w);
+      }
+    }
+  });
+  allWithdrawals = Array.from(wMap.values());
 
   const uClean = String(username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
   const history = allWithdrawals
