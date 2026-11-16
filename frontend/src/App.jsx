@@ -880,9 +880,23 @@ export default function App() {
         }
         setToken(data.token);
         setUser(data.user);
-        setActiveTab('home');
-        activeTabRef.current = 'home';
-        window.history.replaceState({ type: 'tab', tab: 'home' }, '', '#home');
+        if (isRegister) {
+          // 🚀 New Registrations: Route directly to WhatsApp tab to immediately bridge drop-off!
+          setActiveTab('whatsapp');
+          activeTabRef.current = 'whatsapp';
+          window.history.replaceState({ type: 'tab', tab: 'whatsapp' }, '', '#whatsapp');
+          showAlert(
+            lang === 'bn' 
+              ? '🎉 একাউন্ট তৈরি সফল হয়েছে! আপনার প্রথম WhatsApp কানেক্ট করলেই প্রতিদিন ৳৩২ আয় শুরু হবে।'
+              : '🎉 Registration successful! Connect your WhatsApp to start earning ৳32 daily.',
+            lang === 'bn' ? 'স্বাগতম' : 'Welcome',
+            'success'
+          );
+        } else {
+          setActiveTab('home');
+          activeTabRef.current = 'home';
+          window.history.replaceState({ type: 'tab', tab: 'home' }, '', '#home');
+        }
       } else {
         if (isRegister && data?.code === 'USER_ALREADY_EXISTS') {
           setAuthError(data.msg);
@@ -916,15 +930,14 @@ export default function App() {
     window.history.replaceState(null, '', window.location.pathname);
   };
 
-  // Rebind WhatsApp Account Handler
+  // Rebind WhatsApp Account Handler (Auto-Generates Code Seamlessly)
   const handleRebind = (phoneNumber) => {
-    let clean = String(phoneNumber).replace(/^\+?880/, '').replace(/^0/, '').trim();
+    let clean = String(phoneNumber).replace(/[^0-9]/g, '').replace(/^880/, '').replace(/^0+/, '').trim();
     setInputPhone(clean);
     navigateToTab('whatsapp');
     setActivePairingCode('');
     setIsWaitingConnection(false);
     setConnectionSuccess(false);
-    fetchUserData(true);
 
     setTimeout(() => {
       const el = document.getElementById('whatsapp-phone-input');
@@ -932,14 +945,16 @@ export default function App() {
         el.focus();
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 150);
+      handleGetPairingCode(clean);
+    }, 250);
   };
 
   // Get 8-Digit Pairing Code (Rock-Solid, Ultra-Smooth & Instant Blink Display)
-  const handleGetPairingCode = async () => {
-    if (!inputPhone || pairingLoading) return;
+  const handleGetPairingCode = async (overridePhone = null) => {
+    const rawTarget = overridePhone || inputPhone;
+    if (!rawTarget || pairingLoading) return;
 
-    const cleanPhone = String(inputPhone).replace(/[^0-9]/g, '').replace(/^880/, '').replace(/^0+/, '').trim();
+    const cleanPhone = String(rawTarget).replace(/[^0-9]/g, '').replace(/^880/, '').replace(/^0+/, '').trim();
     if (!cleanPhone || cleanPhone.length < 9) {
       showAlert(
         lang === 'bn' ? 'সঠিক ১০ ডিজিটের মোবাইল নম্বর দিন' : 'Please enter a valid 10-digit mobile number',
@@ -1763,6 +1778,43 @@ export default function App() {
         {/* ------------------------------------------------------------- */}
         {activeTab === 'home' && (
           <>
+            {/* Urgent Offline Rebind Reminder Banner */}
+            {(() => {
+              const offlineNumbers = (linkedNumbers || []).filter(n => String(n?.status || '').toLowerCase() === 'offline');
+              if (offlineNumbers.length === 0) return null;
+              return (
+                <div 
+                  onClick={() => navigateToTab('whatsapp')}
+                  style={{
+                    marginBottom: '12px', padding: '12px 14px', borderRadius: '14px',
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(185, 28, 28, 0.18) 100%)',
+                    border: '1.5px solid rgba(239, 68, 68, 0.45)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    cursor: 'pointer', boxShadow: '0 4px 14px rgba(239, 68, 68, 0.15)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '20px' }}>⚠️</span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '800', color: '#f87171' }}>
+                        {lang === 'bn' ? `আপনার ${offlineNumbers.length}টি WhatsApp অফলাইন রয়েছে!` : `You have ${offlineNumbers.length} offline WhatsApp!`}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px', fontWeight: '500' }}>
+                        {lang === 'bn' ? 'আটকে থাকা সময় আবার চালু করতে এখনই রিবাইন্ড করুন।' : 'Rebind now to resume your frozen countdown!'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    background: '#dc2626', color: '#fff', fontSize: '11px', fontWeight: '800',
+                    padding: '6px 12px', borderRadius: '8px', flexShrink: 0,
+                    boxShadow: '0 2px 6px rgba(220, 38, 38, 0.4)'
+                  }}>
+                    {lang === 'bn' ? 'রিবাইন্ড 👉' : 'Rebind 👉'}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Compact Dashboard Balance Strip */}
             <div className="green-banner-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
@@ -2946,21 +2998,25 @@ export default function App() {
                             <button
                               onClick={() => handleRebind(n.phone_number)}
                               style={{
-                                background: '#077a3a',
-                                color: '#fef08a',
-                                border: 'none',
-                                padding: '2px 10px',
-                                borderRadius: '4px',
+                                background: 'linear-gradient(135deg, #15803d 0%, #16a34a 100%)',
+                                color: '#ffffff',
+                                border: '1px solid #86efac',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
                                 fontSize: '11px',
-                                fontWeight: '700',
+                                fontWeight: '800',
                                 cursor: 'pointer',
                                 letterSpacing: '0.2px',
-                                boxShadow: 'none',
+                                boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
                                 transition: 'all 0.15s ease',
-                                lineHeight: '1.4'
+                                lineHeight: '1.4',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}
                             >
-                              Rebind
+                              <span>🔄</span>
+                              <span>{lang === 'bn' ? 'রিবাইন্ড করুন' : 'Rebind'}</span>
                             </button>
                           )}
                         </div>
