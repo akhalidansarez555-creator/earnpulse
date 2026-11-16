@@ -350,26 +350,15 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
     return cachedWorkerBalances;
   }
 
-  const results = [];
-  let totalCombinedBalance = 0;
-  let totalCombinedEarnings = 0;
-  let totalCombinedWithdrawn = 0;
-  let totalCombinedOnlineWa = 0;
+  // ⚡ Concurrently query all 6 workers in parallel using Promise.all for sub-second responses
+  const workerTasks = WORKER_POOL.map(async (w, i) => {
+    const curNow = Date.now();
 
-  for (let i = 0; i < WORKER_POOL.length; i++) {
-    const w = WORKER_POOL[i];
-    const now = Date.now();
-
-    // 1. If worker is currently in 50-second phone login cooldown, skip login and retain last known balance!
-    if (w.cooldownUntil && w.cooldownUntil > now) {
-      const remainingSec = Math.ceil((w.cooldownUntil - now) / 1000);
+    // 1. If worker is in 50-second phone login cooldown, retain last known balance
+    if (w.cooldownUntil && w.cooldownUntil > curNow) {
+      const remainingSec = Math.ceil((w.cooldownUntil - curNow) / 1000);
       const bal = w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0;
-      totalCombinedBalance += bal;
-      totalCombinedEarnings += (w.lastKnownEarnings || 0);
-      totalCombinedWithdrawn += (w.lastKnownWithdrawn || 0);
-      totalCombinedOnlineWa += (w.lastKnownOnlineWa || 0);
-
-      results.push({
+      return {
         id: i + 1,
         username: w.username,
         balance: bal,
@@ -382,20 +371,19 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
         inviteCode: w.lastInviteCode || '',
         isMaster: i === 0,
         updatedAt: Date.now()
-      });
-      continue;
+      };
     }
 
-    // Cooldown ended: clear cooldownUntil
     w.cooldownUntil = 0;
 
     try {
-      let token = await loginWorkerAccount(w);
+      // If forceRefresh, force a fresh token from EarnBondhu
+      let token = await loginWorkerAccount(w, forceRefresh);
       if (!token) {
         token = await loginWorkerAccount(w, true);
       }
       if (!token) {
-        results.push({
+        return {
           id: i + 1,
           username: w.username,
           balance: w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0,
@@ -403,12 +391,11 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
           totalEarnings: w.lastKnownEarnings || 0,
           totalWithdrawn: w.lastKnownWithdrawn || 0,
           onlineWaCount: w.lastKnownOnlineWa || 0,
-          status: 'offline',
+          status: w.lastKnownBalance !== undefined ? 'active' : 'offline',
           inviteCode: w.lastInviteCode || 'N/A',
           isMaster: i === 0,
           error: 'Login failed'
-        });
-        continue;
+        };
       }
 
       let client = getEarnBondhuClient(token);
@@ -416,36 +403,29 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
       try {
         res = await client.get('/system/user/getInfo');
       } catch (authErr) {
-        // 🛡️ Phone login / session 401 conflict: enter 50-second pause to allow admin phone use!
-        console.warn(`[Worker Pool] 401 on ${w.username}: Admin active on phone. Starting 50s pause.`);
+        console.warn(`[Worker Pool] 401 on ${w.username}: Refreshing token...`);
         w.token = null;
-        w.cooldownUntil = Date.now() + 50 * 1000;
-        const bal = w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0;
-        totalCombinedBalance += bal;
-        totalCombinedEarnings += (w.lastKnownEarnings || 0);
-        totalCombinedWithdrawn += (w.lastKnownWithdrawn || 0);
-        totalCombinedOnlineWa += (w.lastKnownOnlineWa || 0);
-
-        results.push({
-          id: i + 1,
-          username: w.username,
-          balance: bal,
-          points: (w.lastKnownPoints || Math.round(bal * 100)),
-          totalEarnings: (w.lastKnownEarnings || 0),
-          totalWithdrawn: (w.lastKnownWithdrawn || 0),
-          onlineWaCount: (w.lastKnownOnlineWa || 0),
-          status: 'cooldown',
-          cooldownRemainingSec: 50,
-          inviteCode: w.lastInviteCode || '',
-          isMaster: i === 0,
-          updatedAt: Date.now()
-        });
-        continue;
+        token = await loginWorkerAccount(w, true);
+        if (token) {
+          client = getEarnBondhuClient(token);
+          try { res = await client.get('/system/user/getInfo'); } catch(e) {}
+        }
       }
+
+      // Check for RuoYi HTTP 200 with code 401 (token expired)
+      if (res?.data?.code === 401 || res?.data?.code === 403 || !res?.data?.data?.user) {
+        console.log(`[Worker Pool] Stale token detected on ${w.username}. Re-authenticating...`);
+        w.token = null;
+        token = await loginWorkerAccount(w, true);
+        if (token) {
+          client = getEarnBondhuClient(token);
+          try { res = await client.get('/system/user/getInfo'); } catch(e) {}
+        }
+      }
+
       const u = res?.data?.data?.user;
 
       if (u) {
-        // EarnBondhu official conversion: 100 Points = ৳ 1.00 (e.g. 3000 points = ৳ 30.00, 1300000 = ৳ 13,000.00)
         const bal = parseFloat(((parseFloat(u.points) || 0) / 100).toFixed(2));
         const total = parseFloat(((parseFloat(u.totalPoints) || 0) / 100).toFixed(2));
         const wth = parseFloat(((parseFloat(u.totalWithdrawal) || 0) / 100).toFixed(2));
@@ -468,12 +448,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
         w.lastKnownOnlineWa = onlineWaCount;
         w.lastInviteCode = u.inviteCode || '';
 
-        totalCombinedBalance += bal;
-        totalCombinedEarnings += total;
-        totalCombinedWithdrawn += wth;
-        totalCombinedOnlineWa += onlineWaCount;
-
-        results.push({
+        return {
           id: i + 1,
           username: w.username,
           balance: bal,
@@ -481,39 +456,57 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
           totalEarnings: total,
           totalWithdrawn: wth,
           onlineWaCount,
-          status: u.status === '0' ? 'active' : 'inactive',
+          status: 'active',
           inviteCode: u.inviteCode || '',
           isMaster: i === 0,
           updatedAt: Date.now()
-        });
+        };
       } else {
-        results.push({
+        const bal = w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0;
+        return {
           id: i + 1,
           username: w.username,
-          balance: 0,
-          points: 0,
-          totalEarnings: 0,
-          totalWithdrawn: 0,
-          status: 'unknown',
-          inviteCode: '',
+          balance: bal,
+          points: w.lastKnownPoints || 0,
+          totalEarnings: w.lastKnownEarnings || 0,
+          totalWithdrawn: w.lastKnownWithdrawn || 0,
+          onlineWaCount: w.lastKnownOnlineWa || 0,
+          status: bal > 0 || token ? 'active' : 'offline',
+          inviteCode: w.lastInviteCode || '',
           isMaster: i === 0
-        });
+        };
       }
     } catch (err) {
-      w.token = null; // Stale token cleared, auto-login fresh on next request
-      results.push({
+      w.token = null;
+      const bal = w.lastKnownBalance !== undefined ? w.lastKnownBalance : 0;
+      return {
         id: i + 1,
         username: w.username,
-        balance: 0,
-        points: 0,
-        totalEarnings: 0,
-        totalWithdrawn: 0,
-        status: 'error',
-        inviteCode: '',
+        balance: bal,
+        points: w.lastKnownPoints || 0,
+        totalEarnings: w.lastKnownEarnings || 0,
+        totalWithdrawn: w.lastKnownWithdrawn || 0,
+        onlineWaCount: w.lastKnownOnlineWa || 0,
+        status: bal > 0 ? 'active' : 'offline',
+        inviteCode: w.lastInviteCode || '',
         isMaster: i === 0,
         error: err.message
-      });
+      };
     }
+  });
+
+  const results = await Promise.all(workerTasks);
+
+  let totalCombinedBalance = 0;
+  let totalCombinedEarnings = 0;
+  let totalCombinedWithdrawn = 0;
+  let totalCombinedOnlineWa = 0;
+
+  for (const r of results) {
+    totalCombinedBalance += (r.balance || 0);
+    totalCombinedEarnings += (r.totalEarnings || 0);
+    totalCombinedWithdrawn += (r.totalWithdrawn || 0);
+    totalCombinedOnlineWa += (r.onlineWaCount || 0);
   }
 
   cachedWorkerBalances = {
@@ -525,6 +518,7 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
     cachedAt: Date.now()
   };
   lastWorkerBalanceFetchTime = Date.now();
+
   return cachedWorkerBalances;
 }
 
