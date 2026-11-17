@@ -306,6 +306,17 @@ function getAssignedWorkerForPhone(phoneNumber) {
         return { worker: assigned, isMapped: true };
       }
     }
+    const linked = (db.get('linked_numbers').value() || []).find(n => {
+      const nClean = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+      return nClean === cleanPhone;
+    });
+    if (linked && linked.worker_username) {
+      const assigned = WORKER_POOL.find(w => w.username === linked.worker_username);
+      if (assigned) {
+        console.log(`[Worker Pool] Recognized returning phone ${cleanPhone} from linked_numbers -> assigned to ${assigned.username}`);
+        return { worker: assigned, isMapped: true };
+      }
+    }
   } catch (e) {}
   return { worker: getNextAvailableWorker(), isMapped: false };
 }
@@ -709,28 +720,37 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
     // 1. Instant detection: Already Linked / Active on WhatsApp
     if (errorMsg.includes('vinculado') || errorMsg.includes('troque')) {
-      // If not mapped yet, auto-probe candidate workers to see if it belonged to one of our other workers!
+      // If not mapped yet, fast parallel probe candidate workers to see if it belonged to one of our other workers!
       if (!isMapped && retryCount === 0) {
-        for (const candidate of WORKER_POOL) {
-          if (candidate.username === worker.username) continue;
-          try {
-            console.log(`[Worker Pool] Auto-probing candidate worker ${candidate.username} for returning phone ${cleanPhone}...`);
-            const cToken = candidate.token || await loginWorkerAccount(candidate);
-            if (!cToken) continue;
-            const cClient = getEarnBondhuClient(cToken);
-            const probeRes = await cClient.post('/bulk/account/getPairingCode', {
-              countryCode: countryCode || '880',
-              phoneNumber: cleanPhone
-            });
-            if (probeRes.data?.code === 200 && (probeRes.data?.data?.pairingCode || probeRes.data?.data?.code)) {
-              const pCode = probeRes.data.data.pairingCode || probeRes.data.data.code;
-              activePairingCodeCache.set(cleanPhone, { code: pCode, timestamp: Date.now() });
-              recordPhoneWorkerMapping(cleanPhone, candidate.username);
-              console.log(`[Worker Pool] Successfully recovered owner worker ${candidate.username} for ${cleanPhone}: ${pCode}`);
-              return { success: true, pairingCode: pCode, raw: probeRes.data };
-            }
-          } catch (e) {}
-        }
+        const candidates = WORKER_POOL.filter(c => c.username !== worker.username && (!c.cooldownUntil || c.cooldownUntil <= Date.now()));
+        try {
+          console.log(`[Worker Pool] Fast parallel probing ${candidates.length} candidates for returning phone ${cleanPhone}...`);
+          const probePromises = candidates.map(async (candidate) => {
+            try {
+              const cToken = candidate.token || await loginWorkerAccount(candidate);
+              if (!cToken) return null;
+              const cClient = getEarnBondhuClient(cToken);
+              const probeRes = await cClient.post('/bulk/account/getPairingCode', {
+                countryCode: countryCode || '880',
+                phoneNumber: cleanPhone
+              });
+              if (probeRes.data?.code === 200 && (probeRes.data?.data?.pairingCode || probeRes.data?.data?.code)) {
+                return { candidate, data: probeRes.data };
+              }
+            } catch (e) {}
+            return null;
+          });
+
+          const results = await Promise.all(probePromises);
+          const match = results.find(r => r && r.data);
+          if (match) {
+            const pCode = match.data.data.pairingCode || match.data.data.code;
+            activePairingCodeCache.set(cleanPhone, { code: pCode, timestamp: Date.now() });
+            recordPhoneWorkerMapping(cleanPhone, match.candidate.username);
+            console.log(`[Worker Pool] Successfully recovered owner worker ${match.candidate.username} for ${cleanPhone} in parallel: ${pCode}`);
+            return { success: true, pairingCode: pCode, raw: match.data };
+          }
+        } catch (e) {}
       }
 
       console.log(`[EarnBondhu Bridge] Number ${cleanPhone} is ALREADY LINKED on an external account!`);
