@@ -1390,7 +1390,11 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       }
 
       if (hasChanges && db.syncToCloud) {
-        setImmediate(() => { db.syncToCloud().catch(e => console.error('Cloud sync error in user/me:', e.message)); });
+        try {
+          await db.syncToCloud(true);
+        } catch (e) {
+          console.error('Cloud sync error in user/me:', e.message);
+        }
       }
     }
 
@@ -1926,7 +1930,7 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
     db.write();
 
     if (db.syncToCloud) {
-      setImmediate(() => { db.syncToCloud(false).catch(e => console.error('Cloud sync error on get-pairing-code:', e.message)); });
+      await db.syncToCloud(true).catch(e => console.error('Cloud sync error on get-pairing-code:', e.message));
     }
 
     return res.json({
