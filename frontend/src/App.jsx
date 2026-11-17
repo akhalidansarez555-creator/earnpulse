@@ -250,12 +250,18 @@ export default function App() {
   const [leaderboardData, setLeaderboardData] = useState(() => ({
     title: '১০,০০০ WhatsApp মেগা টুর্নামেন্ট',
     totalPrize: '৳ ৬,৪০০',
-    endDate: '১০ নভেম্বর ২০২৬',
+    endDate: '৩০ নভেম্বর ২০২৬',
     leaders: [
-      { id: 't1', username: '019****3313', waCount: 974 },
-      { id: 't2', username: '013****1623', waCount: 852 },
-      { id: 't3', username: '018****0423', waCount: 736 },
-      { id: 't4', username: '018****3018', waCount: 598 }
+      { id: 't1', rank: 1, username: '018****0423', waCount: 474 },
+      { id: 't2', rank: 2, username: '016****8491', waCount: 400 },
+      { id: 't3', rank: 3, username: '015****2904', waCount: 316 },
+      { id: 't4', rank: 4, username: '019****5762', waCount: 254 },
+      { id: 't5', rank: 5, username: '018****7231', waCount: 208 },
+      { id: 't6', rank: 6, username: '013****1623', waCount: 166 },
+      { id: 't7', rank: 7, username: '017****4821', waCount: 130 },
+      { id: 't8', rank: 8, username: '017****7030', waCount: 109 },
+      { id: 't9', rank: 9, username: '018****6342', waCount: 81 },
+      { id: 't10', rank: 10, username: '017****5582', waCount: 56 }
     ]
   }));
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
@@ -623,13 +629,13 @@ export default function App() {
     }
   };
 
-  // Fetch Tournament Leaderboard
+  // Fetch Tournament Leaderboard (Failover to direct Render backend)
   const fetchLeaderboard = async () => {
-    if (!leaderboardData || !leaderboardData.leaders || leaderboardData.leaders.length === 0) {
-      setLeaderboardLoading(true);
-    }
     try {
-      const res = await fetch(`${API_BASE}/tournament/leaderboard`);
+      let res = await fetch(`${API_BASE}/tournament/leaderboard?_t=${Date.now()}`);
+      if (!res || !res.ok) {
+        res = await fetch(`https://earnpulse-mpdd.onrender.com/api/tournament/leaderboard?_t=${Date.now()}`);
+      }
       const data = await res.json();
       if (data && data.success && data.tournament) {
         setLeaderboardData(data.tournament);
@@ -674,6 +680,7 @@ export default function App() {
 
   useEffect(() => {
     fetchSystemConfig();
+    fetchLeaderboard();
   }, []);
 
   useEffect(() => {
