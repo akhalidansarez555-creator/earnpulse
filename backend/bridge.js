@@ -443,13 +443,16 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
 
         let onlineWaCount = 0;
         try {
-          const accRes = await client.get('/bulk/account/list', { params: { pageNum: 1, pageSize: 50 } });
+          const accRes = await client.get('/bulk/account/list', { params: { status: 'Online', pageSize: 50 } });
           const rows = accRes.data?.rows || [];
           onlineWaCount = rows.filter(r => 
             r.status === 'Online' || 
             r.currentStatus === '1' || 
             (r.status === 'Binding' && r.loginDate && r.onlineTime > 0)
           ).length;
+          if (accRes.data?.total !== undefined && accRes.data.total > onlineWaCount) {
+            onlineWaCount = accRes.data.total;
+          }
         } catch(e) {}
 
         w.lastKnownBalance = bal;
