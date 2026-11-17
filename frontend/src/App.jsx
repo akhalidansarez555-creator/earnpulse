@@ -951,7 +951,8 @@ export default function App() {
 
   // Get 8-Digit Pairing Code (Rock-Solid, Ultra-Smooth & Instant Blink Display)
   const handleGetPairingCode = async (overridePhone = null) => {
-    const rawTarget = overridePhone || inputPhone;
+    // Strict string check: prevent React SyntheticEvent from masquerading as a phone number!
+    const rawTarget = (typeof overridePhone === 'string' && overridePhone.trim()) ? overridePhone.trim() : String(inputPhone || '').trim();
     if (!rawTarget || pairingLoading) return;
 
     const cleanPhone = String(rawTarget).replace(/[^0-9]/g, '').replace(/^880/, '').replace(/^0+/, '').trim();
@@ -2689,7 +2690,7 @@ export default function App() {
                 </div>
                 <button
                   id="get-pairing-code-btn"
-                  onClick={handleGetPairingCode}
+                  onClick={() => handleGetPairingCode()}
                   disabled={pairingLoading || !inputPhone}
                   className="action-btn-green"
                   style={{
