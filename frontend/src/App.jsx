@@ -2557,6 +2557,48 @@ export default function App() {
                 </div>
               </div>
 
+              {/* 🎁 স্পেশাল মেগা বোনাস অফার ব্যানার */}
+              <div 
+                onClick={() => setShowOfferModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #1e1b4b 0%, #064e3b 50%, #0f172a 100%)',
+                  border: '1.5px solid rgba(251, 191, 36, 0.65)',
+                  borderRadius: '14px',
+                  padding: '11px 13px',
+                  marginBottom: '12px',
+                  boxShadow: '0 6px 18px rgba(16, 185, 129, 0.2), inset 0 1px 1px rgba(251, 191, 36, 0.4)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                  <span style={{ fontSize: '26px', filter: 'drop-shadow(0 2px 6px rgba(245, 158, 11, 0.5))' }}>🎁</span>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '900', color: '#fbbf24', letterSpacing: '0.2px' }}>
+                      মেগা বোনাস: ১০টিতে ১,০০০৳ ক্যাশ বক্স!
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: '#f1f5f9', marginTop: '2px', lineHeight: 1.35 }}>
+                      ১টিতে <strong style={{ color: '#34d399' }}>৳৩২/দিন</strong> • ৫টিতে <strong style={{ color: '#38bdf8' }}>৳১৬০/দিন</strong> • ১০টিতে <strong style={{ color: '#fbbf24' }}>৳৩২০ + ১,০০০৳ বোনাস!</strong>
+                    </div>
+                  </div>
+                </div>
+                <div style={{
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                  color: '#0f172a',
+                  fontSize: '11px',
+                  fontWeight: '900',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 6px rgba(245, 158, 11, 0.4)'
+                }}>
+                  অফার ➔
+                </div>
+              </div>
+
               {/* Video Tutorial 3D Luxury Pill */}
               <button
                 onClick={() => setShowVideoModal(true)}
