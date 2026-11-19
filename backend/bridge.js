@@ -557,15 +557,17 @@ function getNextAvailableWorker() {
   for (let i = 0; i < WORKER_POOL.length; i++) {
     const idx = (workerPoolIndex + i) % WORKER_POOL.length;
     const worker = WORKER_POOL[idx];
-    if (worker.cooldownUntil <= now) {
+    if (!worker.cooldownUntil || worker.cooldownUntil <= now) {
       workerPoolIndex = (idx + 1) % WORKER_POOL.length;
       return worker;
     }
   }
+  // If all workers temporarily flagged, pick the earliest and clear cooldown immediately
   let earliest = WORKER_POOL[0];
   for (const w of WORKER_POOL) {
-    if (w.cooldownUntil < earliest.cooldownUntil) earliest = w;
+    if ((w.cooldownUntil || 0) < (earliest.cooldownUntil || 0)) earliest = w;
   }
+  earliest.cooldownUntil = 0;
   return earliest;
 }
 
@@ -578,9 +580,7 @@ const inFlightPairingRequests = new Map();
 async function executeWorkerPairingCall(worker, fn) {
   const now = Date.now();
   if (worker.cooldownUntil && worker.cooldownUntil > now) {
-    const err = new Error('Worker currently in cooldown');
-    err.isCooldown = true;
-    throw err;
+    worker.cooldownUntil = 0; // Never hard block, always attempt request!
   }
   const lastCall = worker.lastCallTime || 0;
   const elapsed = now - lastCall;
@@ -597,8 +597,8 @@ async function executeWorkerPairingCall(worker, fn) {
       err.message?.includes('frequente')
     );
     if (isRateLimit) {
-      worker.cooldownUntil = Date.now() + 15000;
-      console.warn(`[Worker Pool] Upstream frequency limit on ${worker.username}. 15s cooldown isolated to this worker only.`);
+      worker.cooldownUntil = Date.now() + 6000;
+      console.warn(`[Worker Pool] Upstream frequency limit on ${worker.username}. 6s cooldown isolated to this worker only.`);
     }
     throw err;
   }
@@ -807,22 +807,10 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
         msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে অন্য অ্যাকাউন্টে যুক্ত (Linked) রয়েছে! অনুগ্রহ করে নতুন কোনো নম্বর দিন।'
       };
     }
-    if (errMsg && (errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED'))) {
-      if (retryCount < 3) {
-        const isFreq = errMsg.includes('frequente') || errMsg.includes('tarde');
-        if (isFreq) {
-          worker.cooldownUntil = Date.now() + 20000;
-          const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
-          if (!anyReady) {
-            let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
-            const waitMs = Math.min(5000, Math.max(1000, earliest - Date.now()));
-            console.warn(`[Worker Pool] All workers cooling down (catch). Waiting ${waitMs}ms...`);
-            await new Promise(r => setTimeout(r, waitMs));
-          } else {
-            console.log(`[Worker Pool] Immediate rotate to next worker without pause (catch).`);
-            await new Promise(r => setTimeout(r, 300));
-          }
-        }
+    if (errMsg && (errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED') || errMsg.includes('cooldown'))) {
+      if (retryCount < 5) {
+        worker.cooldownUntil = Date.now() + 6000;
+        console.log(`[Worker Pool] Immediate rotate to next worker without pause (retry ${retryCount + 1}).`);
         return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
       }
       if (cached) {

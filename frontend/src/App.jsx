@@ -1124,9 +1124,9 @@ export default function App() {
         onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
-      // If not resolved yet and not permanently rejected, wait only a brief moment
-      if (!isResolved && (!result || result.success !== false || !result.alreadyLinked)) {
-        for (let waitCount = 0; waitCount < 10; waitCount++) {
+      // If not resolved yet, wait patiently with live status polling (up to 30s)
+      if (!isResolved && (!result || result.success !== false)) {
+        for (let waitCount = 0; waitCount < 30; waitCount++) {
           if (isResolved) break;
           await new Promise(r => setTimeout(r, 1000));
         }
@@ -1138,9 +1138,11 @@ export default function App() {
         setPairingLoading(false);
         let errorMsg = result?.msg || '';
         if (errorMsg && (errorMsg.includes('vinculado') || errorMsg.includes('já está') || errorMsg.includes('যুক্ত'))) {
-          showAlert(lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সংযুক্ত রয়েছে। অনুগ্রহ করে নতুন কোনো নম্বর ব্যবহার করুন।' : 'This WhatsApp number is already connected.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'warning');
+          showAlert(lang === 'bn' ? 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে অন্য অ্যাকাউন্টে সংযুক্ত রয়েছে। অনুগ্রহ করে নতুন কোনো নম্বর ব্যবহার করুন।' : 'This WhatsApp number is already connected.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'warning');
         } else if (errorMsg && (errorMsg.includes('incorreto') || errorMsg.includes('invalido') || errorMsg.includes('correto'))) {
           showAlert(lang === 'bn' ? 'অনুগ্রহ করে সঠিক হোয়াটসঅ্যাপ নম্বর প্রদান করুন।' : 'Please enter a valid WhatsApp number.', lang === 'bn' ? 'সতর্কতা' : 'Notice', 'error');
+        } else {
+          showAlert(errorMsg || (lang === 'bn' ? 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' : 'Connection busy. Please try again.'), lang === 'bn' ? 'বিজ্ঞপ্তি' : 'Notice', 'warning');
         }
       }
     } catch (err) {
