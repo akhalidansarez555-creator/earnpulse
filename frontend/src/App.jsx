@@ -1025,16 +1025,21 @@ export default function App() {
 
     let pollInterval = null;
     try {
-      // 🚀 Rocket-Speed status polling (1.2s) alongside POST (Immune to Vercel/proxy timeouts)
+      // 🚀 Rocket-Speed direct status polling (1.0s) alongside POST (Immune to Vercel/proxy timeouts)
       pollInterval = setInterval(async () => {
         if (isResolved) {
           if (pollInterval) clearInterval(pollInterval);
           return;
         }
         try {
-          const pollRes = await fetch(`${API_BASE}/whatsapp/pairing-status?phoneNumber=${cleanPhone}`, {
+          let pollRes = await fetch(`https://earnpulse-mpdd.onrender.com/api/whatsapp/pairing-status?phoneNumber=${cleanPhone}`, {
             headers: { Authorization: `Bearer ${token}` }
-          });
+          }).catch(() => null);
+          if (!pollRes || !pollRes.ok) {
+            pollRes = await fetch(`${API_BASE}/whatsapp/pairing-status?phoneNumber=${cleanPhone}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => null);
+          }
           if (pollRes && pollRes.ok) {
             const pollData = await pollRes.json();
             if (pollData && pollData.success && pollData.pairingCode && !isResolved) {
@@ -1043,95 +1048,62 @@ export default function App() {
             }
           }
         } catch (e) {}
-      }, 1200);
+      }, 1000);
 
-      // Phase 1: High-Speed Direct Client Request (Uses user device IP - 0 rate limits)
-      const tryDirectClientRequest = async () => {
+      // High-Speed Direct Cloud Backend Request (Direct Render + Vercel Failover)
+      const requestBackendBridge = async () => {
+        const payload = JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' });
+        const headers = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        };
+
+        // 1. Try Direct Render Backend First (No 10s edge timeout!)
         try {
-          const tRes = await fetch(`${API_BASE}/whatsapp/direct-worker-token?phoneNumber=${encodeURIComponent(cleanPhone)}`, {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(4000)
-          });
-          const tData = await tRes.json();
-          if (!tData || !tData.token) return null;
-
-          const ebRes = await fetch(tData.targetUrl || 'https://earnbondhu.com/prod-api/bulk/account/getPairingCode', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json;charset=utf-8',
-              'clientid': tData.clientId || '209ef407810e3856f40870a9f0e769d7',
-              'Authorization': `Bearer ${tData.token}`
-            },
-            body: JSON.stringify({ countryCode: '880', phoneNumber: cleanPhone }),
-            signal: AbortSignal.timeout(6000)
-          });
-          const ebData = await ebRes.json();
-          if (ebData && ebData.msg && (ebData.msg.includes('vinculado') || ebData.msg.includes('troque'))) {
-            return {
-              success: false,
-              alreadyLinked: true,
-              msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে অন্য অ্যাকাউন্টে যুক্ত (Linked) রয়েছে! অনুগ্রহ করে নতুন কোনো নম্বর ব্যবহার করুন।'
-            };
-          }
-          const pCode = ebData?.data?.pairingCode || ebData?.data?.code || (typeof ebData?.data === 'string' && ebData.data.length >= 6 ? ebData.data : null);
-          if (ebData && ebData.code === 200 && pCode) {
-            // Save to database asynchronously with worker mapping
-            fetch(`${API_BASE}/whatsapp/save-pairing`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                phoneNumber: cleanPhone,
-                countryCode: '880',
-                pairingCode: pCode,
-                workerUsername: tData.workerUsername || null
-              })
-            }).catch(() => {});
-
-            return {
-              success: true,
-              pairingCode: pCode
-            };
-          }
-          return null;
-        } catch (e) {
-          return null;
-        }
-      };
-
-      // Phase 2: Fallback to Backend Proxy Bridge
-      const requestBackendBridge = () => {
-        return new Promise((resolve) => {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 25000);
-          fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
+          const toId = setTimeout(() => controller.abort(), 20000);
+          const res = await fetch(`https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({ phoneNumber: cleanPhone, countryCode: '880' }),
+            headers,
+            body: payload,
             signal: controller.signal
-          })
-          .then(res => {
-            clearTimeout(toId);
-            if (res && res.ok) return res.json();
-            return null;
-          })
-          .then(data => {
+          });
+          clearTimeout(toId);
+          if (res && res.ok) {
+            const data = await res.json();
             if (data && data.success && data.pairingCode && !isResolved) {
               if (pollInterval) clearInterval(pollInterval);
               onCodeReceived(data.pairingCode, data.alreadyOnline);
             }
-            resolve(data);
-          })
-          .catch(() => {
-            clearTimeout(toId);
-            resolve(null);
+            return data;
+          }
+        } catch (directErr) {
+          console.warn('Direct pairing call failed, trying Vercel proxy...', directErr.message);
+        }
+
+        // 2. Failover: Vercel proxy route
+        try {
+          const controller2 = new AbortController();
+          const toId2 = setTimeout(() => controller2.abort(), 20000);
+          const res2 = await fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
+            method: 'POST',
+            headers,
+            body: payload,
+            signal: controller2.signal
           });
-        });
+          clearTimeout(toId2);
+          if (res2 && res2.ok) {
+            const data2 = await res2.json();
+            if (data2 && data2.success && data2.pairingCode && !isResolved) {
+              if (pollInterval) clearInterval(pollInterval);
+              onCodeReceived(data2.pairingCode, data2.alreadyOnline);
+            }
+            return data2;
+          }
+        } catch (proxyErr) {
+          console.error('All pairing endpoints failed:', proxyErr.message);
+        }
+        return null;
       };
 
       // 🚀 Direct High-Speed Backend Proxy Request (Zero CORS delay, sub-2s code retrieval)
