@@ -681,6 +681,10 @@ export default function App() {
   useEffect(() => {
     fetchSystemConfig();
     fetchLeaderboard();
+    // ⚡ Pre-warm Render backend immediately on page load so login/register responds in sub-seconds
+    try {
+      fetch('https://earnpulse-mpdd.onrender.com/health', { mode: 'no-cors' }).catch(() => {});
+    } catch(e) {}
   }, []);
 
   useEffect(() => {
@@ -850,11 +854,11 @@ export default function App() {
         inviteCode: authInviteCode
       };
 
-      // Try primary API_BASE with failover to direct Render endpoint
+      // Try primary API_BASE with failover to direct Render endpoint (High-Resilience Dual-Path)
       let res = null;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 9000);
+        const timeoutId = setTimeout(() => controller.abort(), 16000);
         res = await fetch(`${API_BASE}${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -864,11 +868,19 @@ export default function App() {
         clearTimeout(timeoutId);
       } catch (primaryErr) {
         console.warn('Primary auth endpoint retry on direct cloud backend...', primaryErr.message);
-        res = await fetch(`https://earnpulse-mpdd.onrender.com/api${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+        try {
+          const retryController = new AbortController();
+          const retryTimeoutId = setTimeout(() => retryController.abort(), 16000);
+          res = await fetch(`https://earnpulse-mpdd.onrender.com/api${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: retryController.signal
+          });
+          clearTimeout(retryTimeoutId);
+        } catch (retryErr) {
+          console.error('All auth endpoints failed:', retryErr.message);
+        }
       }
 
       let data = null;

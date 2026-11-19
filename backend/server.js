@@ -633,7 +633,7 @@ app.post('/api/auth/register', async (req, res) => {
   };
 
   db.get('users').push(newUser).write();
-  await db.syncToCloud();
+  db.syncToCloud().catch(err => console.error('Cloud sync error in register:', err.message));
   const token = jwt.sign({ id: newUser.id, username: normalizedPhone, role }, JWT_SECRET, { expiresIn: '30d' });
 
   return res.json({
