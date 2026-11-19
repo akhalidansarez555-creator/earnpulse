@@ -766,10 +766,14 @@ export default function App() {
               const nClean = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const inClean = cleanInput.replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const isPhoneMatch = (nClean === inClean || nClean.endsWith(inClean) || inClean.endsWith(nClean));
-              const isOnline = String(n.status).toLowerCase() === 'online' || 
-                               String(n.raw_status).toLowerCase() === 'online' || 
-                               String(n.raw_status).toLowerCase() === 'binding' ||
-                               Boolean(n.login_date && String(n.status).toLowerCase() !== 'offline');
+              const statusStr = String(n.status || '').toLowerCase();
+              const rawStatusStr = String(n.raw_status || '').toLowerCase();
+              const isOnline = (statusStr === 'online' || rawStatusStr === 'online') &&
+                               statusStr !== 'pending' &&
+                               rawStatusStr !== 'pending' &&
+                               statusStr !== 'offline' &&
+                               rawStatusStr !== 'binding' &&
+                               rawStatusStr !== 'pairerror';
               return isPhoneMatch && isOnline;
             });
 

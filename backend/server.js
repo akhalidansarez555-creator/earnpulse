@@ -1933,6 +1933,9 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
         if (!existingRec.login_date) {
           updateData.login_date = new Date().toISOString().replace('T', ' ').substring(0, 19);
         }
+      } else {
+        updateData.status = 'pending';
+        updateData.raw_status = 'Pending';
       }
       db.get('linked_numbers').find({ id: existingRec.id }).assign(updateData);
     }

@@ -342,6 +342,22 @@ function recordPhoneWorkerMapping(phoneNumber, workerUsername) {
       });
     }
     db.set('phone_worker_mappings', mappings).write();
+
+    // Also update linked_numbers so ownership is permanently mapped in MongoDB Atlas
+    try {
+      const linkedList = db.get('linked_numbers').value() || [];
+      const matchedLinked = linkedList.find(n => {
+        const nClean = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+        return nClean === cleanPhone;
+      });
+      if (matchedLinked) {
+        db.get('linked_numbers').find({ id: matchedLinked.id }).assign({ worker_username: workerUsername }).write();
+      }
+    } catch (err) {}
+
+    if (db.syncToCloud) {
+      setImmediate(() => { db.syncToCloud(false).catch(() => {}); });
+    }
     console.log(`[Worker Pool] Successfully mapped phone ${cleanPhone} to worker ${workerUsername}`);
   } catch (e) {
     console.error('[Worker Pool] Error saving phone worker mapping:', e.message);
@@ -556,62 +572,40 @@ function getNextAvailableWorker() {
 // 🛡️ Simultaneous request deduplication Map for concurrent pairing requests
 const inFlightPairingRequests = new Map();
 
-// 🚀 High-Reliability Upstream Dual-Worker Batch Queue for WhatsApp Pairing Codes
-// Serializes calls cleanly to protect EarnBondhu sliding window rate limits.
-const pairingQueue = [];
-let isPairingQueueWorkerRunning = false;
-let lastEarnBondhuCallTime = 0;
-let queueCooldownUntil = 0;
-const MIN_EARNBONDHU_GAP_MS = 1200;
-
-async function processPairingQueueWorker() {
-  if (isPairingQueueWorkerRunning) return;
-  isPairingQueueWorkerRunning = true;
-  while (pairingQueue.length > 0) {
-    const job = pairingQueue.shift();
-    
-    // Check if upstream is in rate-limit cooldown
-    const now = Date.now();
-    if (queueCooldownUntil > now) {
-      const waitCooldown = queueCooldownUntil - now;
-      console.log(`[EarnBondhu Queue] Upstream rate-limit cooldown active. Waiting ${waitCooldown}ms before next call...`);
-      await new Promise(r => setTimeout(r, waitCooldown));
-    }
-
-    const elapsed = Date.now() - lastEarnBondhuCallTime;
-    if (elapsed < MIN_EARNBONDHU_GAP_MS && lastEarnBondhuCallTime > 0) {
-      const waitTime = MIN_EARNBONDHU_GAP_MS - elapsed;
-      console.log(`[EarnBondhu Queue] Spacing out upstream call: waiting ${waitTime}ms...`);
-      await new Promise(r => setTimeout(r, waitTime));
-    }
-
-    try {
-      const res = await job.fn();
-      job.resolve(res);
-    } catch (err) {
-      // If rate limited, trigger global queue cooldown of 12 seconds so window resets cleanly
-      const isRateLimit = err.response?.status === 500 && (
-        err.response?.data?.msg?.includes('frequente') ||
-        err.response?.data?.msg?.includes('tarde') ||
-        err.message?.includes('frequente')
-      );
-      if (isRateLimit) {
-        console.warn('[EarnBondhu Queue] Detected upstream frequency limit. Enforcing 16s queue cooldown for clean window reset.');
-        queueCooldownUntil = Date.now() + 16000;
-      }
-      job.reject(err);
-    } finally {
-      lastEarnBondhuCallTime = Date.now();
-    }
+// 🚀 Ultra-Fast Non-Blocking Per-Worker Dispatch System
+// Replaces global queue bottleneck: Each of the 6 accounts runs independently in parallel.
+// If one account faces a rate limit, ONLY that account is cooled down — others continue at blazing sub-second speed!
+async function executeWorkerPairingCall(worker, fn) {
+  const now = Date.now();
+  if (worker.cooldownUntil && worker.cooldownUntil > now) {
+    const err = new Error('Worker currently in cooldown');
+    err.isCooldown = true;
+    throw err;
   }
-  isPairingQueueWorkerRunning = false;
+  const lastCall = worker.lastCallTime || 0;
+  const elapsed = now - lastCall;
+  if (elapsed < 300 && lastCall > 0) {
+    await new Promise(r => setTimeout(r, 300 - elapsed));
+  }
+  worker.lastCallTime = Date.now();
+  try {
+    return await fn();
+  } catch (err) {
+    const isRateLimit = (err.response?.status === 500 || err.status === 500) && (
+      err.response?.data?.msg?.includes('frequente') ||
+      err.response?.data?.msg?.includes('tarde') ||
+      err.message?.includes('frequente')
+    );
+    if (isRateLimit) {
+      worker.cooldownUntil = Date.now() + 15000;
+      console.warn(`[Worker Pool] Upstream frequency limit on ${worker.username}. 15s cooldown isolated to this worker only.`);
+    }
+    throw err;
+  }
 }
 
 function enqueueEarnBondhuPairingCall(fn) {
-  return new Promise((resolve, reject) => {
-    pairingQueue.push({ fn, resolve, reject });
-    processPairingQueueWorker();
-  });
+  return fn();
 }
 
 /**
@@ -691,7 +685,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
   }
 
   try {
-    const res = await enqueueEarnBondhuPairingCall(async () => {
+    const res = await executeWorkerPairingCall(worker, async () => {
       const client = getEarnBondhuClient(token);
       return await client.post('/bulk/account/getPairingCode', {
         countryCode: countryCode || '880',
