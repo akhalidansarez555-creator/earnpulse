@@ -1197,7 +1197,15 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
         );
 
         if (match || wsMatch) {
-          const isOnline = wsMatch ? (wsMatch.currentStatus === '1' || String(wsMatch.currentStatus).toLowerCase() === 'online') : (String(match?.status).toLowerCase() === 'online');
+          const isOnline = Boolean(
+            (wsMatch && (wsMatch.currentStatus === '1' || String(wsMatch.currentStatus).toLowerCase() === 'online')) ||
+            (match && (
+              String(match.status).toLowerCase() === 'online' ||
+              match.currentStatus === '1' ||
+              match.isBinded === '1' ||
+              (match.loginDate && String(match.status).toLowerCase() !== 'exit' && String(match.status).toLowerCase() !== 'pairerror')
+            ))
+          );
           const hasEverConnected = Boolean((match && match.loginDate) || record.login_date || (wsMatch && wsMatch.lastSettleTime));
           const unSettleSec = wsMatch ? Number(wsMatch.unSettleSeconds || 0) : null;
           const lastSettleTime = wsMatch ? (wsMatch.lastSettleTime || wsMatch.updateTime) : null;
@@ -1314,7 +1322,12 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       });
 
       for (const [cleanEb, ebAcc] of allEbNumbersMap.entries()) {
-        const isOnline = String(ebAcc.status || ebAcc.currentStatus).toLowerCase() === 'online' || ebAcc.currentStatus === '1';
+        const isOnline = Boolean(
+          String(ebAcc.status || ebAcc.currentStatus).toLowerCase() === 'online' || 
+          ebAcc.currentStatus === '1' ||
+          ebAcc.isBinded === '1' ||
+          (ebAcc.loginDate && String(ebAcc.status).toLowerCase() !== 'exit' && String(ebAcc.status).toLowerCase() !== 'pairerror')
+        );
         const hasEverConnected = Boolean(ebAcc.loginDate || ebAcc.lastSettleTime || ebAcc.lastOnlineTime);
 
         // ONLY process accounts that actually connected on WhatsApp!
@@ -1390,11 +1403,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       }
 
       if (hasChanges && db.syncToCloud) {
-        try {
-          await db.syncToCloud(true);
-        } catch (e) {
-          console.error('Cloud sync error in user/me:', e.message);
-        }
+        db.syncToCloud().catch(e => console.error('Cloud sync error in user/me:', e.message));
       }
     }
 
@@ -1930,7 +1939,7 @@ app.post('/api/whatsapp/get-pairing-code', authenticateToken, async (req, res) =
     db.write();
 
     if (db.syncToCloud) {
-      await db.syncToCloud(true).catch(e => console.error('Cloud sync error on get-pairing-code:', e.message));
+      db.syncToCloud().catch(e => console.error('Cloud sync error on get-pairing-code:', e.message));
     }
 
     return res.json({

@@ -761,12 +761,15 @@ export default function App() {
             setLinkedNumbers(onlineList);
             localStorage.setItem('cached_linked_numbers', JSON.stringify(onlineList));
             
-            // Check if user's input phone is ACTUALLY ONLINE
+            // Check if user's input phone is ACTUALLY ONLINE or newly linked
             const matched = onlineList.find(n => {
               const nClean = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const inClean = cleanInput.replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const isPhoneMatch = (nClean === inClean || nClean.endsWith(inClean) || inClean.endsWith(nClean));
-              const isOnline = String(n.status).toLowerCase() === 'online' || String(n.raw_status).toLowerCase() === 'online';
+              const isOnline = String(n.status).toLowerCase() === 'online' || 
+                               String(n.raw_status).toLowerCase() === 'online' || 
+                               String(n.raw_status).toLowerCase() === 'binding' ||
+                               Boolean(n.login_date && String(n.status).toLowerCase() !== 'offline');
               return isPhoneMatch && isOnline;
             });
 
@@ -1131,7 +1134,8 @@ export default function App() {
         });
       };
 
-      let result = await tryDirectClientRequest();
+      // 🚀 Direct High-Speed Backend Proxy Request (Zero CORS delay, sub-2s code retrieval)
+      let result = await requestBackendBridge();
       if (result && result.alreadyLinked) {
         if (pollInterval) clearInterval(pollInterval);
         setPairingLoading(false);
@@ -1141,19 +1145,7 @@ export default function App() {
 
       if (result && result.success && result.pairingCode && !isResolved) {
         if (pollInterval) clearInterval(pollInterval);
-        onCodeReceived(result.pairingCode, false);
-      } else if (!isResolved) {
-        result = await requestBackendBridge();
-        if (result && result.alreadyLinked) {
-          if (pollInterval) clearInterval(pollInterval);
-          setPairingLoading(false);
-          showAlert(result.msg, lang === 'bn' ? 'সতর্কতা' : 'Notice', 'warning');
-          return;
-        }
-        if (result && result.success && result.pairingCode && !isResolved) {
-          if (pollInterval) clearInterval(pollInterval);
-          onCodeReceived(result.pairingCode, result.alreadyOnline);
-        }
+        onCodeReceived(result.pairingCode, result.alreadyOnline);
       }
 
       // If not resolved yet and not permanently rejected, wait only a brief moment
