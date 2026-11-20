@@ -292,7 +292,7 @@ export default function App() {
   const [withdrawAccount, setWithdrawAccount] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState('');
-  const [minWithdrawAmount, setMinWithdrawAmount] = useState(100);
+  const [minWithdrawAmount, setMinWithdrawAmount] = useState(300);
   const [withdrawHistory, setWithdrawHistory] = useState(() => {
     try {
       const s = localStorage.getItem('cached_withdraw_history');
@@ -609,7 +609,7 @@ export default function App() {
         setUser(data.user);
         localStorage.setItem('user', JSON.stringify(data.user));
         if (data.config && data.config.min_withdraw_amount) {
-          setMinWithdrawAmount(parseFloat(data.config.min_withdraw_amount) || 100);
+          setMinWithdrawAmount(parseFloat(data.config.min_withdraw_amount) || 300);
         }
         if (data.linkedNumbers && Array.isArray(data.linkedNumbers)) {
           setLinkedNumbers(data.linkedNumbers);
@@ -654,7 +654,7 @@ export default function App() {
       const data = await res.json();
       if (data && data.success && data.config) {
         if (data.config.min_withdraw_amount) {
-          setMinWithdrawAmount(parseFloat(data.config.min_withdraw_amount) || 100);
+          setMinWithdrawAmount(parseFloat(data.config.min_withdraw_amount) || 300);
         }
         if (data.config.app_download_url) {
           setAppDownloadUrl(data.config.app_download_url);

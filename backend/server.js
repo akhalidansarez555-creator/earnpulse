@@ -2247,7 +2247,7 @@ app.get('/api/config', async (req, res) => {
     config: {
       site_name: config.site_name || 'EarnPulse',
       build_version: '2026.11.11.01',
-      min_withdraw_amount: parseFloat(config.min_withdraw_amount) || 100,
+      min_withdraw_amount: parseFloat(config.min_withdraw_amount) || 300,
       user_reward_ratio: ratio,
       reward_percentage: percentage,
       currency: config.currency || '৳',
@@ -2263,7 +2263,7 @@ app.get('/api/config', async (req, res) => {
 app.post('/api/withdraw', authenticateToken, async (req, res) => {
   const { amount, method, accountNumber } = req.body;
   const withdrawAmount = parseFloat(amount);
-  const minWithdraw = parseFloat(bridge.getConfig('min_withdraw_amount') || 100);
+  const minWithdraw = parseFloat(bridge.getConfig('min_withdraw_amount') || 300);
 
   if (isNaN(withdrawAmount) || withdrawAmount < minWithdraw) {
     return res.status(400).json({ success: false, msg: `সর্বনিম্ন উত্তোলনের পরিমাণ ৳${minWithdraw}` });

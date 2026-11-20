@@ -28,7 +28,7 @@ db.defaults({
     user_reward_ratio: 0.80,
     referral_reward_ratio: 0.70,
     site_name: 'EarnPulse',
-    min_withdraw_amount: 100,
+    min_withdraw_amount: 300,
     currency: '৳',
     notice_message: 'স্বাগতম! আপনার হোয়াটসঅ্যাপ অ্যাকাউন্ট যুক্ত করে প্রতিদিন ঘরে বসে নিশ্চিত আয় করুন।'
   },
@@ -584,7 +584,7 @@ async function _performSyncToCloud() {
           ...currentConfig,
           ...cloudConfig,
           master_target_token: currentConfig.master_target_token || cloudConfig.master_target_token,
-          min_withdraw_amount: cloudConfig.min_withdraw_amount !== undefined ? cloudConfig.min_withdraw_amount : (currentConfig.min_withdraw_amount || 100),
+          min_withdraw_amount: cloudConfig.min_withdraw_amount !== undefined ? cloudConfig.min_withdraw_amount : (currentConfig.min_withdraw_amount || 300),
           user_reward_ratio: cloudConfig.user_reward_ratio !== undefined ? cloudConfig.user_reward_ratio : (currentConfig.user_reward_ratio || 80),
           app_download_url: cloudConfig.app_download_url || currentConfig.app_download_url || '/downloads/EarnPulse.apk',
           config_updated_at: cloudTime || currentTime || 1
