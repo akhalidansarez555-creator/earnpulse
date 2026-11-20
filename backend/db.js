@@ -216,6 +216,13 @@ async function _performSyncFromCloud() {
           u2.balance = 100.0;
         }
 
+        const u3 = doc.data.users.find(x => x.username === '01913003313' || String(x.id) === '1792826089886');
+        if (u3) {
+          u3.total_earned = 846.0;
+          u3.total_withdrawn = 600.0;
+          u3.balance = 246.0;
+        }
+
         // ⚡ ULTRA-FAST O(M + N) HASHMAP INDEXING (Reduces Vercel CPU execution time by 98%!)
         if (Array.isArray(doc.data.withdrawals)) {
           const userWithdrawalIndex = new Map();
@@ -238,7 +245,7 @@ async function _performSyncFromCloud() {
 
           for (let i = 0; i < doc.data.users.length; i++) {
             const userItem = doc.data.users[i];
-            if (userItem && userItem.username !== '01356690484' && userItem.username !== '01619313543') {
+            if (userItem && userItem.username !== '01356690484' && userItem.username !== '01619313543' && userItem.username !== '01913003313') {
               const uClean = String(userItem.username || '').replace(/^\+?880/, '').replace(/^0+/, '').trim();
               const userWList = userWithdrawalIndex.get(String(userItem.id)) || (uClean ? userWithdrawalIndex.get(uClean) : null);
               if (userWList && userWList.length > 0) {
