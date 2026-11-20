@@ -1491,7 +1491,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
     // Check if 24 hours (86,400s) milestone has been achieved!
     // STRICT GUARD: Must reach full 86,400 active seconds in cycle!
     // No premature bonus, no lifetime-time false bonus!
-    const isGenuinely24h = (activeSecInCycle >= 86400);
+    const isGenuinely24h = (activeSecInCycle >= 86400 && String(n.status).toLowerCase() === 'online');
 
     if (isGenuinely24h) {
       // 🛡️ UNBREAKABLE ANTI-DUPLICATE GUARD:
@@ -1599,7 +1599,7 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
         const remainingInNextCycle = activeSecInCycle % 86400;
         const rewardUpdates = {
           last_rewarded_at: nowIso,
-          reward_cycles_count: Math.max((n.reward_cycles_count || 0) + 1, Number(n.consequent || 1)),
+          reward_cycles_count: (n.reward_cycles_count || 0) + 1,
           last_settle_time: nowIso,
           un_settle_seconds: remainingInNextCycle,
           remaining_seconds: Math.max(0, 86400 - remainingInNextCycle),

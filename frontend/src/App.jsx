@@ -1953,7 +1953,7 @@ export default function App() {
             {/* Mega Bonus 10-WhatsApp Interactive Progress Card */}
             {(() => {
               const onlineNumbers = (linkedNumbers || []).filter(n => String(n?.status || '').toLowerCase() === 'online');
-              const completed24hCount = onlineNumbers.filter(n => (Number(n?.reward_cycles_count || n?.consequent || 0) >= 1)).length;
+              const completed24hCount = onlineNumbers.filter(n => Number(n?.reward_cycles_count || 0) >= 1).length;
               const running24hCount = Math.max(0, onlineNumbers.length - completed24hCount);
               const targetCount = 10;
               const pct = Math.min(100, Math.round((completed24hCount / targetCount) * 100));
