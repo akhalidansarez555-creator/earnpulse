@@ -1484,22 +1484,9 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
       ? Number(n.un_settle_seconds)
       : 0;
 
+    // 🛡️ Strict EarnBondhu Verified Active Seconds ONLY
+    // Never use calendar elapsed time which could falsely award bonuses for disconnected phones
     let activeSecInCycle = unSettle;
-
-    const settleDateStr = n.last_settle_time || n.login_date || n.create_time;
-    if (n.status === 'online' && settleDateStr) {
-      const nowSec = Math.floor(Date.now() / 1000);
-      let sTimestamp = nowSec;
-      if (settleDateStr) {
-        sTimestamp = settleDateStr.includes('T')
-          ? Math.floor(new Date(settleDateStr).getTime() / 1000)
-          : Math.floor(new Date(settleDateStr.replace(' ', 'T') + '+06:00').getTime() / 1000);
-      }
-      const elapsed = nowSec - sTimestamp;
-      if (elapsed > 0) {
-        activeSecInCycle = activeSecInCycle + elapsed;
-      }
-    }
 
     // Check if 24 hours (86,400s) milestone has been achieved!
     // STRICT GUARD: Must reach full 86,400 active seconds in cycle!
