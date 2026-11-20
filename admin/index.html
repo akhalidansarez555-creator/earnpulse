@@ -995,8 +995,8 @@
       document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
       document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
 
-      // Load 6-worker live balances directly from EarnBondhu
-      loadWorkerBalances(true);
+      // Load 6-worker live balances directly from EarnBondhu (cached for instant zero-lag)
+      loadWorkerBalances(false);
 
       try {
         localStorage.setItem('cached_admin_stats', JSON.stringify({

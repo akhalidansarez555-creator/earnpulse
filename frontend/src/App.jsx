@@ -247,23 +247,32 @@ export default function App() {
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [copiedTelegram, setCopiedTelegram] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
-  const [leaderboardData, setLeaderboardData] = useState(() => ({
-    title: '১০,০০০ WhatsApp মেগা টুর্নামেন্ট',
-    totalPrize: '৳ ৬,৪০০',
-    endDate: '৩০ নভেম্বর ২০২৬',
-    leaders: [
-      { id: 't1', rank: 1, username: '018****0423', waCount: 474 },
-      { id: 't2', rank: 2, username: '016****8491', waCount: 400 },
-      { id: 't3', rank: 3, username: '015****2904', waCount: 316 },
-      { id: 't4', rank: 4, username: '019****5762', waCount: 254 },
-      { id: 't5', rank: 5, username: '018****7231', waCount: 208 },
-      { id: 't6', rank: 6, username: '013****1623', waCount: 166 },
-      { id: 't7', rank: 7, username: '017****4821', waCount: 130 },
-      { id: 't8', rank: 8, username: '017****7030', waCount: 109 },
-      { id: 't9', rank: 9, username: '018****6342', waCount: 81 },
-      { id: 't10', rank: 10, username: '017****5582', waCount: 56 }
-    ]
-  }));
+  const [leaderboardData, setLeaderboardData] = useState(() => {
+    try {
+      const s = localStorage.getItem('cached_leaderboard_data');
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed && Array.isArray(parsed.leaders) && parsed.leaders.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return {
+      title: '১০,০০০ WhatsApp মেগা টুর্নামেন্ট',
+      totalPrize: '৳ ৬,৪০০',
+      endDate: '৩০ নভেম্বর ২০২৬',
+      leaders: [
+        { id: 't1', rank: 1, username: '018****0423', waCount: 474 },
+        { id: 't2', rank: 2, username: '016****8491', waCount: 400 },
+        { id: 't3', rank: 3, username: '015****2904', waCount: 316 },
+        { id: 't4', rank: 4, username: '019****5762', waCount: 254 },
+        { id: 't5', rank: 5, username: '018****7231', waCount: 208 },
+        { id: 't6', rank: 6, username: '013****1623', waCount: 166 },
+        { id: 't7', rank: 7, username: '017****4821', waCount: 130 },
+        { id: 't8', rank: 8, username: '017****7030', waCount: 109 },
+        { id: 't9', rank: 9, username: '018****6342', waCount: 81 },
+        { id: 't10', rank: 10, username: '017****5582', waCount: 56 }
+      ]
+    };
+  });
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -639,6 +648,7 @@ export default function App() {
       const data = await res.json();
       if (data && data.success && data.tournament) {
         setLeaderboardData(data.tournament);
+        try { localStorage.setItem('cached_leaderboard_data', JSON.stringify(data.tournament)); } catch (e) {}
       }
     } catch (e) {
       console.warn('fetchLeaderboard error:', e);

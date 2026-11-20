@@ -373,8 +373,22 @@ const WORKER_BALANCE_CACHE_TTL = 20000; // 20s cache for blazing speed
 
 async function fetchWorkerPoolBalances(forceRefresh = false) {
   const now = Date.now();
-  if (!forceRefresh && cachedWorkerBalances && (now - lastWorkerBalanceFetchTime < WORKER_BALANCE_CACHE_TTL)) {
-    return cachedWorkerBalances;
+  if (!forceRefresh) {
+    if (cachedWorkerBalances && (now - lastWorkerBalanceFetchTime < WORKER_BALANCE_CACHE_TTL)) {
+      return cachedWorkerBalances;
+    }
+    try {
+      const persisted = db.get('system_config.worker_balances').value();
+      if (persisted && Array.isArray(persisted.workers) && persisted.workers.length > 0) {
+        cachedWorkerBalances = persisted;
+        lastWorkerBalanceFetchTime = persisted.cachedAt || now;
+        // If stale (> 45s), trigger non-blocking background refresh
+        if (now - (persisted.cachedAt || 0) > 45000) {
+          setImmediate(() => { fetchWorkerPoolBalances(true).catch(() => {}); });
+        }
+        return persisted;
+      }
+    } catch (e) {}
   }
 
   // ⚡ Concurrently query all 6 workers in parallel using Promise.all for sub-second responses
@@ -548,6 +562,11 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
     cachedAt: Date.now()
   };
   lastWorkerBalanceFetchTime = Date.now();
+
+  try {
+    const curCfg = db.get('system_config').value() || {};
+    db.set('system_config', { ...curCfg, worker_balances: cachedWorkerBalances }).write();
+  } catch (e) {}
 
   return cachedWorkerBalances;
 }

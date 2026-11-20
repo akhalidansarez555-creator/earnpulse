@@ -35,7 +35,8 @@ db.defaults({
   users: [],
   linked_numbers: [],
   earnings_log: [],
-  withdrawals: []
+  withdrawals: [],
+  phone_worker_mappings: []
 }).write();
 
 // -------------------------------------------------------------
@@ -297,6 +298,19 @@ async function _performSyncFromCloud() {
           }
         });
         doc.data.linked_numbers = Array.from(cloudNumMap.values());
+      }
+
+      // ৪. স্থায়ী ফোন নম্বর ও ওয়ার্কার ম্যাপিং ইউনিয়ন (phone_worker_mappings)
+      if (Array.isArray(currentState.phone_worker_mappings) || Array.isArray(doc.data.phone_worker_mappings)) {
+        if (!Array.isArray(doc.data.phone_worker_mappings)) doc.data.phone_worker_mappings = [];
+        const cloudMappingMap = new Map();
+        doc.data.phone_worker_mappings.forEach(m => { if (m && m.phone_number) cloudMappingMap.set(String(m.phone_number), m); });
+        (currentState.phone_worker_mappings || []).forEach(m => {
+          if (m && m.phone_number && !cloudMappingMap.has(String(m.phone_number))) {
+            cloudMappingMap.set(String(m.phone_number), m);
+          }
+        });
+        doc.data.phone_worker_mappings = Array.from(cloudMappingMap.values());
       }
 
       // ৩. অ্যাডমিন কনফিগ সংরক্ষণ (যদি মেমোরিতে নতুন অ্যাডমিন সেটিংস থাকে)
@@ -590,6 +604,22 @@ async function _performSyncToCloud() {
           config_updated_at: cloudTime || currentTime || 1
         };
       }
+      // ৬. স্থায়ী ফোন নম্বর ও ওয়ার্কার ম্যাপিং ইউনিয়ন (phone_worker_mappings)
+      const cloudMappings = existing.data.phone_worker_mappings || [];
+      const currentMappings = currentState.phone_worker_mappings || [];
+      const mappingMap = new Map();
+      cloudMappings.forEach(m => { if (m && m.phone_number) mappingMap.set(String(m.phone_number), m); });
+      currentMappings.forEach(m => {
+        if (m && m.phone_number) {
+          const key = String(m.phone_number);
+          if (!mappingMap.has(key)) {
+            mappingMap.set(key, m);
+          } else {
+            mappingMap.set(key, { ...mappingMap.get(key), ...m });
+          }
+        }
+      });
+      currentState.phone_worker_mappings = Array.from(mappingMap.values());
     }
 
     await mdb.collection('app_state').updateOne(
