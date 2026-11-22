@@ -547,8 +547,9 @@
         <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">কানেক্টেড মেম্বাররা তালিকার শীর্ষে প্রদর্শিত হচ্ছে</div>
       </div>
       <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <button id="filterConnectedBtn" onclick="setMemberFilter('connected')" class="action-btn" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">🟢 শুধু কানেক্টেড মেম্বার</button>
-        <button id="filterAllBtn" onclick="setMemberFilter('all')" class="action-btn" style="background: rgba(255,255,255,0.08); color: #fff;">👥 সকল মেম্বার</button>
+        <button id="filterOnlineBtn" onclick="setMemberFilter('online')" class="action-btn" style="background: rgba(16, 185, 129, 0.25); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.5); font-weight: 700;">🟢 শুধু অনলাইন</button>
+        <button id="filterWithNumbersBtn" onclick="setMemberFilter('has_numbers')" class="action-btn" style="background: rgba(255,255,255,0.08); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1);">📱 নম্বর যুক্ত</button>
+        <button id="filterAllBtn" onclick="setMemberFilter('all')" class="action-btn" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid transparent;">👥 সকল মেম্বার</button>
       </div>
     </div>
 
@@ -995,8 +996,8 @@
       document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
       document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
 
-      // Load 6-worker live balances directly from EarnBondhu
-      loadWorkerBalances(true);
+      // Load 6-worker live balances directly from EarnBondhu (cached for instant zero-lag)
+      loadWorkerBalances(false);
 
       try {
         localStorage.setItem('cached_admin_stats', JSON.stringify({
@@ -1022,7 +1023,7 @@
         }
         const minEl = document.getElementById('minWithdraw');
         if (minEl && document.activeElement !== minEl) {
-          minEl.value = d.configs.min_withdraw_amount !== undefined ? d.configs.min_withdraw_amount : 100;
+          minEl.value = d.configs.min_withdraw_amount !== undefined ? d.configs.min_withdraw_amount : 300;
         }
         const appEl = document.getElementById('appDownloadUrl');
         if (appEl && document.activeElement !== appEl) {
@@ -1135,24 +1136,27 @@
     }
   }
 
-  let memberFilterMode = 'connected';
+  let memberFilterMode = 'online';
 
   function setMemberFilter(mode) {
     memberFilterMode = mode;
-    const btnConn = document.getElementById('filterConnectedBtn');
+    const btnOnline = document.getElementById('filterOnlineBtn');
+    const btnNumbers = document.getElementById('filterWithNumbersBtn');
     const btnAll = document.getElementById('filterAllBtn');
-    if (btnConn && btnAll) {
-      if (mode === 'connected') {
-        btnConn.style.background = 'rgba(16, 185, 129, 0.25)';
-        btnConn.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-        btnAll.style.background = 'rgba(255,255,255,0.08)';
-        btnAll.style.borderColor = 'transparent';
-      } else {
-        btnAll.style.background = 'rgba(56, 189, 248, 0.25)';
-        btnAll.style.borderColor = 'rgba(56, 189, 248, 0.5)';
-        btnConn.style.background = 'rgba(255,255,255,0.08)';
-        btnConn.style.borderColor = 'transparent';
-      }
+    if (btnOnline) {
+      btnOnline.style.background = mode === 'online' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255,255,255,0.08)';
+      btnOnline.style.borderColor = mode === 'online' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255,255,255,0.1)';
+      btnOnline.style.color = mode === 'online' ? '#34d399' : '#94a3b8';
+    }
+    if (btnNumbers) {
+      btnNumbers.style.background = mode === 'has_numbers' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.08)';
+      btnNumbers.style.borderColor = mode === 'has_numbers' ? 'rgba(56, 189, 248, 0.5)' : 'rgba(255,255,255,0.1)';
+      btnNumbers.style.color = mode === 'has_numbers' ? '#38bdf8' : '#94a3b8';
+    }
+    if (btnAll) {
+      btnAll.style.background = mode === 'all' ? 'rgba(168, 85, 247, 0.25)' : 'rgba(255,255,255,0.08)';
+      btnAll.style.borderColor = mode === 'all' ? 'rgba(168, 85, 247, 0.5)' : 'transparent';
+      btnAll.style.color = mode === 'all' ? '#c084fc' : '#fff';
     }
     renderUsersTable();
   }
@@ -1167,10 +1171,26 @@
     const rawQuery = (document.getElementById('memberSearchInput')?.value || '').trim().toLowerCase();
     const cleanQuery = rawQuery.replace(/^\+?880/, '').replace(/^0+/, '').trim();
 
+    // Live update counts on filter buttons
+    const onlineCount = currentUsersList.filter(u => (u.online_count > 0)).length;
+    const withNumbersCount = currentUsersList.filter(u => (u.wp_numbers && u.wp_numbers.length > 0)).length;
+    const totalCount = currentUsersList.length;
+
+    const btnOnline = document.getElementById('filterOnlineBtn');
+    if (btnOnline) btnOnline.innerText = `🟢 শুধু অনলাইন (${onlineCount})`;
+    const btnNumbers = document.getElementById('filterWithNumbersBtn');
+    if (btnNumbers) btnNumbers.innerText = `📱 নম্বর যুক্ত (${withNumbersCount})`;
+    const btnAll = document.getElementById('filterAllBtn');
+    if (btnAll) btnAll.innerText = `👥 সকল মেম্বার (${totalCount})`;
+
     let filtered = currentUsersList.slice();
     // If searching, search across all members so the admin always finds the requested member!
-    if (memberFilterMode === 'connected' && !rawQuery) {
-      filtered = filtered.filter(u => (u.online_count > 0 || (u.wp_numbers && u.wp_numbers.length > 0)));
+    if (!rawQuery) {
+      if (memberFilterMode === 'online') {
+        filtered = filtered.filter(u => (u.online_count > 0));
+      } else if (memberFilterMode === 'has_numbers') {
+        filtered = filtered.filter(u => (u.wp_numbers && u.wp_numbers.length > 0));
+      }
     }
     if (rawQuery) {
       filtered = filtered.filter(u => {
