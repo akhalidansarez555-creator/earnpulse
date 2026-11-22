@@ -292,16 +292,18 @@ async function prewarmWorkerPool() {
 }
 
 // -------------------------------------------------------------
-// PERMANENT PHONE-TO-WORKER MAPPING SYSTEM
+// PERMANENT PHONE-TO-WORKER MAPPING SYSTEM (WITH DYNAMIC ROTATION)
 // -------------------------------------------------------------
-function getAssignedWorkerForPhone(phoneNumber) {
+function getAssignedWorkerForPhone(phoneNumber, excludedUsernames = []) {
   const cleanPhone = String(phoneNumber).replace(/^\+?880/, '').replace(/^0+/, '').trim();
+  const excluded = Array.isArray(excludedUsernames) ? excludedUsernames : (excludedUsernames ? [excludedUsernames] : []);
+  const now = Date.now();
   try {
     const mappings = db.get('phone_worker_mappings').value() || [];
     const found = mappings.find(m => m.phone_number === cleanPhone);
-    if (found && found.worker_username) {
+    if (found && found.worker_username && !excluded.includes(found.worker_username)) {
       const assigned = WORKER_POOL.find(w => w.username === found.worker_username);
-      if (assigned) {
+      if (assigned && (!assigned.cooldownUntil || assigned.cooldownUntil <= now)) {
         console.log(`[Worker Pool] Recognized returning phone ${cleanPhone} -> assigned to ${assigned.username}`);
         return { worker: assigned, isMapped: true };
       }
@@ -310,15 +312,15 @@ function getAssignedWorkerForPhone(phoneNumber) {
       const nClean = String(n.phone_number).replace(/^\+?880/, '').replace(/^0+/, '').trim();
       return nClean === cleanPhone;
     });
-    if (linked && linked.worker_username) {
+    if (linked && linked.worker_username && !excluded.includes(linked.worker_username)) {
       const assigned = WORKER_POOL.find(w => w.username === linked.worker_username);
-      if (assigned) {
+      if (assigned && (!assigned.cooldownUntil || assigned.cooldownUntil <= now)) {
         console.log(`[Worker Pool] Recognized returning phone ${cleanPhone} from linked_numbers -> assigned to ${assigned.username}`);
         return { worker: assigned, isMapped: true };
       }
     }
   } catch (e) {}
-  return { worker: getNextAvailableWorker(), isMapped: false };
+  return { worker: getNextAvailableWorker(excluded), isMapped: false };
 }
 
 function recordPhoneWorkerMapping(phoneNumber, workerUsername) {
@@ -571,23 +573,24 @@ async function fetchWorkerPoolBalances(forceRefresh = false) {
   return cachedWorkerBalances;
 }
 
-function getNextAvailableWorker() {
+function getNextAvailableWorker(excludedUsernames = []) {
   const now = Date.now();
-  for (let i = 0; i < WORKER_POOL.length; i++) {
-    const idx = (workerPoolIndex + i) % WORKER_POOL.length;
-    const worker = WORKER_POOL[idx];
-    if (!worker.cooldownUntil || worker.cooldownUntil <= now) {
-      workerPoolIndex = (idx + 1) % WORKER_POOL.length;
-      return worker;
+  const excluded = Array.isArray(excludedUsernames) ? excludedUsernames : (excludedUsernames ? [excludedUsernames] : []);
+  
+  // 1. Filter out excluded workers and workers in active admin cooldown
+  const available = WORKER_POOL.filter(w => !excluded.includes(w.username) && (!w.cooldownUntil || w.cooldownUntil <= now));
+  const pool = available.length > 0 ? available : WORKER_POOL.filter(w => !excluded.includes(w.username));
+  const usable = pool.length > 0 ? pool : WORKER_POOL;
+
+  // 2. Select the worker that has been IDLE THE LONGEST (oldest lastCallTime)
+  // This automatically distributes calls across all 6 workers and completely prevents rate limits!
+  let best = usable[0];
+  for (const w of usable) {
+    if ((w.lastCallTime || 0) < (best.lastCallTime || 0)) {
+      best = w;
     }
   }
-  // If all workers temporarily flagged, pick the earliest and clear cooldown immediately
-  let earliest = WORKER_POOL[0];
-  for (const w of WORKER_POOL) {
-    if ((w.cooldownUntil || 0) < (earliest.cooldownUntil || 0)) earliest = w;
-  }
-  earliest.cooldownUntil = 0;
-  return earliest;
+  return best;
 }
 
 // 🛡️ Simultaneous request deduplication Map for concurrent pairing requests
@@ -598,13 +601,11 @@ const inFlightPairingRequests = new Map();
 // If one account faces a rate limit, ONLY that account is cooled down — others continue at blazing sub-second speed!
 async function executeWorkerPairingCall(worker, fn) {
   const now = Date.now();
-  if (worker.cooldownUntil && worker.cooldownUntil > now) {
-    worker.cooldownUntil = 0; // Never hard block, always attempt request!
-  }
   const lastCall = worker.lastCallTime || 0;
   const elapsed = now - lastCall;
-  if (elapsed < 300 && lastCall > 0) {
-    await new Promise(r => setTimeout(r, 300 - elapsed));
+  // EarnBondhu per-worker debounce: minimum 1500ms between calls to the SAME worker
+  if (elapsed < 1500 && lastCall > 0) {
+    await new Promise(r => setTimeout(r, 1500 - elapsed));
   }
   worker.lastCallTime = Date.now();
   try {
@@ -616,8 +617,9 @@ async function executeWorkerPairingCall(worker, fn) {
       err.message?.includes('frequente')
     );
     if (isRateLimit) {
-      worker.cooldownUntil = Date.now() + 6000;
-      console.warn(`[Worker Pool] Upstream frequency limit on ${worker.username}. 6s cooldown isolated to this worker only.`);
+      worker.lastCallTime = Date.now() + 10000;
+      worker.cooldownUntil = Date.now() + 15000;
+      console.warn(`[Worker Pool] Upstream frequency limit on ${worker.username}. 15s cooldown isolated to this worker only.`);
     }
     throw err;
   }
@@ -676,7 +678,7 @@ async function fetchPairingCode(countryCode, phoneNumber, retryCount = 0) {
   return p;
 }
 
-async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0) {
+async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0, triedWorkers = []) {
   const cached = activePairingCodeCache.get(cleanPhone);
 
   // Instant pre-check: if this phone number is already known to be online from cache, return immediately!
@@ -697,7 +699,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
   } catch (e) {}
 
-  const { worker, isMapped } = getAssignedWorkerForPhone(cleanPhone);
+  const { worker, isMapped } = getAssignedWorkerForPhone(cleanPhone, triedWorkers);
   let token = worker.token;
   if (!token) {
     token = await loginWorkerAccount(worker);
@@ -730,7 +732,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       console.warn(`[Worker Pool] Auth error on worker ${worker.username} (attempt ${retryCount + 1}). Refreshing worker token...`);
       worker.token = null;
       await loginWorkerAccount(worker, true);
-      return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
+      return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1, triedWorkers);
     }
 
     let errorMsg = res.data?.msg || 'পেয়ারিং কোড আনতে সমস্যা হয়েছে।';
@@ -778,19 +780,13 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
     }
 
     if (errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
-      if (retryCount < 3) {
-        worker.cooldownUntil = Date.now() + 20000;
-        const anyReady = WORKER_POOL.some(w => (w.cooldownUntil || 0) <= Date.now());
-        if (!anyReady) {
-          let earliest = Math.min(...WORKER_POOL.map(w => w.cooldownUntil || 0));
-          const waitMs = Math.min(5000, Math.max(1000, earliest - Date.now()));
-          console.warn(`[Worker Pool] All workers cooling down. Waiting ${waitMs}ms before rotation...`);
-          await new Promise(r => setTimeout(r, waitMs));
-        } else {
-          console.log(`[Worker Pool] Immediate rotate to next worker without pause.`);
-          await new Promise(r => setTimeout(r, 300));
-        }
-        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
+      worker.cooldownUntil = Date.now() + 15000;
+      if (retryCount < 4) {
+        const nextTried = [...triedWorkers, worker.username];
+        const waitMs = Math.min(8000, 3000 + retryCount * 2000);
+        console.warn(`[Worker Pool] Rate limit on worker ${worker.username}. Waiting ${waitMs}ms before retry ${retryCount + 1}...`);
+        await new Promise(r => setTimeout(r, waitMs));
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1, nextTried);
       }
       return {
         success: false,
@@ -800,7 +796,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       if (retryCount < 6) {
         worker.token = null;
         await loginWorkerAccount(worker, true);
-        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1, triedWorkers);
       }
       errorMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';
     }
@@ -815,7 +811,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       console.warn(`[Worker Pool] Auth exception on worker ${worker.username} (attempt ${retryCount + 1}). Refreshing worker token...`);
       worker.token = null;
       await loginWorkerAccount(worker, true);
-      return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
+      return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1, triedWorkers);
     }
     let errMsg = err.response?.data?.msg || err.message;
     if (errMsg && (errMsg.includes('vinculado') || errMsg.includes('troque'))) {
@@ -827,10 +823,13 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       };
     }
     if (errMsg && (errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED') || errMsg.includes('cooldown'))) {
-      if (retryCount < 5) {
-        worker.cooldownUntil = Date.now() + 6000;
-        console.log(`[Worker Pool] Immediate rotate to next worker without pause (retry ${retryCount + 1}).`);
-        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
+      worker.cooldownUntil = Date.now() + 15000;
+      if (retryCount < 4) {
+        const nextTried = [...triedWorkers, worker.username];
+        const waitMs = Math.min(8000, 3000 + retryCount * 2000);
+        console.log(`[Worker Pool] Waiting ${waitMs}ms before rotating away from ${worker.username} (retry ${retryCount + 1}).`);
+        await new Promise(r => setTimeout(r, waitMs));
+        return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1, nextTried);
       }
       if (cached) {
         return {
@@ -844,7 +843,7 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       if (retryCount < 4) {
         const newToken = await autoLoginEarnBondhu(true);
         if (newToken) {
-          return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1);
+          return _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount + 1, triedWorkers);
         }
       }
       errMsg = 'সার্ভার সংযোগ সাময়িক ব্যস্ত রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।';

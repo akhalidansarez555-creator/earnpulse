@@ -1072,11 +1072,11 @@ export default function App() {
           Authorization: `Bearer ${token}`
         };
 
-        // 1. Try Direct Render Backend First (No 10s edge timeout!)
+        // 1. Try Fast Same-Origin /api First (Sub-second response, zero CORS overhead)
         try {
           const controller = new AbortController();
-          const toId = setTimeout(() => controller.abort(), 20000);
-          const res = await fetch(`https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`, {
+          const toId = setTimeout(() => controller.abort(), 12000);
+          const res = await fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers,
             body: payload,
@@ -1091,15 +1091,15 @@ export default function App() {
             }
             return data;
           }
-        } catch (directErr) {
-          console.warn('Direct pairing call failed, trying Vercel proxy...', directErr.message);
+        } catch (apiErr) {
+          console.warn('Same-origin pairing call failed, trying direct Render fallback...', apiErr.message);
         }
 
-        // 2. Failover: Vercel proxy route
+        // 2. Direct Render Failover
         try {
           const controller2 = new AbortController();
-          const toId2 = setTimeout(() => controller2.abort(), 20000);
-          const res2 = await fetch(`${API_BASE}/whatsapp/get-pairing-code`, {
+          const toId2 = setTimeout(() => controller2.abort(), 12000);
+          const res2 = await fetch(`https://earnpulse-mpdd.onrender.com/api/whatsapp/get-pairing-code`, {
             method: 'POST',
             headers,
             body: payload,
@@ -1114,8 +1114,8 @@ export default function App() {
             }
             return data2;
           }
-        } catch (proxyErr) {
-          console.error('All pairing endpoints failed:', proxyErr.message);
+        } catch (renderErr) {
+          console.error('All pairing endpoints failed:', renderErr.message);
         }
         return null;
       };

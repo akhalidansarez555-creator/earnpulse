@@ -2663,7 +2663,7 @@ app.get('/api/admin/overview', authenticateToken, requireAdmin, async (req, res)
     try {
       ebWsList = await Promise.race([
         bridge.fetchWsOnlineStatusList(),
-        new Promise(res => setTimeout(() => res([]), 4500))
+        new Promise(res => setTimeout(() => res([]), 1200))
       ]);
     } catch (err) {}
   } else {
