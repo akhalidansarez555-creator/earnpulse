@@ -869,7 +869,7 @@ const CACHE_TTL_MS = 15000; // 15 seconds cache for blazing-fast dashboard load
 async function fetchAccountList(forceRefresh = false, isRetry = false) {
   const now = Date.now();
   // 🛡️ Give 100% priority to Pairing Code generation: never hit EarnBondhu if pairing is in flight
-  if (inFlightPairingRequests.size > 0 || pairingQueue.length > 0) {
+  if (inFlightPairingRequests.size > 0) {
     if (cachedAccountList) return cachedAccountList;
   }
   // Throttle forceRefresh to at least 4000ms
@@ -915,7 +915,7 @@ const WS_CACHE_TTL_MS = 6000; // 6 seconds cache for high responsiveness
 async function fetchWsOnlineStatusList(forceRefresh = false, isRetry = false) {
   const now = Date.now();
   // 🛡️ Give 100% priority to Pairing Code generation: never hit EarnBondhu if pairing is in flight
-  if (inFlightPairingRequests.size > 0 || pairingQueue.length > 0) {
+  if (inFlightPairingRequests.size > 0) {
     if (cachedWsStatusList) return cachedWsStatusList;
   }
   // Throttle forceRefresh to at least 3000ms
