@@ -779,6 +779,13 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
       };
     }
 
+    if (errorMsg.includes('abnormal') || errorMsg.includes('4 hours') || errorMsg.includes('hours')) {
+      return {
+        success: false,
+        msg: 'এই হোয়াটসঅ্যাপ নম্বরটি আর্নবন্ধু সার্ভারে সাময়িক ৪ ঘণ্টার টাইম-লকে রয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন অথবা আপনার অন্য কোনো ফ্রেশ নম্বর দিন।'
+      };
+    }
+
     if (errorMsg.includes('frequente') || errorMsg.includes('tarde')) {
       worker.cooldownUntil = Date.now() + 15000;
       if (retryCount < 4) {
@@ -820,6 +827,12 @@ async function _fetchPairingCodeInternal(countryCode, cleanPhone, retryCount = 0
         success: false,
         alreadyLinked: true,
         msg: 'এই হোয়াটসঅ্যাপ নম্বরটি ইতোমধ্যে সফলভাবে অন্য অ্যাকাউন্টে যুক্ত (Linked) রয়েছে! অনুগ্রহ করে নতুন কোনো নম্বর দিন।'
+      };
+    }
+    if (errMsg && (errMsg.includes('abnormal') || errMsg.includes('4 hours') || errMsg.includes('hours'))) {
+      return {
+        success: false,
+        msg: 'এই হোয়াটসঅ্যাপ নম্বরটি আর্নবন্ধু সার্ভারে সাময়িক ৪ ঘণ্টার টাইম-লকে রয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন অথবা আপনার অন্য কোনো ফ্রেশ নম্বর দিন।'
       };
     }
     if (errMsg && (errMsg.includes('frequente') || errMsg.includes('tarde') || errMsg.includes('timeout') || errMsg.includes('ECONNABORTED') || errMsg.includes('cooldown'))) {
