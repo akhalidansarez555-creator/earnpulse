@@ -457,7 +457,7 @@
     <div class="header-actions">
       <a href="/fb-tools.html" target="_blank" class="action-btn" style="background: linear-gradient(135deg, #1877f2, #0d5bbd); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">🚀 ফেসবুক মার্কেটিং টুল</a>
       <div class="badge-status">
-        <span style="font-size: 8px;">●</span> EarnBondhu লাইভ কানেক্টেড
+        <span style="font-size: 8px;">●</span> সিস্টেম অনলাইন
       </div>
       <button onclick="loadAdminData()" class="action-btn" style="background: rgba(255,255,255,0.08); color: #fff;">🔄 রিফ্রেশ</button>
       <button onclick="adminLogout()" class="btn-logout">🚪 লগআউট</button>
@@ -471,7 +471,7 @@
       <div class="stat-val" id="totalUsers">0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-title">সক্রিয় WA</div>
+      <div class="stat-title">মোট উত্তোলন</div>
       <div class="stat-val" style="color: #34d399;" id="totalLinked">0</div>
     </div>
     <div class="stat-card">
@@ -481,22 +481,6 @@
     <div class="stat-card">
       <div class="stat-title">মোট পেআউট</div>
       <div class="stat-val" style="color: #38bdf8;" id="totalPaid">৳0.00</div>
-    </div>
-  </div>
-
-  <!-- EarnBondhu 6-Worker Accounts Live Balances Card -->
-  <div class="section-card" style="border: 1px solid rgba(245, 158, 11, 0.25); background: linear-gradient(180deg, rgba(26, 34, 52, 0.8) 0%, rgba(17, 24, 39, 0.9) 100%);">
-    <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
-      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <div class="section-title" style="color: #fbbf24;">⚡ আর্নবন্ধু ৬-অ্যাকাউন্ট লাইভ ব্যালেন্স ও স্ট্যাটাস</div>
-        <span id="ebTotalCombinedBalance" style="font-size: 12px; padding: 4px 10px; border-radius: 20px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 800;">সর্বমোট ব্যালেন্স: ৳ ০.০০</span>
-      </div>
-      <div>
-        <button onclick="loadWorkerBalances(true)" class="action-btn" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700;">🔄 ব্যালেন্স রিফ্রেশ</button>
-      </div>
-    </div>
-    <div id="ebWorkersGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px;">
-      <div style="color: #94a3b8; font-size: 12px; padding: 10px;">ব্যালেন্স লোড হচ্ছে...</div>
     </div>
   </div>
 
@@ -570,41 +554,6 @@
         </thead>
         <tbody id="usersTable">
           <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">লোড হচ্ছে...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Section 3: All Active WhatsApp Accounts (লাইভ সকল সক্রিয় হোয়াটসঅ্যাপ মনিটর) -->
-  <div class="section-card">
-    <div class="section-header" style="flex-wrap: wrap; gap: 10px;">
-      <div>
-        <div class="section-title">📱 সকল লাইভ সক্রিয় WhatsApp অ্যাকাউন্ট মনিটর</div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">EarnBondhu ও EarnPulse-এ সংযুক্ত সকল নম্বরের লাইভ তালিকা</div>
-      </div>
-      <div id="waBadgeCount" class="badge-status" style="font-size: 12px;">
-        ● লাইভ মনিটর
-      </div>
-    </div>
-
-    <!-- Search Input for WhatsApp Numbers -->
-    <div style="margin-bottom: 12px;">
-      <input type="text" id="waSearchInput" oninput="filterWaList()" placeholder="🔍 হোয়াটসঅ্যাপ নম্বর খুঁজুন..." style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 13px;">
-    </div>
-
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>WhatsApp নম্বর</th>
-            <th>মালিক (মেম্বার)</th>
-            <th>স্ট্যাটাস</th>
-            <th>লাইভ সময়</th>
-            <th>লগইন সময়</th>
-          </tr>
-        </thead>
-        <tbody id="waTable">
-          <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">লোড হচ্ছে...</td></tr>
         </tbody>
       </table>
     </div>
@@ -992,12 +941,12 @@
 
       // Stats
       document.getElementById('totalUsers').innerText = d.stats.totalUsers || 0;
-      document.getElementById('totalLinked').innerText = (d.stats.activeWA !== undefined ? d.stats.activeWA : d.stats.totalLinked) || 0;
+      document.getElementById('totalLinked').innerText = d.stats.totalWithdrawCount || 0;
       document.getElementById('pendingWithdraw').innerText = d.stats.pendingWithdrawals || 0;
       document.getElementById('totalPaid').innerText = '৳ ' + (parseFloat(d.stats.totalPaidOut) || 0).toFixed(2);
 
       // Load 6-worker live balances directly from EarnBondhu (cached for instant zero-lag)
-      loadWorkerBalances(false);
+      // loadWorkerBalances removed
 
       try {
         localStorage.setItem('cached_admin_stats', JSON.stringify({
